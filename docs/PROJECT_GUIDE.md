@@ -41,6 +41,10 @@ Use Conventional Commits: `feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore
 | `just check` | Validação completa exigida no PR. |
 | `just audit` | Auditoria manual: Bandit, vulnerabilidades Python/JavaScript e relatório de versões novas. Não atualiza dependências. |
 | `just api-check` | Black, Flake8 e testes unitários da API. |
+| `just api-migrate` | Aplica migrations Alembic no PostgreSQL configurado. |
+| `just api-rollback` | Reverte a última migration; use `just api-rollback base` somente em banco local descartável. |
+| `just api-makemigration "descricao"` | Gera uma migration a ser revisada antes de ser aplicada. |
+| `just api-test-integration` | Sobe PostgreSQL local, aplica migrations e executa testes de integração. |
 | `just web-check` | Prettier, ESLint, tipos e testes do web. |
 | `just infra-up` | Sobe PostgreSQL, MinIO e Mailpit localmente. |
 | `just infra-down` | Para os serviços sem apagar dados. |
@@ -64,3 +68,7 @@ Configure automações do Project para mover issues abertas para **Backlog**, it
 ## Dependências e vulnerabilidades
 
 Não usamos atualização automática de dependências por pull request. Em uma rotina de manutenção ou antes de atualizar uma biblioteca, execute `just audit`. Corrija vulnerabilidades prioritárias em uma issue/PR próprio; versões novas listadas pelo comando são informativas e só devem ser adotadas após o time avaliar compatibilidade, changelog e impacto.
+
+## Banco de dados e migrations
+
+Copie `.env.example` para `.env` antes de executar comandos de banco. Use `just infra-up` para iniciar PostgreSQL e `just api-migrate` para aplicar migrations. Nunca edite a tabela `alembic_version` manualmente, nunca aplique migration de produção por este repositório sem autorização explícita e nunca gere migrations sem revisar o diff produzido.
