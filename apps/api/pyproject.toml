@@ -1,0 +1,31 @@
+[project]
+name = "delta-force-crm-api"
+version = "0.1.0"
+description = "API do CRM interno da Delta Force"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi[standard]>=0.115,<1.0",
+]
+
+[build-system]
+requires = ["hatchling>=1.27,<2.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/crm_api"]
+
+[dependency-groups]
+dev = [
+  "black>=24.10,<26.0",
+  "flake8>=7.1,<8.0",
+  "httpx>=0.28,<1.0",
+  "pytest>=8.3,<9.0",
+]
+
+[tool.black]
+line-length = 88
+target-version = ["py312"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Guia de contribuição
+    url: https://github.com/DELTA-42-FORCE/delta-force/blob/develop/docs/PROJECT_GUIDE.md
+    about: Consulte o fluxo de branches, PRs e validações antes de abrir uma issue.

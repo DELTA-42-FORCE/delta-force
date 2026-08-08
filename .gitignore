@@ -1,0 +1,31 @@
+# Ambiente e segredos
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+.venv/
+
+# Frontend
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Ferramentas e SO
+.DS_Store
+.idea/
+.vscode/
+
+# Dados locais e documentos enviados
+infra/data/
+storage/
+uploads/
+minio-data/

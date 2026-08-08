@@ -1,0 +1,37 @@
+name: Funcionalidade
+description: Proponha uma entrega de produto com critério de aceite verificável.
+title: "feat: "
+labels: ["type: feature", "status: ready"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Descreva o problema de negócio e um resultado que possa ser validado. Não inclua segredos ou dados pessoais reais.
+  - type: textarea
+    id: context
+    attributes:
+      label: Contexto e objetivo
+      description: Que necessidade do cliente esta entrega resolve?
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Escopo
+      description: O que deve ser incluído nesta entrega?
+      placeholder: "- [ ] ..."
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Critérios de aceite
+      description: Liste comportamentos observáveis e testáveis.
+      placeholder: "- [ ] ..."
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependências e riscos
+      description: Issues, decisões, integrações ou dados necessários.

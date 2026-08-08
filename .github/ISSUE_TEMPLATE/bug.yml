@@ -1,0 +1,27 @@
+name: Defeito
+description: Registre um comportamento que diverge do esperado.
+title: "fix: "
+labels: ["type: bug", "status: triage"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Problema
+      description: O que ocorreu e qual era o resultado esperado?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Passos para reproduzir
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidências
+      description: Logs sanitizados, capturas ou ambiente. Nunca anexe dados pessoais reais.
