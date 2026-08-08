@@ -31,6 +31,7 @@ cp .env.example .env
 just install
 just infra-up
 just check
+just audit # auditoria manual de segurança e de versões disponíveis
 ```
 
 Use `just --list` para ver todos os comandos. Nenhuma credencial deve ser versionada.
