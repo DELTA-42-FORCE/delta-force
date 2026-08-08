@@ -16,7 +16,7 @@ packages = ["src/crm_api"]
 
 [dependency-groups]
 dev = [
-  "black>=24.10,<26.0",
+  "black>=26.5.1,<27.0",
   "flake8>=7.1,<8.0",
   "httpx>=0.28,<1.0",
   "pytest>=8.3,<9.0",
