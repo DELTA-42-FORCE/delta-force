@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: extractions/setup-just@v2
+      - uses: extractions/setup-just@v4
       - name: Validate repository and local infrastructure definition
         run: just workspace-check
 
@@ -30,7 +30,7 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: apps/api/uv.lock
-      - uses: extractions/setup-just@v2
+      - uses: extractions/setup-just@v4
       - run: just api-install
       - run: just api-format-check
       - run: just api-lint
@@ -44,7 +44,7 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: apps/api/uv.lock
-      - uses: extractions/setup-just@v2
+      - uses: extractions/setup-just@v4
       - run: just api-install
       - run: just api-test
 
@@ -58,6 +58,6 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
-      - uses: extractions/setup-just@v2
+      - uses: extractions/setup-just@v4
       - run: just web-install
       - run: just web-check
