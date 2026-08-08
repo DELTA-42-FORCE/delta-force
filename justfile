@@ -40,6 +40,21 @@ api-lint:
 api-test *args:
     cd apps/api && uv run pytest {{args}}
 
+api-test-integration:
+    docker compose --env-file .env -f infra/compose.yaml up -d postgres
+    @for attempt in {1..15}; do docker compose --env-file .env -f infra/compose.yaml exec -T postgres sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"' && break || sleep 2; done
+    cd apps/api && uv run alembic upgrade head
+    cd apps/api && uv run pytest -m integration
+
+api-migrate:
+    cd apps/api && uv run alembic upgrade head
+
+api-rollback revision="-1":
+    cd apps/api && uv run alembic downgrade {{revision}}
+
+api-makemigration message:
+    cd apps/api && uv run alembic revision --autogenerate -m "{{message}}"
+
 api-check:
     just api-format-check
     just api-lint

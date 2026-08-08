@@ -35,7 +35,7 @@ Não implemente item fora do MVP sem issue e decisão explícita. As regras aind
 
 | Camada | Tecnologia |
 | --- | --- |
-| Backend | Python 3.12+, FastAPI, `uv`, Black, Flake8 e pytest. |
+| Backend | Python 3.12+, FastAPI, SQLAlchemy 2, `psycopg`, Alembic, `uv`, Black, Flake8 e pytest. |
 | Frontend | React 19, TypeScript, Vite, ESLint, Prettier e Vitest. |
 | Dados | PostgreSQL 16. |
 | Documentos | Armazenamento de objetos compatível com S3; MinIO no desenvolvimento. |

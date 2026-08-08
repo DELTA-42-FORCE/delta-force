@@ -30,6 +30,7 @@ Pré-requisitos: Git, [just](https://github.com/casey/just), Docker Compose, Pyt
 cp .env.example .env
 just install
 just infra-up
+just api-migrate
 just check
 just audit # auditoria manual de segurança e de versões disponíveis
 ```
