@@ -41,9 +41,11 @@ Não implemente item fora do MVP sem issue e decisão explícita. As regras aind
 | Documentos | Armazenamento de objetos compatível com S3; MinIO no desenvolvimento. |
 | E-mail local | Mailpit. |
 | Infra local | Docker Compose. |
-| Automação | `just`, GitHub Actions e Dependabot. |
+| Automação | `just` e GitHub Actions; auditoria manual de dependências. |
 
 Não troque bibliotecas-base, gerenciadores de dependência ou banco de dados sem uma ADR em `docs/adr/` e aprovação do time. Dependências devem ser adicionadas apenas quando uma issue justificar seu uso e os lockfiles correspondentes devem ser atualizados.
+
+Não há atualização automática de dependências por pull request. Execute `just audit` periodicamente ou antes de uma atualização: ele falha em vulnerabilidades de código/dependências e lista versões novas apenas para decisão explícita do time.
 
 ## Organização do repositório
 
@@ -52,7 +54,7 @@ apps/api/       API FastAPI e testes Python
 apps/web/       Interface React/TypeScript e testes
 infra/          PostgreSQL, MinIO e Mailpit para desenvolvimento local
 docs/           Requisitos, backlog, arquitetura e decisões
-.github/        CI, Dependabot e templates de colaboração
+.github/        CI e templates de colaboração
 ```
 
 Na API, evolua para as fronteiras `domain`, `application`, `infrastructure` e `presentation` conforme os casos de uso reais forem implementados. Regras de negócio não pertencem às rotas HTTP, componentes React, ORM ou SDKs externos. Não crie uma camada vazia apenas para simular arquitetura.

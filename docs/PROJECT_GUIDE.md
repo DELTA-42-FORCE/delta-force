@@ -39,6 +39,7 @@ Use Conventional Commits: `feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore
 | Comando | Finalidade |
 | --- | --- |
 | `just check` | Validação completa exigida no PR. |
+| `just audit` | Auditoria manual: Bandit, vulnerabilidades Python/JavaScript e relatório de versões novas. Não atualiza dependências. |
 | `just api-check` | Black, Flake8 e testes unitários da API. |
 | `just web-check` | Prettier, ESLint, tipos e testes do web. |
 | `just infra-up` | Sobe PostgreSQL, MinIO e Mailpit localmente. |
@@ -59,3 +60,7 @@ Crie um GitHub Project com as colunas: **Backlog**, **Ready**, **In progress**, 
 - Estado: `status: triage`, `status: ready`, `status: blocked`.
 
 Configure automações do Project para mover issues abertas para **Backlog**, itens atribuídos para **In progress**, PR aberto para **In review** e issues fechadas para **Done**.
+
+## Dependências e vulnerabilidades
+
+Não usamos atualização automática de dependências por pull request. Em uma rotina de manutenção ou antes de atualizar uma biblioteca, execute `just audit`. Corrija vulnerabilidades prioritárias em uma issue/PR próprio; versões novas listadas pelo comando são informativas e só devem ser adotadas após o time avaliar compatibilidade, changelog e impacto.
