@@ -16,7 +16,7 @@ jobs:
     name: Workspace integrity
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: extractions/setup-just@v2
       - name: Validate repository and local infrastructure definition
         run: just workspace-check
@@ -25,7 +25,7 @@ jobs:
     name: API — format and lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
@@ -39,7 +39,7 @@ jobs:
     name: API — unit tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
@@ -52,7 +52,7 @@ jobs:
     name: Web — format, lint, types and tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 22
