@@ -16,9 +16,11 @@ packages = ["src/crm_api"]
 
 [dependency-groups]
 dev = [
+  "bandit>=1.8,<2.0",
   "black>=24.10,<26.0",
   "flake8>=7.1,<8.0",
   "httpx>=0.28,<1.0",
+  "pip-audit>=2.9,<3.0",
   "pytest>=8.3,<9.0",
 ]
 

@@ -14,6 +14,12 @@ check:
     just api-check
     just web-check
 
+# Auditoria manual: falha para vulnerabilidades e apenas informa versões novas.
+# Não faz atualização automática de dependências.
+audit:
+    just api-audit
+    just web-audit
+
 workspace-check:
     git diff --check
     docker compose --env-file .env.example -f infra/compose.yaml config --quiet
@@ -39,6 +45,12 @@ api-check:
     just api-lint
     just api-test
 
+api-audit:
+    @echo "Running Bandit (API code security)..."
+    cd apps/api && uv run bandit -r src
+    @echo "Running pip-audit (Python dependency vulnerabilities)..."
+    @set +e; cd apps/api; uv run pip-audit; audit_status=$?; set -e; echo "Available Python dependency updates (informational only):"; uv run pip list --outdated; exit "$audit_status"
+
 # --- Web (React / TypeScript) ---
 web-install:
     npm --prefix apps/web ci
@@ -63,6 +75,10 @@ web-check:
     just web-lint
     just web-typecheck
     just web-test
+
+web-audit:
+    @echo "Running npm audit (JavaScript dependency vulnerabilities)..."
+    @set +e; npm --prefix apps/web audit; audit_status=$?; set -e; echo "Available JavaScript dependency updates (informational only):"; npm --prefix apps/web outdated || test $? -eq 1; exit "$audit_status"
 
 # --- Infraestrutura local ---
 infra-up:
