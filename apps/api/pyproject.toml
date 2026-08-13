@@ -5,6 +5,8 @@ description = "API do CRM interno da Delta Force"
 requires-python = ">=3.12"
 dependencies = [
   "alembic>=1.16,<2.0",
+  "bcrypt>=4.2,<5.0",
+  "email-validator>=2.2,<3.0",
   "fastapi[standard]>=0.115,<1.0",
   "psycopg[binary]>=3.2,<4.0",
   "pydantic-settings>=2.10,<3.0",
@@ -26,6 +28,7 @@ dev = [
   "httpx>=0.28,<1.0",
   "pip-audit>=2.9,<3.0",
   "pytest>=8.3,<9.0",
+  "pytest-asyncio>=0.24,<1.0",
 ]
 
 [tool.black]
@@ -35,6 +38,7 @@ target-version = ["py312"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra -m 'not integration'"
+asyncio_mode = "auto"
 markers = [
   "integration: requires the local PostgreSQL service",
 ]
