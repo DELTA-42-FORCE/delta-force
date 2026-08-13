@@ -14,6 +14,7 @@ ACTIVE_USER = User(
     full_name="Ana Interna",
     password_hash="correct-password",
     is_active=True,
+    is_admin=False,
 )
 
 INACTIVE_USER = User(
@@ -22,6 +23,7 @@ INACTIVE_USER = User(
     full_name="Bruno Desligado",
     password_hash="correct-password",
     is_active=False,
+    is_admin=False,
 )
 
 

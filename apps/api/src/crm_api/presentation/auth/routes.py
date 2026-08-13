@@ -46,6 +46,7 @@ async def login(
             id=result.user.id,
             email=result.user.email,
             full_name=result.user.full_name,
+            is_admin=result.user.is_admin,
         ),
     )
 
@@ -56,6 +57,7 @@ async def read_current_user(current_user: CurrentUser) -> AuthenticatedUser:
         id=current_user.id,
         email=current_user.email,
         full_name=current_user.full_name,
+        is_admin=current_user.is_admin,
     )
 
 

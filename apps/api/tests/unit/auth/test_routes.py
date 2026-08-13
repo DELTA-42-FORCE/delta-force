@@ -22,6 +22,7 @@ ACTIVE_USER = User(
     full_name="Ana Interna",
     password_hash="correct-password",
     is_active=True,
+    is_admin=False,
 )
 
 

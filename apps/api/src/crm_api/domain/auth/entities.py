@@ -14,6 +14,7 @@ class User:
     full_name: str
     password_hash: str
     is_active: bool
+    is_admin: bool
 
 
 @dataclass(frozen=True, slots=True)

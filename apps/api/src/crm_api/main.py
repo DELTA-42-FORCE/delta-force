@@ -4,9 +4,11 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from crm_api.infrastructure.database import check_database_connection
 from crm_api.presentation.auth.routes import router as auth_router
+from crm_api.presentation.users.routes import router as users_router
 
 app = FastAPI(title="Delta Force CRM API", version="0.1.0")
 app.include_router(auth_router)
+app.include_router(users_router)
 
 
 @app.get("/health", tags=["health"])

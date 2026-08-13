@@ -22,6 +22,7 @@ class UserModel(Base):
     full_name: Mapped[str]
     password_hash: Mapped[str]
     is_active: Mapped[bool] = mapped_column(default=True)
+    is_admin: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     sessions: Mapped[list["SessionModel"]] = relationship(

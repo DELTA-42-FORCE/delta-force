@@ -8,11 +8,28 @@ from crm_api.domain.auth.entities import Session, User
 
 
 class UserRepository(Protocol):
-    """Consulta de contas internas por identificador de login."""
+    """Consulta e gestão de contas internas autorizadas."""
 
     async def find_by_email(self, email: str) -> User | None: ...
 
     async def find_by_id(self, user_id: UUID) -> User | None: ...
+
+    async def list_all(self) -> list[User]: ...
+
+    async def create(
+        self,
+        *,
+        email: str,
+        full_name: str,
+        password_hash: str,
+        is_admin: bool,
+    ) -> User: ...
+
+    async def update(
+        self, *, user_id: UUID, full_name: str | None, is_admin: bool | None
+    ) -> User | None: ...
+
+    async def set_active(self, *, user_id: UUID, is_active: bool) -> User | None: ...
 
 
 class SessionRepository(Protocol):
@@ -28,7 +45,9 @@ class SessionRepository(Protocol):
 
 
 class PasswordHasher(Protocol):
-    """Verificação de senha sem expor o algoritmo escolhido ao domínio."""
+    """Hashing e verificação de senha sem expor o algoritmo ao domínio."""
+
+    def hash(self, password: str) -> str: ...
 
     def verify(self, *, password: str, password_hash: str) -> bool: ...
 

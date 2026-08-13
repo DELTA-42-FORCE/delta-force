@@ -15,6 +15,7 @@ class AuthenticatedUser(BaseModel):
     id: UUID
     email: str
     full_name: str
+    is_admin: bool
 
 
 class LoginResponse(BaseModel):
