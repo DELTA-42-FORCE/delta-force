@@ -20,6 +20,7 @@ class Settings(BaseSettings):
 
     database_url: str
     session_ttl_minutes: int = 12 * 60
+    cors_allowed_origins: str = "http://localhost:5173"
 
     @field_validator("database_url")
     @classmethod
@@ -29,6 +30,12 @@ class Settings(BaseSettings):
             message = "DATABASE_URL must use postgresql+psycopg://"
             raise ValueError(message)
         return value
+
+    @property
+    def cors_allowed_origins_list(self) -> list[str]:
+        """Interface web e API rodam em portas diferentes; sem isso o
+        navegador bloqueia toda chamada por CORS."""
+        return [origin.strip() for origin in self.cors_allowed_origins.split(",")]
 
 
 @lru_cache
