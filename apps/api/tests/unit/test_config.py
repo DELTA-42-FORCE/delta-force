@@ -29,3 +29,23 @@ def test_settings_rejects_a_non_standard_database_driver(
         get_settings()
 
     get_settings.cache_clear()
+
+
+def test_cors_allowed_origins_list_splits_on_comma(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "DATABASE_URL", "postgresql+psycopg://user:password@localhost:5432/crm"
+    )
+    monkeypatch.setenv(
+        "CORS_ALLOWED_ORIGINS", "http://localhost:5173, http://localhost:4173"
+    )
+    get_settings.cache_clear()
+
+    settings = get_settings()
+
+    assert settings.cors_allowed_origins_list == [
+        "http://localhost:5173",
+        "http://localhost:4173",
+    ]
+    get_settings.cache_clear()
