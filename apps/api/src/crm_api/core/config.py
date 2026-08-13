@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     )
 
     database_url: str
+    session_ttl_minutes: int = 12 * 60
 
     @field_validator("database_url")
     @classmethod
