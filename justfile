@@ -40,6 +40,10 @@ api-lint:
 api-test *args:
     cd apps/api && uv run pytest {{args}}
 
+# Sobe a API localmente (sem recarregamento automático; reinicie após mudar código).
+api-dev:
+    cd apps/api && uv run python -m crm_api.dev_server
+
 api-test-integration:
     docker compose --env-file .env -f infra/compose.yaml up -d postgres
     @for attempt in {1..15}; do docker compose --env-file .env -f infra/compose.yaml exec -T postgres sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"' && break || sleep 2; done
@@ -69,6 +73,9 @@ api-audit:
 # --- Web (React / TypeScript) ---
 web-install:
     npm --prefix apps/web ci
+
+web-dev:
+    npm --prefix apps/web run dev
 
 web-format:
     npm --prefix apps/web run format

@@ -1,6 +1,7 @@
 """Ambiente Alembic para migrations assíncronas do PostgreSQL."""
 
 import asyncio
+import sys
 from logging.config import fileConfig
 
 from alembic import context
@@ -57,6 +58,9 @@ async def run_async_migrations() -> None:
 
 def run_migrations_online() -> None:
     """Executa migrations pela conexão assíncrona configurada."""
+    if sys.platform == "win32":
+        # psycopg async não roda sob o ProactorEventLoop padrão do Windows.
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     asyncio.run(run_async_migrations())
 
 
