@@ -1,9 +1,10 @@
+import hashlib
 import uuid
 
 import pytest
 from fastapi.testclient import TestClient
 
-from crm_api.infrastructure.auth.models import UserModel
+from crm_api.infrastructure.auth.models import SessionModel, UserModel
 from crm_api.infrastructure.auth.passwords import BcryptPasswordHasher
 from crm_api.infrastructure.database import get_session_factory
 from crm_api.main import app
@@ -43,6 +44,13 @@ async def test_authenticated_user_can_reach_a_protected_route_and_logout(
     assert login_response.status_code == 200
     token = login_response.json()["session_token"]
     auth_header = {"Authorization": f"Bearer {token}"}
+
+    async with get_session_factory()() as session:
+        stored_session = await session.get(
+            SessionModel, hashlib.sha256(token.encode("utf-8")).hexdigest()
+        )
+        assert stored_session is not None
+        assert stored_session.token_hash != token
 
     me_response = client.get("/auth/me", headers=auth_header)
     assert me_response.status_code == 200

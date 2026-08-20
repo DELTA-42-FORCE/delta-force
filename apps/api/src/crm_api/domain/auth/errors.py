@@ -11,3 +11,7 @@ class InactiveUserError(Exception):
 
 class InvalidSessionError(Exception):
     """Sessão inexistente, expirada ou revogada."""
+
+
+class SetupAlreadyCompletedError(Exception):
+    """A conta única do proprietário já foi configurada."""

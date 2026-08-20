@@ -5,7 +5,11 @@ from datetime import UTC, datetime
 
 from crm_api.domain.auth.entities import User
 from crm_api.domain.auth.errors import InactiveUserError, InvalidSessionError
-from crm_api.domain.auth.repositories import SessionRepository, UserRepository
+from crm_api.domain.auth.repositories import (
+    SessionRepository,
+    SessionTokenHasher,
+    UserRepository,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -14,9 +18,12 @@ class GetCurrentUserUseCase:
 
     sessions: SessionRepository
     users: UserRepository
+    token_hasher: SessionTokenHasher
 
     async def execute(self, *, session_token: str) -> User:
-        session = await self.sessions.find_by_token(session_token)
+        session = await self.sessions.find_by_token_hash(
+            self.token_hasher.hash(session_token)
+        )
         if session is None or not session.is_valid(now=datetime.now(UTC)):
             raise InvalidSessionError
 

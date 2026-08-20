@@ -20,7 +20,7 @@ class User:
 class Session:
     """Sessão de acesso emitida após autenticação bem-sucedida."""
 
-    token: str
+    token_hash: str
     user_id: UUID
     expires_at: datetime
     revoked_at: datetime | None

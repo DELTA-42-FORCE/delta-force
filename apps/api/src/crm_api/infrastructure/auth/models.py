@@ -34,7 +34,7 @@ class SessionModel(Base):
 
     __tablename__ = "sessions"
 
-    token: Mapped[str] = mapped_column(primary_key=True)
+    token_hash: Mapped[str] = mapped_column(primary_key=True)
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE")
     )

@@ -6,7 +6,7 @@ import pytest
 from crm_api.application.auth.get_current_user import GetCurrentUserUseCase
 from crm_api.domain.auth.entities import Session, User
 from crm_api.domain.auth.errors import InactiveUserError, InvalidSessionError
-from fakes import FakeSessionRepository, FakeUserRepository
+from fakes import FakeSessionRepository, FakeSessionTokenHasher, FakeUserRepository
 
 ACTIVE_USER = User(
     id=uuid4(),
@@ -27,14 +27,15 @@ INACTIVE_USER = User(
 
 def _use_case_with(*, user: User, session: Session) -> GetCurrentUserUseCase:
     return GetCurrentUserUseCase(
-        sessions=FakeSessionRepository({session.token: session}),
+        sessions=FakeSessionRepository({session.token_hash: session}),
         users=FakeUserRepository({user.email: user}),
+        token_hasher=FakeSessionTokenHasher(),
     )
 
 
 async def test_valid_session_resolves_the_owning_user() -> None:
     session = Session(
-        token="valid-token",
+        token_hash="hashed:valid-token",
         user_id=ACTIVE_USER.id,
         expires_at=datetime.now(UTC) + timedelta(hours=1),
         revoked_at=None,
@@ -48,7 +49,9 @@ async def test_valid_session_resolves_the_owning_user() -> None:
 
 async def test_unknown_token_is_rejected() -> None:
     use_case = GetCurrentUserUseCase(
-        sessions=FakeSessionRepository(), users=FakeUserRepository()
+        sessions=FakeSessionRepository(),
+        users=FakeUserRepository(),
+        token_hasher=FakeSessionTokenHasher(),
     )
 
     with pytest.raises(InvalidSessionError):
@@ -57,7 +60,7 @@ async def test_unknown_token_is_rejected() -> None:
 
 async def test_expired_session_is_rejected() -> None:
     session = Session(
-        token="expired-token",
+        token_hash="hashed:expired-token",
         user_id=ACTIVE_USER.id,
         expires_at=datetime.now(UTC) - timedelta(seconds=1),
         revoked_at=None,
@@ -70,7 +73,7 @@ async def test_expired_session_is_rejected() -> None:
 
 async def test_revoked_session_is_rejected() -> None:
     session = Session(
-        token="revoked-token",
+        token_hash="hashed:revoked-token",
         user_id=ACTIVE_USER.id,
         expires_at=datetime.now(UTC) + timedelta(hours=1),
         revoked_at=datetime.now(UTC),
@@ -83,7 +86,7 @@ async def test_revoked_session_is_rejected() -> None:
 
 async def test_session_of_deactivated_user_is_rejected() -> None:
     session = Session(
-        token="valid-token",
+        token_hash="hashed:valid-token",
         user_id=INACTIVE_USER.id,
         expires_at=datetime.now(UTC) + timedelta(hours=1),
         revoked_at=None,

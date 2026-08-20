@@ -10,11 +10,20 @@ from fastapi.testclient import TestClient
 from crm_api.application.auth.authenticate_user import AuthenticateUserUseCase
 from crm_api.application.auth.get_current_user import GetCurrentUserUseCase
 from crm_api.application.auth.logout import LogoutUseCase
+from crm_api.application.auth.setup_owner import (
+    GetSetupStatusUseCase,
+    SetupOwnerUseCase,
+)
 from crm_api.domain.auth.entities import User
 from crm_api.domain.auth.errors import InactiveUserError, InvalidSessionError
 from crm_api.main import app
 from crm_api.presentation.auth import dependencies
-from fakes import FakePasswordHasher, FakeSessionRepository, FakeUserRepository
+from fakes import (
+    FakePasswordHasher,
+    FakeSessionRepository,
+    FakeSessionTokenHasher,
+    FakeUserRepository,
+)
 
 ACTIVE_USER = User(
     id=uuid4(),
@@ -34,9 +43,11 @@ def client() -> Iterator[TestClient]:
         session_token: Annotated[str, Depends(dependencies.get_bearer_token)],
     ) -> User:
         try:
-            return await GetCurrentUserUseCase(sessions=sessions, users=users).execute(
-                session_token=session_token
-            )
+            return await GetCurrentUserUseCase(
+                sessions=sessions,
+                users=users,
+                token_hasher=FakeSessionTokenHasher(),
+            ).execute(session_token=session_token)
         except (InvalidSessionError, InactiveUserError):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -48,11 +59,12 @@ def client() -> Iterator[TestClient]:
             users=users,
             sessions=sessions,
             password_hasher=FakePasswordHasher(),
+            token_hasher=FakeSessionTokenHasher(),
             session_ttl=timedelta(hours=1),
         )
 
     def override_logout_use_case() -> LogoutUseCase:
-        return LogoutUseCase(sessions=sessions)
+        return LogoutUseCase(sessions=sessions, token_hasher=FakeSessionTokenHasher())
 
     app.dependency_overrides[dependencies.get_authenticate_user_use_case] = (
         override_authenticate_use_case
@@ -122,3 +134,54 @@ def test_full_login_then_me_then_logout_cycle(client: TestClient) -> None:
 
     me_after_logout = client.get("/auth/me", headers=auth_header)
     assert me_after_logout.status_code == 401
+
+
+def test_first_setup_creates_owner_and_returns_session() -> None:
+    users = FakeUserRepository()
+    sessions = FakeSessionRepository()
+    password_hasher = FakePasswordHasher()
+    authenticate = AuthenticateUserUseCase(
+        users=users,
+        sessions=sessions,
+        password_hasher=password_hasher,
+        token_hasher=FakeSessionTokenHasher(),
+        session_ttl=timedelta(hours=1),
+    )
+    setup = SetupOwnerUseCase(
+        users=users,
+        password_hasher=password_hasher,
+        authenticate=authenticate,
+    )
+    app.dependency_overrides[dependencies.get_setup_status_use_case] = lambda: (
+        GetSetupStatusUseCase(users=users)
+    )
+    app.dependency_overrides[dependencies.get_setup_owner_use_case] = lambda: setup
+
+    try:
+        with TestClient(app) as setup_client:
+            status_response = setup_client.get("/auth/setup")
+            assert status_response.json() == {"requires_setup": True}
+
+            response = setup_client.post(
+                "/auth/setup",
+                json={
+                    "email": "proprietario@deltaforce.internal",
+                    "full_name": "Proprietário Delta Force",
+                    "password": "correct-horse-battery-staple",
+                },
+            )
+            assert response.status_code == 201
+            assert response.json()["session_token"]
+            assert setup_client.get("/auth/setup").json() == {"requires_setup": False}
+
+            duplicate = setup_client.post(
+                "/auth/setup",
+                json={
+                    "email": "outra@deltaforce.internal",
+                    "full_name": "Outra pessoa",
+                    "password": "another-correct-password",
+                },
+            )
+            assert duplicate.status_code == 409
+    finally:
+        app.dependency_overrides.clear()

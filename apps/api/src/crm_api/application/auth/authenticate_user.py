@@ -9,6 +9,7 @@ from crm_api.domain.auth.errors import InactiveUserError, InvalidCredentialsErro
 from crm_api.domain.auth.repositories import (
     PasswordHasher,
     SessionRepository,
+    SessionTokenHasher,
     UserRepository,
 )
 
@@ -19,6 +20,7 @@ class AuthenticationResult:
 
     user: User
     session: Session
+    session_token: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,6 +30,7 @@ class AuthenticateUserUseCase:
     users: UserRepository
     sessions: SessionRepository
     password_hasher: PasswordHasher
+    token_hasher: SessionTokenHasher
     session_ttl: timedelta
 
     async def execute(self, *, email: str, password: str) -> AuthenticationResult:
@@ -45,9 +48,12 @@ class AuthenticateUserUseCase:
         if not user.is_active:
             raise InactiveUserError
 
+        session_token = secrets.token_urlsafe(32)
         session = await self.sessions.create(
-            token=secrets.token_urlsafe(32),
+            token_hash=self.token_hasher.hash(session_token),
             user_id=user.id,
             expires_at=datetime.now(UTC) + self.session_ttl,
         )
-        return AuthenticationResult(user=user, session=session)
+        return AuthenticationResult(
+            user=user, session=session, session_token=session_token
+        )

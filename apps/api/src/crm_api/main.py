@@ -1,11 +1,19 @@
 from fastapi import FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 
+from crm_api.core.config import get_settings
 from crm_api.infrastructure.database import check_database_connection
 from crm_api.presentation.auth.routes import router as auth_router
 
 app = FastAPI(title="Delta Force CRM API", version="0.1.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=get_settings().cors_allowed_origins_list,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(auth_router)
 
 

@@ -6,7 +6,12 @@ import pytest
 from crm_api.application.auth.authenticate_user import AuthenticateUserUseCase
 from crm_api.domain.auth.entities import User
 from crm_api.domain.auth.errors import InactiveUserError, InvalidCredentialsError
-from fakes import FakePasswordHasher, FakeSessionRepository, FakeUserRepository
+from fakes import (
+    FakePasswordHasher,
+    FakeSessionRepository,
+    FakeSessionTokenHasher,
+    FakeUserRepository,
+)
 
 ACTIVE_USER = User(
     id=uuid4(),
@@ -30,6 +35,7 @@ def _build_use_case(*users: User) -> AuthenticateUserUseCase:
         users=FakeUserRepository({u.email: u for u in users}),
         sessions=FakeSessionRepository(),
         password_hasher=FakePasswordHasher(),
+        token_hasher=FakeSessionTokenHasher(),
         session_ttl=timedelta(hours=1),
     )
 
@@ -44,6 +50,8 @@ async def test_login_with_correct_credentials_issues_a_session() -> None:
     assert result.user.id == ACTIVE_USER.id
     assert result.session.user_id == ACTIVE_USER.id
     assert result.session.revoked_at is None
+    assert result.session.token_hash == f"hashed:{result.session_token}"
+    assert result.session_token not in use_case.sessions.sessions
 
 
 async def test_login_with_wrong_password_is_rejected() -> None:
