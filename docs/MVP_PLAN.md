@@ -8,13 +8,45 @@ PR continua curto, nasce de `develop`, referencia uma issue e volta para
 
 1. **#43 — arquitetura de entrega local Windows:** ADR para instalador,
    persistência, diretórios privados, primeira execução e atualização. Nenhuma
-   troca de PostgreSQL/MinIO ou inclusão de framework desktop deve ocorrer antes
-   dessa ADR.
+   troca de PostgreSQL/MinIO ou inclusão de framework desktop no produto deve
+   ocorrer antes dessa ADR. A proposta está na ADR 0002 e ainda depende das
+   confirmações e aprovações registradas nela.
 2. **#14 — catálogo cadastral/documental:** transformar a referência ao `gov.br`
    em dicionário de dados versionado; formalizar tipos de documentos, campos
    condicionais e o limite de tamanho de PDF/JPEG.
 3. **#46 — remetente:** aguardar a conta/provedor informado pelo cliente e
    documentar sua configuração segura.
+
+### Plano de instalação Windows da #43
+
+Este plano só se torna decisão de produção quando a ADR 0002 mudar para
+**Aceita**. Até lá, serve para revisão e para um spike isolado, não distribuível
+e sem dados reais.
+
+1. **Decidir e provar:** confirmar Windows/criptografia do computador,
+   responsabilidade pela assinatura e contratos de backup; ainda com a ADR como
+   **Proposta**, autorizar e executar o spike em VM Windows limpa; revisar suas
+   evidências e somente então aceitar a ADR.
+2. **Empacotar em issue própria:** antes de encerrar a #43, criar e vincular uma
+   issue de implementação desktop/SQLite. Ela deverá gerar instalador NSIS
+   assinado por usuário, com WebView2 offline, shell Tauri e árvore
+   FastAPI/PyInstaller `onedir`, sem Docker, Python, serviço ou UAC no runtime.
+3. **Instalar sem dados:** gravar binários em diretórios versionados e imutáveis,
+   criar diretórios privados separados e validar Windows, espaço, DACL protegida
+   e criptografia em todos os volumes de dados antes de abrir dados reais.
+4. **Primeiro uso:** iniciar a API somente em loopback com capability por
+   execução, aplicar migrations, concluir health check e permitir uma única
+   criação autenticada do proprietário.
+5. **Atualizar com rollback:** instalar versão e geração candidatas inativas,
+   migrar/testar sem mutações e só então confirmar o par em registro durável.
+   Antes da primeira mutação, falha pode voltar ao par anterior; depois dela,
+   rollback automático que perderia dados é proibido.
+6. **Desinstalar sem perda:** remover apenas binários e atalhos, preservar
+   gerações, blobs e recuperação e comprovar reinstalação no aceite da #27.
+
+A #44 implementa o backup criptografado no HD; a #27 comprova assinatura,
+instalação, atualização, desinstalação, backup e restauração ponta a ponta. A
+#43 termina na decisão/documentação aprovada, não na antecipação dessas features.
 
 ## Marco 1 — aplicação local segura
 
