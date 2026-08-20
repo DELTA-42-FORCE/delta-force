@@ -1,12 +1,10 @@
 """Adaptador de hashing de senha usando bcrypt."""
 
-from functools import cached_property
-
 import bcrypt
 
-# Não é uma credencial real: só existe para gerar um hash bcrypt válido a
-# comparar quando o e-mail informado não tem conta, mitigando timing oracle.
-_DUMMY_PASSWORD = "delta-force-dummy-password-for-timing-safety"  # nosec B105
+# Não é uma credencial real nem pertence a uma conta. O hash bcrypt válido e
+# pré-calculado evita gerar outro hash apenas quando o e-mail não existe.
+_DUMMY_PASSWORD_HASH = "$2b$12$TigD74cOBvAhvRpCtMpLIuEhzhLwHxwLnbvcERKV" "jI7q.Xqf9zriq"
 
 
 class BcryptPasswordHasher:
@@ -24,6 +22,6 @@ class BcryptPasswordHasher:
         except ValueError:
             return False
 
-    @cached_property
+    @property
     def dummy_hash(self) -> str:
-        return self.hash(_DUMMY_PASSWORD)
+        return _DUMMY_PASSWORD_HASH

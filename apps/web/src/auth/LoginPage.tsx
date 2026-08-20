@@ -3,7 +3,7 @@ import { useState, type FormEvent } from 'react'
 import { ApiError } from '../lib/apiClient'
 import { useAuth } from './AuthContext'
 
-export function LoginPage() {
+export function LoginPage({ notice }: { notice?: string | null }) {
   const { login } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -30,6 +30,7 @@ export function LoginPage() {
   return (
     <main>
       <h1>Delta Force CRM</h1>
+      {notice != null && <p role="alert">{notice}</p>}
       <form onSubmit={handleSubmit}>
         <label htmlFor="email">E-mail</label>
         <input

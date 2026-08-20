@@ -16,6 +16,9 @@ down_revision: str | Sequence[str] | None = "20260812_0002"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
+LEGACY_PRIMARY_KEY_NAME = "sessions_pkey"
+HASH_PRIMARY_KEY_NAME = "pk_sessions"
+
 
 def upgrade() -> None:
     """Converte tokens existentes em hashes antes de remover o texto puro."""
@@ -34,9 +37,9 @@ def upgrade() -> None:
         )
 
     op.alter_column("sessions", "token_hash", nullable=False)
-    op.drop_constraint("sessions_pkey", "sessions", type_="primary")
+    op.drop_constraint(LEGACY_PRIMARY_KEY_NAME, "sessions", type_="primary")
     op.drop_column("sessions", "token")
-    op.create_primary_key("pk_sessions", "sessions", ["token_hash"])
+    op.create_primary_key(HASH_PRIMARY_KEY_NAME, "sessions", ["token_hash"])
 
 
 def downgrade() -> None:
@@ -50,6 +53,6 @@ def downgrade() -> None:
     )
     connection.execute(sessions.update().values(token=sessions.c.token_hash))
     op.alter_column("sessions", "token", nullable=False)
-    op.drop_constraint("pk_sessions", "sessions", type_="primary")
+    op.drop_constraint(HASH_PRIMARY_KEY_NAME, "sessions", type_="primary")
     op.drop_column("sessions", "token_hash")
-    op.create_primary_key("pk_sessions", "sessions", ["token"])
+    op.create_primary_key(LEGACY_PRIMARY_KEY_NAME, "sessions", ["token"])

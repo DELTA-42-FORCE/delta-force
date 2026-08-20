@@ -103,6 +103,32 @@ def test_login_with_wrong_password_returns_401(client: TestClient) -> None:
     assert response.status_code == 401
 
 
+@pytest.mark.parametrize(
+    ("path", "payload"),
+    [
+        (
+            "/auth/setup",
+            {
+                "email": "proprietario@deltaforce.internal",
+                "full_name": "Proprietário Delta Force",
+                "password": "á" * 37,
+            },
+        ),
+        (
+            "/auth/login",
+            {"email": ACTIVE_USER.email, "password": "á" * 37},
+        ),
+    ],
+)
+def test_auth_routes_reject_password_over_72_utf8_bytes(
+    client: TestClient, path: str, payload: dict[str, str]
+) -> None:
+    response = client.post(path, json=payload)
+
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["loc"] == ["body", "password"]
+
+
 def test_protected_route_without_token_is_rejected(client: TestClient) -> None:
     response = client.get("/auth/me")
 

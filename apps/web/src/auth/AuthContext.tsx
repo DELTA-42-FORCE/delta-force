@@ -38,8 +38,16 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null)
   const [user, setUser] = useState<AuthenticatedUser | null>(null)
+  const [sessionExpiresAt, setSessionExpiresAt] = useState<number | null>(null)
   const [status, setStatus] = useState<AuthStatus>('checking-setup')
   const [checkSequence, setCheckSequence] = useState(0)
+
+  const clearSession = useCallback(() => {
+    setToken(null)
+    setUser(null)
+    setSessionExpiresAt(null)
+    setStatus('signed-out')
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -56,13 +64,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [checkSequence])
 
   const acceptLogin = useCallback(
-    (result: { session_token: string; user: AuthenticatedUser }) => {
+    (result: {
+      session_token: string
+      expires_at: string
+      user: AuthenticatedUser
+    }) => {
+      const expiresAt = Date.parse(result.expires_at)
+      if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+        clearSession()
+        throw new Error('server returned an invalid session expiry')
+      }
       setToken(result.session_token)
       setUser(result.user)
+      setSessionExpiresAt(expiresAt)
       setStatus('signed-in')
     },
-    [],
+    [clearSession],
   )
+
+  useEffect(() => {
+    if (status !== 'signed-in' || sessionExpiresAt === null) return
+
+    const remainingMilliseconds = sessionExpiresAt - Date.now()
+    if (remainingMilliseconds <= 0) {
+      clearSession()
+      return
+    }
+
+    const timeout = window.setTimeout(clearSession, remainingMilliseconds)
+    return () => window.clearTimeout(timeout)
+  }, [clearSession, sessionExpiresAt, status])
 
   const login = useCallback(
     async (email: string, password: string) => {
@@ -79,17 +110,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const logout = useCallback(async () => {
-    if (token !== null) {
-      try {
-        await logoutRequest(token)
-      } catch (error) {
-        if (!(error instanceof ApiError)) throw error
-      }
+    const sessionToken = token
+    clearSession()
+    if (sessionToken === null) return
+
+    try {
+      await logoutRequest(sessionToken)
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.status !== 401) throw error
     }
-    setToken(null)
-    setUser(null)
-    setStatus('signed-out')
-  }, [token])
+  }, [clearSession, token])
 
   const retry = useCallback(() => {
     setStatus('checking-setup')

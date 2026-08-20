@@ -10,6 +10,7 @@ import psycopg
 from psycopg import sql
 
 from crm_api.core.config import get_settings
+from crm_api.core.database_url_safety import ensure_loopback_database_url
 
 
 def replace_database(url: str, database: str) -> str:
@@ -26,6 +27,7 @@ def psycopg_url(url: str) -> str:
 
 def run() -> None:
     base_url = get_settings().database_url
+    ensure_loopback_database_url(base_url)
     database_name = f"delta_force_integration_{uuid.uuid4().hex}"
     admin_url = psycopg_url(replace_database(base_url, "postgres"))
     test_url = replace_database(base_url, database_name)
