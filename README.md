@@ -4,20 +4,26 @@ Monorepo do CRM interno de gestão de clientes da Delta Force.
 
 ## Escopo do MVP
 
-- Acesso de usuários internos autorizados;
+- Aplicativo local para um único proprietário, em computador Windows;
+- Primeiro acesso, autenticação e auditoria de ações relevantes;
 - Cadastro e consulta de clientes;
-- Gestão manual de documentos, checklist e status;
+- Gestão manual de documentos PDF/JPEG, checklist e status;
+- Importação assistida do acervo existente;
+- Geração da ficha cadastral em PDF;
 - Mala direta por e-mail e histórico de disparos;
-- Auditoria de ações relevantes.
+- Backup e restauração por HD externo.
 
-PagBank, financeiro, ficha em PDF e emissão fiscal estão fora do MVP inicial. Consulte [o guia do projeto](docs/PROJECT_GUIDE.md) e [o backlog](docs/BACKLOG.md).
+Gestão de múltiplos usuários, PagBank, financeiro e emissão fiscal estão fora
+do MVP inicial. Consulte as [decisões do cliente](docs/CLIENT_DECISIONS.md),
+[o plano do MVP](docs/MVP_PLAN.md), [o guia do projeto](docs/PROJECT_GUIDE.md)
+e [o backlog](docs/BACKLOG.md).
 
 ## Estrutura
 
 ```text
 apps/api/       API FastAPI (Python/uv)
 apps/web/       Interface React + TypeScript
-infra/          Serviços locais: PostgreSQL, MinIO e Mailpit
+infra/          Serviços de desenvolvimento: PostgreSQL, MinIO e Mailpit
 docs/           Requisitos, decisões e guias de trabalho
 .github/        CI, templates de issues e de pull request
 ```

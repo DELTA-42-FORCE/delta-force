@@ -8,20 +8,29 @@ O produto é um CRM **interno** de gestão de clientes. Ele manipulará dados pe
 
 ### MVP aprovado
 
-- Contas individuais para administrador e usuários internos autorizados.
+- Aplicativo local Windows para um único proprietário, com primeira conta e
+  autenticação segura.
 - Cadastro, busca, consulta e edição de clientes.
-- Anexo manual, consulta, checklist e status de documentos.
+- Anexo manual, consulta, checklist, status e importação assistida de documentos
+  PDF/JPEG.
+- Geração da ficha cadastral em PDF.
 - Mala direta com modelos de e-mail, seleção de destinatários e histórico de disparos.
-- Autorização e trilha de auditoria para ações relevantes.
+- Backup/restauração por HD externo, além de trilha de auditoria para ações
+  relevantes.
 
 ### Fora do MVP
 
 - Portal, login ou envio de documentos pelo cliente.
+- Gestão de múltiplos usuários internos e papéis, salvo repriorização explícita.
 - Integração PagBank, cobranças, boletos, recibos, relatório financeiro e nota fiscal.
-- Geração da ficha cadastral em PDF, salvo repriorização explícita.
 - IA para validar documentos ou renegociação de dívida.
 
-Não implemente item fora do MVP sem issue e decisão explícita. As regras ainda pendentes — catálogo de campos/documentos, matriz de permissões, retenção, provedor de e-mail, hospedagem e regras financeiras — estão em `docs/BACKLOG.md`. Não as invente: registre a dependência e peça definição.
+Não implemente item fora do MVP sem issue e decisão explícita. As decisões
+confirmadas estão em `docs/CLIENT_DECISIONS.md` e o caminho de entrega em
+`docs/MVP_PLAN.md`. Regras ainda pendentes — catálogo explícito de
+campos/tamanho máximo, arquitetura de entrega local, criptografia do backup e
+provedor de e-mail — estão no backlog. Não as invente: registre a dependência e
+peça definição.
 
 ## Fontes de verdade
 
@@ -29,7 +38,9 @@ Não implemente item fora do MVP sem issue e decisão explícita. As regras aind
 2. `docs/BACKLOG.md`: backlog derivado do levantamento, dependências e aceite.
 3. `docs/PROJECT_GUIDE.md`: fluxo de Git, PR, qualidade e Kanban.
 4. `docs/ARCHITECTURE.md`: fronteiras arquiteturais.
-5. A issue vinculada e as decisões aprovadas no pull request.
+5. `docs/CLIENT_DECISIONS.md`: respostas confirmadas posteriormente pelo cliente.
+6. `docs/MVP_PLAN.md`: sequência de entrega e dependências do MVP local.
+7. A issue vinculada e as decisões aprovadas no pull request.
 
 ## Stack definida
 
@@ -37,13 +48,17 @@ Não implemente item fora do MVP sem issue e decisão explícita. As regras aind
 | --- | --- |
 | Backend | Python 3.12+, FastAPI, SQLAlchemy 2, `psycopg`, Alembic, `uv`, Black, Flake8 e pytest. |
 | Frontend | React 19, TypeScript, Vite, ESLint, Prettier e Vitest. |
-| Dados | PostgreSQL 16. |
-| Documentos | Armazenamento de objetos compatível com S3; MinIO no desenvolvimento. |
+| Dados de desenvolvimento | PostgreSQL 16. |
+| Documentos de desenvolvimento | Armazenamento de objetos compatível com S3; MinIO no desenvolvimento. |
 | E-mail local | Mailpit. |
 | Infra local | Docker Compose. |
 | Automação | `just` e GitHub Actions; auditoria manual de dependências. |
 
-Não troque bibliotecas-base, gerenciadores de dependência ou banco de dados sem uma ADR em `docs/adr/` e aprovação do time. Dependências devem ser adicionadas apenas quando uma issue justificar seu uso e os lockfiles correspondentes devem ser atualizados.
+A entrega de produção será um aplicativo local Windows; seu empacotamento,
+banco e armazenamento serão definidos pela ADR da issue #43. Não troque
+bibliotecas-base, gerenciadores de dependência ou banco de dados sem uma ADR em
+`docs/adr/` e aprovação do time. Dependências devem ser adicionadas apenas quando
+uma issue justificar seu uso e os lockfiles correspondentes devem ser atualizados.
 
 Não há atualização automática de dependências por pull request. Execute `just audit` periodicamente ou antes de uma atualização: ele falha em vulnerabilidades de código/dependências e lista versões novas apenas para decisão explícita do time.
 
