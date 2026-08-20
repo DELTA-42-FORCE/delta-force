@@ -25,12 +25,14 @@ e sem dados reais.
 
 1. **Decidir e provar:** confirmar Windows/criptografia do computador,
    responsabilidade pela assinatura e contratos de backup; ainda com a ADR como
-   **Proposta**, autorizar e executar o spike em VM Windows limpa; revisar suas
-   evidências e somente então aceitar a ADR.
+   **Proposta**, autorizar e executar o spike estreito de runtime no notebook de
+   referência; revisar suas evidências e somente então aceitar a ADR. Instalação
+   e aceite em VM limpa ficam para #27.
 2. **Empacotar em issue própria:** antes de encerrar a #43, criar e vincular uma
-   issue de implementação desktop/SQLite. Ela deverá gerar instalador NSIS
-   assinado por usuário, com WebView2 offline, shell Tauri e árvore
-   FastAPI/PyInstaller `onedir`, sem Docker, Python, serviço ou UAC no runtime.
+   issue de implementação desktop/SQLite. Ela implementará shell Tauri, árvore
+   FastAPI/PyInstaller `onedir`, adapter local, launcher e empacotamento
+   NSIS/WebView2, sem Docker, Python, serviço ou UAC no runtime. O build assinado
+   e o aceite em VM limpa pertencem à #27.
 3. **Instalar sem dados:** gravar binários em diretórios versionados e imutáveis,
    criar diretórios privados separados e validar Windows, espaço, DACL protegida
    e criptografia em todos os volumes de dados antes de abrir dados reais.

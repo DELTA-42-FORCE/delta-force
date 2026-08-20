@@ -424,63 +424,57 @@ issues de implementação correspondentes.
 5. Registrar o aprovador técnico e atualizar esta ADR de **Proposta** para
    **Aceita**.
 
-## Spike e gates de implementação
+## Spike arquitetural para decidir
 
-Enquanto a ADR ainda estiver como **Proposta**, depois que o time autorizar
-explicitamente o spike e sempre antes de incorporar as novas dependências ao
-produto, executar um protótipo isolado, não distribuível e com dados
-exclusivamente sintéticos em VM Windows 11 x64 limpa. O spike prova as hipóteses
-da decisão; não é uma versão do CRM e seus lockfiles não substituem os lockfiles
-do produto.
+Enquanto a ADR ainda estiver como **Proposta**, executar em branch/diretório
+isolado um protótipo descartável, não distribuível e somente com dados
+sintéticos. Dependências e lockfiles ficam sob `spikes/`; nenhum lockfile do
+produto é alterado. A primeira execução pode ocorrer no notebook Windows de
+referência. Instalação e aceite em VM limpa pertencem à #27.
 
-Provas mínimas do spike arquitetural:
+O spike necessário para decidir para exatamente nestas provas:
 
-- instalar por usuário comum e offline, sem Docker, Python ou UAC no runtime;
-- provar em VM sem ferramentas de desenvolvimento que a árvore `onedir` fica em
-  caminho imutável, que o launcher rejeita manifesto/arquivo adulterado e que o
-  entrypoint válido funciona. Usar chave sintética no spike, nunca chave real de
-  release;
-- provar instância única e encerramento de todos os filhos no fechamento
-  gracioso, hard-kill do shell e reinício do Windows;
-- provar que o sidecar reserva `127.0.0.1:0`, informa a porta pelo pipe privado e
-  nenhuma porta escuta fora de loopback. Recusar Host/Origin inválido, bootstrap
-  reutilizado/expirado e capability ausente/inválida; somente
-  `POST /runtime/bootstrap` aceita o segredo one-shot sem capability;
-- inspecionar DACL/handles com segundo usuário padrão, reparse point concorrente
-  e provar negação de acesso. Em VMs/snapshots executadas como usuário padrão e
-  sem UAC, estado de criptografia `Protected` permite e `Off`, `Suspended` e
-  `Unknown` bloqueiam todos os volumes de dados antes da API;
-- interromper criação, substituição, exclusão e retry/importação de blobs em
-  cada janela; reiniciar, reconciliar e executar verificação de integridade do
-  SQLite sem corrupção, duplicação ou recriação silenciosa;
-- interromper instalação inativa, clone, migration, selagem do manifesto,
-  gravação de journal, commit de ativação, barreira `rollback-prohibited`,
-  rollback e substituição manual do launcher. Provar seleção do último par
-  versão+geração válido, impedir rollback automático desde a barreira e
-  reconhecer dados preservados após desinstalar/reinstalar;
-- bloquear mutações, criar snapshot técnico consistente do SQLite e de cerca de
-  500 documentos sintéticos totalizando provisoriamente 5 GiB pela Online Backup
-  API + manifesto de blobs, restaurá-lo como geração candidata e comparar
-  integridade/contagens/hashes. Esse volume é hipótese técnica, não limite do
-  produto; repetir com o envelope aprovado na #14 antes do release;
-- executar migrations e integração no SQLite e nos adaptadores que continuarem
-  suportados;
-- confirmar que logs, temporários e relatórios não contêm PII ou segredos.
+- abrir o build React existente em uma janela Tauri 2, sem navegador externo e
+  sem conceder shell arbitrário à WebView;
+- empacotar uma API sintética com PyInstaller `onedir` e iniciá-la somente pelo
+  núcleo Rust com argumentos fechados;
+- fazer o próprio sidecar reservar `127.0.0.1:0` e informar a porta por pipe
+  herdado; comprovar que não existe listener fora de loopback;
+- trocar segredo CSPRNG one-shot por capability e recusar bootstrap reutilizado,
+  Host/Origin inválido e capability ausente, inválida ou de outra execução;
+- comprovar instância única e encerramento do sidecar no fechamento gracioso e
+  no hard-kill do shell, usando Job Object ou mecanismo equivalente;
+- executar smoke test SQLite isolado: banco fora dos binários, journaling ativo,
+  `synchronous=FULL`, foreign keys, gravação/reabertura, rollback de transação não
+  confirmada e `integrity_check` igual a `ok`;
+- validar com chave exclusivamente sintética que launcher/rotina mínima rejeita
+  manifesto ou arquivo `onedir` adulterado;
+- gerar relatório sanitizado com revisão/versões, árvore de processos, listener,
+  hashes e resultados, sem registrar segredo, capability ou dados reais.
 
-Nenhum dado real pode ser usado no spike.
+Parar quando essas provas passarem e submeter as evidências à revisão técnica.
+Não ampliar o spike para cadastro, documentos, backup, instalador final,
+atualização completa ou assinatura real. Se listener sair de loopback, segredo
+vazar, sidecar ficar órfão, árvore adulterada iniciar ou SQLite corromper, manter
+a ADR como **Proposta** e revisar o desenho; não trocar silenciosamente por
+`onefile`, porta fixa, serviço Windows, PostgreSQL/MinIO ocultos ou Electron.
 
-Os testes completos da criação/autenticação do proprietário pertencem à #15; o
-filesystem privado e a reconciliação documental pertencem à #21; o backup
-criptografado e sua escrita interrompida no HD pertencem à #44; assinatura do
-release, atualização ponta a ponta e aceite em máquina limpa pertencem à #27.
-Uma issue de implementação desktop/SQLite, a criar e vincular antes de encerrar
-a #43, será dona do shell, instalador, sidecar, adapter SQLite e lifecycle.
-Nenhuma dessas issues pode ignorar os contratos desta ADR.
+## Gates posteriores de implementação e release
 
-Criptografia do artefato, chave portátil, escrita no HD, detecção de adulteração
-e restauração em outro computador são critérios de aceite da #44, não gates
-circulares da ADR. Mesmo após esta ADR ser aceita, **dados reais continuam
-bloqueados** até #44 provar esse fluxo completo.
+Os contratos restantes continuam obrigatórios, mas não bloqueiam a decisão da
+ADR nem pertencem ao primeiro spike:
+
+| Responsável | Provas posteriores |
+| --- | --- |
+| Issue desktop/SQLite a criar | dependências reais, configuração sem caminho da árvore-fonte, adapter SQLite, Alembic/UUID/proprietário único, compatibilidade enquanto PostgreSQL existir, gerações/journal, launcher, empacotamento NSIS/WebView2 e CI Windows |
+| #15 | criação e autenticação reais do proprietário dentro do runtime local |
+| #21 | DACL protegida, handles/reparse/TOCTOU, blobs imutáveis, idempotência, reconciliação e falhas em criação/substituição/exclusão/importação |
+| #44 | modo manutenção, Online Backup API + manifesto, perfil final da #14, criptografia/KDF/recovery code, HD externo, `.partial`, desconexão, falta de espaço, corrupção e restauração em outro PC |
+| #27 | build/release assinado e aceite em VM Windows limpa: NSIS `currentUser`, WebView2 offline, Authenticode/chave real, reboot, atualização A/B, rollback/downgrade e desinstalação/reinstalação |
+
+Nenhum gate pode usar dados reais. Mesmo após esta ADR ser aceita, **dados reais
+continuam bloqueados** até #21/#44, inspeção do notebook definitivo e demais
+provas de release aplicáveis.
 
 ## Decisões externas e pendências
 
