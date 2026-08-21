@@ -1,0 +1,13 @@
+{
+  "name": "@delta-force/windows-architecture-spike",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "tauri": "tauri",
+    "build": "tauri build --no-bundle",
+    "dev": "tauri dev"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.11.4"
+  }
+}

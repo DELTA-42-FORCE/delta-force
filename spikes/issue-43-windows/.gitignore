@@ -1,0 +1,28 @@
+# Python
+**/.venv/
+**/__pycache__/
+**/.pytest_cache/
+**/.ruff_cache/
+**/*.py[cod]
+
+# Node e Rust
+**/node_modules/
+**/target/
+/desktop/src-tauri/gen/
+
+# Artefatos e evidências brutas
+/build/
+/evidence/raw/
+**/*.spec
+**/*.exe
+**/*.dll
+**/*.pdb
+**/*.log
+
+# Bancos sintéticos locais
+**/*.db
+**/*.db-journal
+**/*.db-shm
+**/*.db-wal
+**/*.sqlite
+**/*.sqlite3

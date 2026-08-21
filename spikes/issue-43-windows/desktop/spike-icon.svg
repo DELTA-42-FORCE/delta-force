@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Delta Force CRM architecture spike">
+  <rect x="32" y="32" width="448" height="448" rx="104" fill="#173b70"/>
+  <path d="M256 104 392 160v96c0 85-55 135-136 168-81-33-136-83-136-168v-96l136-56Z" fill="#f3f7ff"/>
+  <path d="M256 152 168 188v68c0 57 34 92 88 119 54-27 88-62 88-119v-68l-88-36Z" fill="#2f76c4"/>
+  <circle cx="256" cy="251" r="32" fill="#f3f7ff"/>
+  <path d="M244 274h24v57h-24z" fill="#f3f7ff"/>
+</svg>

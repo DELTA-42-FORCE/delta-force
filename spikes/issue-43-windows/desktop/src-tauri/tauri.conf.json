@@ -1,0 +1,33 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Delta Force Architecture Spike",
+  "version": "0.0.0",
+  "identifier": "br.com.deltaforce.crm.architecture-spike",
+  "build": {
+    "frontendDist": "../../../../apps/web/dist"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "capabilities": ["default"],
+      "csp": {
+        "default-src": "'self'",
+        "base-uri": "'none'",
+        "connect-src": "'self' http://127.0.0.1:*",
+        "form-action": "'none'",
+        "frame-src": "'none'",
+        "img-src": "'self' data:",
+        "object-src": "'none'",
+        "script-src": "'self'",
+        "style-src": "'self' 'unsafe-inline'"
+      },
+      "freezePrototype": true
+    }
+  },
+  "bundle": {
+    "active": false,
+    "resources": {
+      "../../build/sidecar/": "sidecar/"
+    }
+  }
+}
