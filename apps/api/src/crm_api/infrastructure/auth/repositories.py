@@ -56,7 +56,6 @@ class SqlAlchemyUserRepository:
         # transacional e impede duas requisições simultâneas de criarem contas.
         await self.session.execute(text("SELECT pg_advisory_xact_lock(1420015)"))
         if await self.has_any():
-            await self.session.rollback()
             return None
 
         model = UserModel(
@@ -66,7 +65,7 @@ class SqlAlchemyUserRepository:
             is_active=True,
         )
         self.session.add(model)
-        await self.session.commit()
+        await self.session.flush()
         return _to_user(model)
 
 
@@ -83,7 +82,7 @@ class SqlAlchemySessionRepository:
             token_hash=token_hash, user_id=user_id, expires_at=expires_at
         )
         self.session.add(model)
-        await self.session.commit()
+        await self.session.flush()
         return _to_session(model)
 
     async def find_by_token_hash(self, token_hash: str) -> Session | None:
@@ -96,4 +95,4 @@ class SqlAlchemySessionRepository:
             return
 
         model.revoked_at = datetime.now(UTC)
-        await self.session.commit()
+        await self.session.flush()

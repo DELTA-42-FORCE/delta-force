@@ -3,18 +3,26 @@
 from datetime import timedelta
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy.ext.asyncio import AsyncSession
 
+from crm_api.application.audit.record_audit_event import RecordAuditEventUseCase
 from crm_api.application.auth.authenticate_user import AuthenticateUserUseCase
 from crm_api.application.auth.get_current_user import GetCurrentUserUseCase
 from crm_api.application.auth.logout import LogoutUseCase
+from crm_api.application.auth.session_issuer import SessionIssuer
 from crm_api.application.auth.setup_owner import (
     GetSetupStatusUseCase,
     SetupOwnerUseCase,
 )
+from crm_api.application.auth.view_owner_profile import ViewOwnerProfileUseCase
 from crm_api.core.config import get_settings
+from crm_api.domain.audit.entities import (
+    AuditAction,
+    AuditActorKind,
+    AuditResourceType,
+    AuditResult,
+)
 from crm_api.domain.auth.entities import User
 from crm_api.domain.auth.errors import InactiveUserError, InvalidSessionError
 from crm_api.infrastructure.auth.passwords import BcryptPasswordHasher
@@ -23,25 +31,40 @@ from crm_api.infrastructure.auth.repositories import (
     SqlAlchemyUserRepository,
 )
 from crm_api.infrastructure.auth.tokens import Sha256SessionTokenHasher
-from crm_api.infrastructure.database import get_database_session
+from crm_api.infrastructure.audit.repositories import (
+    SqlAlchemyAuditEventRepository,
+)
+from crm_api.infrastructure.audit.transactions import SqlAlchemyTransaction
+from crm_api.presentation.dependencies import DatabaseSession
 
 _bearer_scheme = HTTPBearer(
     scheme_name="SessionToken",
     description="Token de sessão obtido em POST /auth/login.",
+    auto_error=False,
 )
 
-DatabaseSession = Annotated[AsyncSession, Depends(get_database_session)]
+
+def _build_audit(session: DatabaseSession) -> RecordAuditEventUseCase:
+    return RecordAuditEventUseCase(events=SqlAlchemyAuditEventRepository(session))
+
+
+def _build_session_issuer(session: DatabaseSession) -> SessionIssuer:
+    return SessionIssuer(
+        sessions=SqlAlchemySessionRepository(session),
+        token_hasher=Sha256SessionTokenHasher(),
+        session_ttl=timedelta(minutes=get_settings().session_ttl_minutes),
+    )
 
 
 def _build_authenticate_user_use_case(
-    session: AsyncSession,
+    session: DatabaseSession,
 ) -> AuthenticateUserUseCase:
     return AuthenticateUserUseCase(
         users=SqlAlchemyUserRepository(session),
-        sessions=SqlAlchemySessionRepository(session),
         password_hasher=BcryptPasswordHasher(),
-        token_hasher=Sha256SessionTokenHasher(),
-        session_ttl=timedelta(minutes=get_settings().session_ttl_minutes),
+        session_issuer=_build_session_issuer(session),
+        audit=_build_audit(session),
+        transaction=SqlAlchemyTransaction(session),
     )
 
 
@@ -52,18 +75,12 @@ def get_authenticate_user_use_case(
 
 
 def get_setup_owner_use_case(session: DatabaseSession) -> SetupOwnerUseCase:
-    users = SqlAlchemyUserRepository(session)
-    password_hasher = BcryptPasswordHasher()
     return SetupOwnerUseCase(
-        users=users,
-        password_hasher=password_hasher,
-        authenticate=AuthenticateUserUseCase(
-            users=users,
-            sessions=SqlAlchemySessionRepository(session),
-            password_hasher=password_hasher,
-            token_hasher=Sha256SessionTokenHasher(),
-            session_ttl=timedelta(minutes=get_settings().session_ttl_minutes),
-        ),
+        users=SqlAlchemyUserRepository(session),
+        password_hasher=BcryptPasswordHasher(),
+        session_issuer=_build_session_issuer(session),
+        audit=_build_audit(session),
+        transaction=SqlAlchemyTransaction(session),
     )
 
 
@@ -75,19 +92,33 @@ def get_logout_use_case(session: DatabaseSession) -> LogoutUseCase:
     return LogoutUseCase(
         sessions=SqlAlchemySessionRepository(session),
         token_hasher=Sha256SessionTokenHasher(),
+        audit=_build_audit(session),
+        transaction=SqlAlchemyTransaction(session),
+    )
+
+
+def get_view_owner_profile_use_case(
+    session: DatabaseSession,
+) -> ViewOwnerProfileUseCase:
+    return ViewOwnerProfileUseCase(
+        audit=_build_audit(session),
+        transaction=SqlAlchemyTransaction(session),
     )
 
 
 def get_bearer_token(
-    credentials: Annotated[HTTPAuthorizationCredentials, Depends(_bearer_scheme)],
-) -> str:
-    return credentials.credentials
+    credentials: Annotated[
+        HTTPAuthorizationCredentials | None, Depends(_bearer_scheme)
+    ],
+) -> str | None:
+    return credentials.credentials if credentials is not None else None
 
 
-BearerToken = Annotated[str, Depends(get_bearer_token)]
+BearerToken = Annotated[str | None, Depends(get_bearer_token)]
 
 
 async def get_current_user(
+    request: Request,
     session: DatabaseSession,
     session_token: BearerToken,
 ) -> User:
@@ -98,8 +129,31 @@ async def get_current_user(
     )
 
     try:
+        if session_token is None:
+            raise InvalidSessionError
         return await use_case.execute(session_token=session_token)
     except (InvalidSessionError, InactiveUserError):
+        route = request.scope.get("route")
+        route_template = str(getattr(route, "path", "/unmatched"))
+        transaction = SqlAlchemyTransaction(session)
+        try:
+            await _build_audit(session).execute(
+                actor_kind=AuditActorKind.ANONYMOUS,
+                actor_user_id=None,
+                action=AuditAction.ACCESS_DENIED,
+                resource_type=AuditResourceType.ROUTE,
+                resource_id=None,
+                result=AuditResult.DENIED,
+                context={
+                    "route_template": route_template,
+                    "http_method": request.method,
+                    "reason_code": "invalid_session",
+                },
+            )
+            await transaction.commit()
+        except Exception:
+            await transaction.rollback()
+            raise
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="invalid or expired session",

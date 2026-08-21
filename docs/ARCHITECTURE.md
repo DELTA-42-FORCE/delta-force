@@ -43,3 +43,35 @@ O PostgreSQL é acessado somente pelo adaptador em `apps/api/src/crm_api/infrast
 Na instalação do cliente, documentos continuarão fora do banco e em área privada
 da aplicação; somente metadados podem ser persistidos no banco. Backup e
 restauração devem contemplar banco, documentos e metadados como uma unidade.
+
+## Auditoria
+
+A trilha de auditoria é append-only na aplicação. Casos de uso registram ações
+de negócio explicitamente; a dependência de autenticação centraliza apenas as
+tentativas negadas por sessão ausente ou inválida. Não existe endpoint de
+criação, edição ou exclusão manual de eventos.
+
+Uma mutação relevante e seu evento usam a mesma sessão e o mesmo commit. Se o
+evento não puder ser persistido, a mutação é revertida. Falhas técnicas que já
+forçaram rollback não são gravadas nesta fundação; uma futura exigência desse
+tipo deverá usar uma transação independente ou outbox sem comprometer a
+atomicidade do fluxo principal.
+
+O contexto é limitado a rota parametrizada pelo servidor, método HTTP e códigos
+de motivo fechados. E-mail submetido, nome, senha, token, hash de token,
+cabeçalho `Authorization`, corpo da requisição, IP e user-agent não pertencem ao
+log. Cada issue futura de clientes, documentos, importação, PDF, e-mail e backup
+deve acrescentar os próprios eventos no caso de uso correspondente.
+
+Ações e tipos de recurso pertencem a catálogos fechados; identificadores de
+recurso são UUIDs internos, nunca CPF, e-mail ou outro dado do cliente. O ator
+autenticado referencia a conta preservada no banco, que não pode ser removida
+enquanto houver histórico. A consulta usa cursor por `(occurred_at, id)`, não
+offset, para que o próprio evento de visualização ou novos registros não
+desloquem páginas já percorridas.
+
+O PostgreSQL continua sendo o banco operacional desta etapa. O adaptador
+normaliza como UTC timestamps sem fuso que um SQLite futuro possa devolver. Ao
+implementar o engine SQLite da entrega Windows, habilitar e testar
+`PRAGMA foreign_keys=ON` em toda conexão é obrigatório antes de considerar a FK
+`RESTRICT` efetiva; compilar o DDL isoladamente não prova essa garantia.
