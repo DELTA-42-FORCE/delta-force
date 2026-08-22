@@ -23,7 +23,7 @@ mesclada automaticamente em `develop`**.
 | Autenticação #15 | `feature/15-autenticacao-backend`, PR #41 | `d2d2a86` | 5 checks verdes; revisão antiga ainda aparece como changes requested |
 | Interface #15    | `feature/15-autenticacao-web`, PR #50     | `9b78ea4` | aberta e mesclável sobre #41; CI aguarda retarget para `develop`     |
 | Auditoria #17    | `feature/17-auditoria`, PR #51            | `2671d11` | aberta e mesclável sobre #41; CI aguarda retarget para `develop`     |
-| Interface #17    | `feature/17-auditoria-web`                | `4ba1e54` | publicada sem PR; depende das PRs #50 e #51                          |
+| Interface #17    | `feature/17-auditoria-web`                | `94aee2d` | publicada sem PR; depende das PRs #50 e #51                          |
 | Arquitetura #43  | `chore/43-arquitetura-windows`, PR #48    | `101981c` | 5 checks verdes; sem aprovação técnica                               |
 | Spike #43        | `chore/43-windows-spike`, PR #49          | `5539583` | aberto e mesclável sobre #48; aguarda revisão técnica                |
 | Catálogo #14     | `feature/14-catalogo-homologacao`         | `3c9efd1` | questionário/registro publicados; aguarda cliente                    |
@@ -75,18 +75,21 @@ abrir PR. A issue #17 deve continuar recebendo eventos das features futuras; nã
 usar `Closes #17` prematuramente.
 
 A branch `feature/17-auditoria-web` conecta a interface ao endpoint real e
-adiciona “Atividade recente” ao painel autenticado. Ela entrega estados de
-carregamento, vazio, erro/repetição e sucesso, mantém o token apenas no
-`AuthContext` e descarta IDs/contexto interno antes de guardar eventos no estado
-React. O commit `4ba1e54` passou ESLint, TypeScript, build Vite, Prettier nos
-arquivos alterados e 16 testes Vitest. Login e painel foram validados visualmente
-em larguras mobile e desktop com dados sintéticos; não houve erro ou aviso no
-console.
+adiciona “Atividade recente” ao painel autenticado, além de um histórico completo
+acessível pelo menu. Ela entrega paginação por cursor, carregar mais, retorno à
+visão geral e estados de carregamento, vazio, erro/repetição e sucesso. O token
+permanece apenas no `AuthContext`; IDs/contexto interno são descartados antes de
+guardar eventos no estado React, exceto o cursor opaco necessário à próxima
+página. O head `94aee2d` passou ESLint, TypeScript, build Vite, Prettier nos
+arquivos alterados e 22 testes Vitest. Login, painel, histórico e paginação foram
+validados visualmente em larguras mobile e desktop com dados sintéticos; não
+houve erro ou aviso no console.
 
 Essa branch foi criada sobre `feature/17-auditoria` e recebeu por cherry-pick a
 interface #15; por isso **não abrir PR ainda**. Depois que #50 e #51 estiverem
-integradas em `develop`, preservar um backup, rebasear somente `4ba1e54` sobre
-`origin/develop`, repetir `just web-check` e então abrir uma PR pequena.
+integradas em `develop`, preservar um backup, rebasear os commits posteriores a
+`b883852` sobre `origin/develop`, repetir `just web-check` e então abrir uma PR
+pequena.
 
 ### Windows #43
 
