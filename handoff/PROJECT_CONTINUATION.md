@@ -118,7 +118,12 @@ envio real permanece bloqueado; Mailpit continua exclusivo do desenvolvimento.
 - `handoff/issue-drafts/24.md`
 - `handoff/issue-drafts/25.md`
 - `handoff/issue-drafts/27.md`
+- `handoff/pr-bodies/14-catalog.md`
+- `handoff/pr-bodies/17-audit.md`
+- `handoff/pr-bodies/46-sender.md`
 - `handoff/pr-bodies/43-spike.md`
+- `handoff/review-notes/41-rereview.md`
+- `handoff/review-notes/48-and-spike.md`
 
 Antes de usar um rascunho, ler novamente a issue remota e preservar qualquer
 mudança feita depois desta data.
