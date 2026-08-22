@@ -137,6 +137,33 @@ describe('owner authentication flow', () => {
     )
   })
 
+  it('opens the complete authenticated audit history from the menu', async () => {
+    const user = await signIn()
+    await waitFor(() => expect(fetch).toHaveBeenCalledOnce())
+
+    await user.click(screen.getByRole('button', { name: 'Auditoria' }))
+
+    expect(
+      await screen.findByRole('heading', { name: 'Histórico de auditoria' }),
+    ).toBeVisible()
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2))
+    expect(fetch).toHaveBeenLastCalledWith(
+      'http://localhost:8000/audit/events?limit=20',
+      expect.objectContaining({
+        headers: { Authorization: 'Bearer raw-secret-token' },
+      }),
+    )
+
+    await user.click(
+      screen.getByRole('button', { name: '← Voltar para visão geral' }),
+    )
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Bem-vindo, Proprietário Delta Force',
+      }),
+    ).toBeVisible()
+  })
+
   it('clears an already invalid session after logout returns 401', async () => {
     vi.spyOn(authApi, 'logout').mockRejectedValue(
       new ApiError(401, 'invalid or expired session'),

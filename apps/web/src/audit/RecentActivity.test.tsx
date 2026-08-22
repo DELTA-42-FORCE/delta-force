@@ -26,7 +26,9 @@ describe('RecentActivity', () => {
       },
     ])
 
-    render(<RecentActivity loadEvents={loadEvents} />)
+    const onViewAll = vi.fn()
+    const user = userEvent.setup()
+    render(<RecentActivity loadEvents={loadEvents} onViewAll={onViewAll} />)
 
     expect(await screen.findByText('Entrada realizada')).toBeVisible()
     expect(screen.getByText('Concluída')).toBeVisible()
@@ -34,10 +36,19 @@ describe('RecentActivity', () => {
     expect(screen.getByText('Horário indisponível')).toBeVisible()
     expect(screen.queryByText('internal-owner-id')).not.toBeInTheDocument()
     expect(screen.queryByText('sensitive-value')).not.toBeInTheDocument()
+    await user.click(
+      screen.getByRole('button', { name: 'Ver histórico completo' }),
+    )
+    expect(onViewAll).toHaveBeenCalledOnce()
   })
 
   it('shows an explicit empty state', async () => {
-    render(<RecentActivity loadEvents={() => Promise.resolve([])} />)
+    render(
+      <RecentActivity
+        loadEvents={() => Promise.resolve([])}
+        onViewAll={() => undefined}
+      />,
+    )
 
     expect(
       await screen.findByText('Nenhuma atividade registrada ainda.'),
@@ -50,7 +61,9 @@ describe('RecentActivity', () => {
       .mockRejectedValueOnce(new Error('service unavailable'))
       .mockResolvedValueOnce([])
     const user = userEvent.setup()
-    render(<RecentActivity loadEvents={loadEvents} />)
+    render(
+      <RecentActivity loadEvents={loadEvents} onViewAll={() => undefined} />,
+    )
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Não foi possível consultar as atividades agora.',

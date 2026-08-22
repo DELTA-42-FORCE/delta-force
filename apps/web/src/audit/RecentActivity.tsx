@@ -1,43 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { AuditEvent } from './auditApi'
+import { AuditEventList } from './AuditEventList'
 
 interface RecentActivityProps {
   loadEvents: () => Promise<AuditEvent[]>
+  onViewAll: () => void
 }
 
-const ACTION_LABELS: Readonly<Record<string, string>> = {
-  'auth.owner_setup': 'Conta do proprietário criada',
-  'auth.login': 'Entrada realizada',
-  'auth.owner_profile_view': 'Perfil consultado',
-  'auth.logout': 'Saída realizada',
-  'auth.access_denied': 'Acesso negado',
-  'audit.log_view': 'Atividades consultadas',
-}
-
-const RESULT_LABELS: Readonly<Record<string, string>> = {
-  success: 'Concluída',
-  denied: 'Negada',
-  failure: 'Falhou',
-}
-
-function formatOccurredAt(value: string): string {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return 'Horário indisponível'
-  return new Intl.DateTimeFormat('pt-BR', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-  }).format(date)
-}
-
-function resultClassName(result: string): string {
-  if (result === 'success' || result === 'denied' || result === 'failure') {
-    return `activity-result activity-result--${result}`
-  }
-  return 'activity-result'
-}
-
-export function RecentActivity({ loadEvents }: RecentActivityProps) {
+export function RecentActivity({ loadEvents, onViewAll }: RecentActivityProps) {
   const [events, setEvents] = useState<AuditEvent[]>([])
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
   const [loadSequence, setLoadSequence] = useState(0)
@@ -76,7 +47,9 @@ export function RecentActivity({ loadEvents }: RecentActivityProps) {
           <p className="eyebrow">Segurança e controle</p>
           <h2 id="activity-title">Atividade recente</h2>
         </div>
-        <span>Últimos 5 registros</span>
+        <button className="text-button" type="button" onClick={onViewAll}>
+          Ver histórico completo
+        </button>
       </div>
 
       <div className="activity-card" aria-live="polite">
@@ -106,27 +79,7 @@ export function RecentActivity({ loadEvents }: RecentActivityProps) {
         )}
 
         {state === 'ready' && events.length > 0 && (
-          <ol className="activity-list">
-            {events.map((event, index) => (
-              <li
-                className="activity-list__item"
-                key={`${event.occurred_at}-${index}`}
-              >
-                <span className="activity-list__marker" aria-hidden="true" />
-                <div>
-                  <strong>
-                    {ACTION_LABELS[event.action] ?? 'Atividade registrada'}
-                  </strong>
-                  <time dateTime={event.occurred_at}>
-                    {formatOccurredAt(event.occurred_at)}
-                  </time>
-                </div>
-                <span className={resultClassName(event.result)}>
-                  {RESULT_LABELS[event.result] ?? 'Registrada'}
-                </span>
-              </li>
-            ))}
-          </ol>
+          <AuditEventList events={events} />
         )}
       </div>
     </section>

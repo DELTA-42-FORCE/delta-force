@@ -1,6 +1,8 @@
 import { useCallback, useState } from 'react'
 
-import { listRecentAuditEvents } from './audit/auditApi'
+import { listAuditEvents, listRecentAuditEvents } from './audit/auditApi'
+import type { AuditCursor } from './audit/auditApi'
+import { AuditHistoryPage } from './audit/AuditHistoryPage'
 import { RecentActivity } from './audit/RecentActivity'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import { LoginPage } from './auth/LoginPage'
@@ -10,14 +12,22 @@ import { Brand } from './ui/Brand'
 function Root() {
   const { status, user, authenticatedGet, logout, retry } = useAuth()
   const [logoutNotice, setLogoutNotice] = useState<string | null>(null)
+  const [activeView, setActiveView] = useState<'overview' | 'audit'>('overview')
 
   const loadRecentActivity = useCallback(
     () => listRecentAuditEvents(authenticatedGet),
     [authenticatedGet],
   )
 
+  const loadAuditPage = useCallback(
+    (cursor: AuditCursor | null) =>
+      listAuditEvents(authenticatedGet, { limit: 20, cursor }),
+    [authenticatedGet],
+  )
+
   async function handleLogout() {
     setLogoutNotice(null)
+    setActiveView('overview')
     try {
       await logout()
     } catch {
@@ -75,8 +85,27 @@ function Root() {
         <nav aria-label="Navegação principal">
           <p className="nav-label">Menu</p>
           <ul className="workspace-nav">
-            <li className="workspace-nav__item workspace-nav__item--active">
-              <span aria-hidden="true">⌂</span> Visão geral
+            <li>
+              <button
+                className={`workspace-nav__item${activeView === 'overview' ? ' workspace-nav__item--active' : ''}`}
+                type="button"
+                aria-current={activeView === 'overview' ? 'page' : undefined}
+                onClick={() => setActiveView('overview')}
+              >
+                <span aria-hidden="true">⌂</span>
+                <span>Visão geral</span>
+              </button>
+            </li>
+            <li>
+              <button
+                className={`workspace-nav__item${activeView === 'audit' ? ' workspace-nav__item--active' : ''}`}
+                type="button"
+                aria-current={activeView === 'audit' ? 'page' : undefined}
+                onClick={() => setActiveView('audit')}
+              >
+                <span aria-hidden="true">◷</span>
+                <span>Auditoria</span>
+              </button>
             </li>
             <li className="workspace-nav__item">
               <span aria-hidden="true">◎</span> Clientes <small>em breve</small>
@@ -123,83 +152,101 @@ function Root() {
         </header>
 
         <div className="workspace-content">
-          <section className="welcome-panel">
-            <div>
-              <p className="eyebrow">Visão geral</p>
-              <h1>Bem-vindo, {user.full_name}</h1>
-              <p>
-                Seu acesso está funcionando. A próxima etapa adicionará o
-                cadastro e a organização de clientes.
-              </p>
-            </div>
-            <span className="status-pill">
-              <span aria-hidden="true">●</span> Sessão ativa
-            </span>
-          </section>
+          {activeView === 'audit' ? (
+            <AuditHistoryPage
+              loadPage={loadAuditPage}
+              onBack={() => setActiveView('overview')}
+            />
+          ) : (
+            <>
+              <section className="welcome-panel">
+                <div>
+                  <p className="eyebrow">Visão geral</p>
+                  <h1>Bem-vindo, {user.full_name}</h1>
+                  <p>
+                    Seu acesso está funcionando. A próxima etapa adicionará o
+                    cadastro e a organização de clientes.
+                  </p>
+                </div>
+                <span className="status-pill">
+                  <span aria-hidden="true">●</span> Sessão ativa
+                </span>
+              </section>
 
-          <section className="progress-card" aria-labelledby="progress-title">
-            <div className="progress-card__icon" aria-hidden="true">
-              ✓
-            </div>
-            <div>
-              <p className="eyebrow">Primeira etapa concluída</p>
-              <h2 id="progress-title">Conta do proprietário protegida</h2>
-              <p>
-                Criação de conta, entrada e saída já usam o serviço local do
-                CRM. A sessão não é salva no navegador.
-              </p>
-            </div>
-          </section>
+              <section
+                className="progress-card"
+                aria-labelledby="progress-title"
+              >
+                <div className="progress-card__icon" aria-hidden="true">
+                  ✓
+                </div>
+                <div>
+                  <p className="eyebrow">Primeira etapa concluída</p>
+                  <h2 id="progress-title">Conta do proprietário protegida</h2>
+                  <p>
+                    Criação de conta, entrada e saída já usam o serviço local do
+                    CRM. A sessão não é salva no navegador.
+                  </p>
+                </div>
+              </section>
 
-          <section className="module-section" aria-labelledby="modules-title">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Construção do MVP</p>
-                <h2 id="modules-title">Próximos módulos</h2>
-              </div>
-              <span>1 de 4 disponível</span>
-            </div>
-            <div className="module-grid">
-              {[
-                [
-                  '01',
-                  'Acesso seguro',
-                  'Conta única, login e logout.',
-                  'Disponível',
-                ],
-                [
-                  '02',
-                  'Clientes',
-                  'Cadastro, busca, consulta e edição.',
-                  'Próxima etapa',
-                ],
-                [
-                  '03',
-                  'Documentos',
-                  'PDFs e fotos JPEG por cliente.',
-                  'Planejado',
-                ],
-                [
-                  '04',
-                  'Comunicação',
-                  'Modelos e histórico de e-mails.',
-                  'Planejado',
-                ],
-              ].map(([number, title, description, state], index) => (
-                <article
-                  className={`module-card${index === 0 ? ' module-card--ready' : ''}`}
-                  key={number}
-                >
-                  <span className="module-card__number">{number}</span>
-                  <h3>{title}</h3>
-                  <p>{description}</p>
-                  <strong>{state}</strong>
-                </article>
-              ))}
-            </div>
-          </section>
+              <section
+                className="module-section"
+                aria-labelledby="modules-title"
+              >
+                <div className="section-heading">
+                  <div>
+                    <p className="eyebrow">Construção do MVP</p>
+                    <h2 id="modules-title">Próximos módulos</h2>
+                  </div>
+                  <span>1 de 4 disponível</span>
+                </div>
+                <div className="module-grid">
+                  {[
+                    [
+                      '01',
+                      'Acesso seguro',
+                      'Conta única, login e logout.',
+                      'Disponível',
+                    ],
+                    [
+                      '02',
+                      'Clientes',
+                      'Cadastro, busca, consulta e edição.',
+                      'Próxima etapa',
+                    ],
+                    [
+                      '03',
+                      'Documentos',
+                      'PDFs e fotos JPEG por cliente.',
+                      'Planejado',
+                    ],
+                    [
+                      '04',
+                      'Comunicação',
+                      'Modelos e histórico de e-mails.',
+                      'Planejado',
+                    ],
+                  ].map(([number, title, description, state], index) => (
+                    <article
+                      className={`module-card${index === 0 ? ' module-card--ready' : ''}`}
+                      key={number}
+                    >
+                      <span className="module-card__number">{number}</span>
+                      <h3>{title}</h3>
+                      <p>{description}</p>
+                      <strong>{state}</strong>
+                    </article>
+                  ))}
+                </div>
+              </section>
 
-          <RecentActivity loadEvents={loadRecentActivity} />
+              <RecentActivity
+                loadEvents={loadRecentActivity}
+                onViewAll={() => setActiveView('audit')}
+              />
+            </>
+          )}
         </div>
       </main>
     </div>

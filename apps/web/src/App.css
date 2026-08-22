@@ -397,20 +397,39 @@ button {
 
 .workspace-nav__item {
   display: grid;
+  width: 100%;
   min-height: 2.9rem;
   padding: 0.7rem 0.75rem;
   grid-template-columns: 1.35rem 1fr auto;
   align-items: center;
   gap: 0.5rem;
+  border: 0;
   border-radius: 0.7rem;
   color: #8ca3b5;
+  background: transparent;
   font-size: 0.84rem;
+  text-align: left;
+}
+
+button.workspace-nav__item:hover {
+  color: #fff;
+  background: rgb(255 255 255 / 6%);
 }
 
 .workspace-nav__item--active {
   color: #fff;
   background: rgb(44 151 168 / 22%);
   box-shadow: inset 3px 0 #46bac9;
+}
+
+button.workspace-nav__item--active:hover {
+  background: rgb(44 151 168 / 22%);
+}
+
+.workspace-nav__item:focus-visible,
+.text-button:focus-visible {
+  outline: 2px solid #46bac9;
+  outline-offset: 2px;
 }
 
 .workspace-nav__item small {
@@ -640,6 +659,20 @@ button {
   color: #08758f;
 }
 
+.text-button {
+  padding: 0.35rem 0;
+  border: 0;
+  color: #08758f;
+  background: transparent;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.text-button:hover {
+  color: #05586d;
+  text-decoration: underline;
+}
+
 .activity-section {
   margin-top: 2.5rem;
 }
@@ -750,6 +783,53 @@ button {
   background: #fff0f1;
 }
 
+.audit-page__back {
+  margin-bottom: 1.5rem;
+}
+
+.audit-page__heading {
+  display: flex;
+  margin-bottom: 1.5rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 2rem;
+}
+
+.audit-page__heading h1 {
+  margin: 0;
+  color: #18243a;
+  font-size: clamp(2rem, 4vw, 3.1rem);
+  line-height: 1.08;
+  letter-spacing: -0.045em;
+}
+
+.audit-page__heading p:not(.eyebrow) {
+  max-width: 42rem;
+  margin-bottom: 0;
+  color: #6d798b;
+  line-height: 1.6;
+}
+
+.audit-page__more {
+  display: flex;
+  padding: 1rem 1.25rem;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  border-top: 1px solid #edf0f4;
+}
+
+.audit-page__more p {
+  margin: 0;
+  color: #8d2630;
+  font-size: 0.75rem;
+}
+
+.audit-page__more .secondary-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 @media (max-width: 1050px) {
   .module-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -811,7 +891,8 @@ button {
   }
 
   .welcome-panel,
-  .progress-card {
+  .progress-card,
+  .audit-page__heading {
     display: block;
   }
 
@@ -830,6 +911,14 @@ button {
   .activity-result {
     grid-column: 2;
     justify-self: start;
+  }
+
+  .audit-page__heading .status-pill {
+    margin-top: 1rem;
+  }
+
+  .audit-page__more {
+    flex-direction: column;
   }
 }
 

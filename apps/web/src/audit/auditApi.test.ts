@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { listRecentAuditEvents } from './auditApi'
+import { listAuditEvents, listRecentAuditEvents } from './auditApi'
 
 describe('listRecentAuditEvents', () => {
   it('requests a bounded page and discards internal event fields', async () => {
@@ -16,6 +16,7 @@ describe('listRecentAuditEvents', () => {
           context: { route: '/auth/login' },
         },
       ],
+      next_cursor: null,
     })
 
     await expect(listRecentAuditEvents(authenticatedGet)).resolves.toEqual([
@@ -26,5 +27,24 @@ describe('listRecentAuditEvents', () => {
       },
     ])
     expect(authenticatedGet).toHaveBeenCalledWith('/audit/events?limit=5')
+  })
+
+  it('encodes both stable cursor fields when loading an older page', async () => {
+    const authenticatedGet = vi.fn().mockResolvedValue({
+      items: [],
+      next_cursor: null,
+    })
+
+    await listAuditEvents(authenticatedGet, {
+      limit: 20,
+      cursor: {
+        occurred_at: '2026-08-22T18:30:00Z',
+        id: '00000000-0000-0000-0000-000000000002',
+      },
+    })
+
+    expect(authenticatedGet).toHaveBeenCalledWith(
+      '/audit/events?limit=20&before_occurred_at=2026-08-22T18%3A30%3A00Z&before_id=00000000-0000-0000-0000-000000000002',
+    )
   })
 })
