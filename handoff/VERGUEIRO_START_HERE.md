@@ -19,6 +19,15 @@ Você (`SecVergueiro`) está solicitado como revisor nas PRs #49, #50 e #51. Cai
 continua solicitado nas PRs #41 e #48 porque há revisão anterior ou decisão
 arquitetural pendente.
 
+## Alerta crítico Windows
+
+Caio solicitou mudanças nas PRs #48 e #49 em 22/08/2026. A ADR confunde fatos
+confirmados com hipóteses, precisa comparar alternativas menores e ainda não
+fecha a migração PostgreSQL → SQLite. O spike deve permanecer isolado: não fazer
+merge, retarget ou incorporar suas mais de 10 mil linhas/lockfiles antes de a
+ADR ser corrigida e aceita. O destino do spike — repositório separado, somente
+relatório/digest ou recorte mínimo — continua pendente.
+
 ## Ver a entrega mais nova
 
 ```powershell

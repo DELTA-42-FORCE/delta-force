@@ -24,8 +24,8 @@ mesclada automaticamente em `develop`**.
 | Interface #15    | `feature/15-autenticacao-web`, PR #50     | `9b78ea4` | aberta e mesclável sobre #41; CI aguarda retarget para `develop`     |
 | Auditoria #17    | `feature/17-auditoria`, PR #51            | `2671d11` | aberta e mesclável sobre #41; CI aguarda retarget para `develop`     |
 | Interface #17    | `feature/17-auditoria-web`                | `53ec708` | publicada sem PR; depende das PRs #50 e #51                          |
-| Arquitetura #43  | `chore/43-arquitetura-windows`, PR #48    | `101981c` | 5 checks verdes; sem aprovação técnica                               |
-| Spike #43        | `chore/43-windows-spike`, PR #49          | `5539583` | aberto e mesclável sobre #48; aguarda revisão técnica                |
+| Arquitetura #43  | `chore/43-arquitetura-windows`, PR #48    | `101981c` | changes requested por Caio; não corrigida                            |
+| Spike #43        | `chore/43-windows-spike`, PR #49          | `5539583` | changes requested; deve permanecer isolado                           |
 | Catálogo #14     | `feature/14-catalogo-homologacao`         | `3c9efd1` | questionário/registro publicados; aguarda cliente                    |
 | Remetente #46    | `feature/46-remetente-homologacao`        | `deedc02` | questionário/registro publicados; aguarda provedor                   |
 | Backup #44       | `chore/44-backup-design`                  | `98f29bb` | ADR/questionário publicados sobre #43; implementação bloqueada       |
@@ -109,13 +109,25 @@ A ADR 0002 ainda está **Proposta**. O spike sintético já provou:
 - relatório sanitizado ligado a digest de 38 fontes
   `b280db5793c6eecd182469b39602ccd4675b871a28ce392fdb4936cdff2dcac3`.
 
-O spike foi aberto na PR #49 contra a branch da PR #48, e o pedido de revisão
-conjunta foi publicado na #48 marcando `@CaioSTAM`. Faltam somente os gates
-formais para aceitar a ADR:
+Caio solicitou mudanças nas PRs #48 e #49 em 22/08/2026. Nenhuma correção foi
+iniciada após essa revisão. Antes de alterar código ou aceitar a ADR, é preciso:
 
-1. revisar a PR empilhada #49;
-2. obter aprovação técnica explícita;
-3. registrar o aprovador e alterar a ADR para **Aceita** em mudança revisável.
+1. separar fatos confirmados, hipóteses e decisões pendentes; Windows 11 Pro,
+   BitLocker, assinatura/custódia/orçamento e recovery code não podem aparecer
+   como fatos aprovados sem confirmação;
+2. comparar a cadeia proposta com alternativas menores para o MVP, incluindo
+   custo de manutenção e suporte;
+3. fechar a estratégia PostgreSQL → SQLite, compatibilidade de migrations e
+   gates de integração obrigatórios;
+4. manter assinatura, atualização e backup como gates futuros enquanto suas
+   decisões operacionais estiverem pendentes;
+5. decidir, somente após a ADR corrigida e aceita, se o spike fica em repositório
+   separado, se apenas relatório/digest permanece na issue ou se um recorte
+   mínimo ganha nova PR.
+
+A PR #49 tem mais de 10 mil linhas/lockfiles de protótipo e não executa CI por
+estar empilhada. A revisão exige mantê-la isolada e sem merge. Não tentar
+resolver isso retargetando a PR ou incorporando o spike antes da decisão.
 
 Assinatura real/VM limpa (#27), DACL/TOCTOU (#21), backup (#44) e inspeção do
 notebook definitivo são gates posteriores. Eles bloqueiam distribuição ou dados
@@ -180,14 +192,14 @@ misturaria diffs. Depois do rebase/retarget real, todos os checks obrigatórios
 devem ficar verdes antes de merge.
 
 `SecVergueiro` foi adicionado como revisor das PRs #49, #50 e #51. `CaioSTAM`
-continua marcado nos pedidos de nova revisão das PRs #41 e #48. Nenhuma dessas
-PRs tem autorização para merge automático.
+mantém changes requested na revisão antiga da #41 e nas novas revisões das PRs
+#48/#49. Nenhuma dessas PRs tem autorização para merge automático.
 
 ## Ordem recomendada
 
 1. Aguardar a nova revisão da PR #41; não executar merge automático.
-2. Aguardar a revisão técnica conjunta das PRs #48/#49; não alterar a ADR para
-   **Aceita** sem aprovação explícita.
+2. Corrigir os bloqueios registrados nas revisões #48/#49; não alterar a ADR
+   para **Aceita**, retargetar ou integrar o spike sem nova aprovação explícita.
 3. Enviar os questionários #14 e #46 ao cliente.
 4. Reconciliar no GitHub as issues #24, #25 e #27 usando os rascunhos desta
    branch, após nova leitura do estado remoto.
