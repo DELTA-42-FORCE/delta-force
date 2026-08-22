@@ -27,7 +27,9 @@ async function signIn(sessionLifetimeMs = 60_000) {
   await user.type(screen.getByLabelText('Senha'), 'senha-segura-123')
   await user.click(screen.getByRole('button', { name: 'Entrar' }))
   expect(
-    await screen.findByText('Olá, Proprietário Delta Force.'),
+    await screen.findByRole('heading', {
+      name: 'Bem-vindo, Proprietário Delta Force',
+    }),
   ).toBeVisible()
   return user
 }
@@ -46,7 +48,7 @@ describe('owner authentication flow', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: 'Configurar Delta Force CRM',
+        name: 'Configure sua conta',
       }),
     ).toBeInTheDocument()
   })
@@ -85,7 +87,9 @@ describe('owner authentication flow', () => {
 
     await waitFor(() => expect(setupSpy).toHaveBeenCalledOnce())
     expect(
-      await screen.findByText('Olá, Proprietário Delta Force.'),
+      await screen.findByRole('heading', {
+        name: 'Bem-vindo, Proprietário Delta Force',
+      }),
     ).toBeVisible()
     expect(storageSpy).not.toHaveBeenCalled()
   })
@@ -137,7 +141,9 @@ describe('owner authentication flow', () => {
       await screen.findByRole('button', { name: 'Entrar' }),
     ).toBeInTheDocument()
     expect(
-      screen.queryByText('Olá, Proprietário Delta Force.'),
+      screen.queryByRole('heading', {
+        name: 'Bem-vindo, Proprietário Delta Force',
+      }),
     ).not.toBeInTheDocument()
   })
 
@@ -154,7 +160,9 @@ describe('owner authentication flow', () => {
       'Você saiu deste aplicativo, mas não foi possível confirmar o encerramento no serviço local.',
     )
     expect(
-      screen.queryByText('Olá, Proprietário Delta Force.'),
+      screen.queryByRole('heading', {
+        name: 'Bem-vindo, Proprietário Delta Force',
+      }),
     ).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Entrar' })).toBeInTheDocument()
   })
@@ -166,7 +174,9 @@ describe('owner authentication flow', () => {
       await screen.findByRole('button', { name: 'Entrar' }, { timeout: 2_000 }),
     ).toBeInTheDocument()
     expect(
-      screen.queryByText('Olá, Proprietário Delta Force.'),
+      screen.queryByRole('heading', {
+        name: 'Bem-vindo, Proprietário Delta Force',
+      }),
     ).not.toBeInTheDocument()
   })
 })
