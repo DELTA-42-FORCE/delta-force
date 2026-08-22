@@ -1,4 +1,4 @@
-# Vergueiro — comece por aqui
+# — comece por aqui
 
 Estado confirmado em **22 de agosto de 2026**. Leia primeiro `AGENTS.md` e
 `handoff/PROJECT_CONTINUATION.md`. Não faça merge automático e use somente dados
