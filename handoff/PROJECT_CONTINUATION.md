@@ -118,6 +118,34 @@ restauração transacional e gates contra corrupção/alvo errado. Ela permanece
 ser aceita, o questionário ser homologado e a revisão criptográfica aprovar
 suíte, framing, nonces e limites internos.
 
+### Prova local de integração
+
+Uma branch **local e descartável**, `chore/integration-preview-20260822`, foi
+criada em `origin/develop@6cb9ac5` e recebeu, nesta ordem:
+
+1. `origin/feature/15-autenticacao-backend@d2d2a86`;
+2. `origin/feature/15-autenticacao-web@9b78ea4`;
+3. `origin/feature/17-auditoria@2671d11`.
+
+Os três merges concluíram sem conflito. A branch não foi publicada e não deve
+virar PR. Evidência na combinação exata:
+
+- árvore `apps/api` igual a `feature/17-auditoria`:
+  `c9989f17be248448a6ed0031c641c1d67a9f0897`;
+- árvore `apps/web` igual a `feature/15-autenticacao-web`:
+  `1cecc43dea55096311773a0f78d700726d50e870`;
+- Black: 71 arquivos; Flake8: PASS; pytest: 93 passaram/12 integration
+  desmarcados;
+- Prettier dos arquivos alterados (`endOfLine=auto` no checkout Windows),
+  ESLint, TypeScript, 11 testes Vitest e build Vite: PASS;
+- `git diff --check origin/develop...HEAD`: PASS.
+
+Os 12 testes PostgreSQL não foram repetidos nessa worktree porque a CLI Docker e
+a porta 5432 não estavam disponíveis. O último gate PostgreSQL passou em
+`feature/17-auditoria@2671d11`, e o hash idêntico da árvore `apps/api` permite
+reutilizar essa evidência; ainda assim, repetir `just api-test-integration`
+depois do rebase real continua obrigatório antes da PR da auditoria.
+
 ## Ordem recomendada
 
 1. Solicitar nova revisão da PR #41 e responder aos três pontos antigos com
