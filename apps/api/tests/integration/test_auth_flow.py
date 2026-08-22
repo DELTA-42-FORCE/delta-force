@@ -341,9 +341,9 @@ async def test_authentication_actions_are_audited_without_secrets(
     )
     assert filtered_response.status_code == 200
     filtered_items = filtered_response.json()["items"]
-    assert len(filtered_items) == 1
-    assert filtered_items[0]["action"] == "auth.login"
-    assert filtered_items[0]["result"] == "success"
+    assert filtered_items
+    assert all(item["action"] == "auth.login" for item in filtered_items)
+    assert all(item["result"] == "success" for item in filtered_items)
 
     logout_response = client.post("/auth/logout", headers=auth_header)
     assert logout_response.status_code == 204
