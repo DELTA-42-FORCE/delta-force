@@ -23,7 +23,7 @@ mesclada automaticamente em `develop`**.
 | Autenticação #15 | `feature/15-autenticacao-backend`, PR #41 | `d2d2a86` | 5 checks verdes; revisão antiga ainda aparece como changes requested |
 | Interface #15    | `feature/15-autenticacao-web`, PR #50     | `9b78ea4` | aberta e mesclável sobre #41; CI aguarda retarget para `develop`     |
 | Auditoria #17    | `feature/17-auditoria`, PR #51            | `2671d11` | aberta e mesclável sobre #41; CI aguarda retarget para `develop`     |
-| Interface #17    | `feature/17-auditoria-web`                | `94aee2d` | publicada sem PR; depende das PRs #50 e #51                          |
+| Interface #17    | `feature/17-auditoria-web`                | `53ec708` | publicada sem PR; depende das PRs #50 e #51                          |
 | Arquitetura #43  | `chore/43-arquitetura-windows`, PR #48    | `101981c` | 5 checks verdes; sem aprovação técnica                               |
 | Spike #43        | `chore/43-windows-spike`, PR #49          | `5539583` | aberto e mesclável sobre #48; aguarda revisão técnica                |
 | Catálogo #14     | `feature/14-catalogo-homologacao`         | `3c9efd1` | questionário/registro publicados; aguarda cliente                    |
@@ -76,14 +76,20 @@ usar `Closes #17` prematuramente.
 
 A branch `feature/17-auditoria-web` conecta a interface ao endpoint real e
 adiciona “Atividade recente” ao painel autenticado, além de um histórico completo
-acessível pelo menu. Ela entrega paginação por cursor, carregar mais, retorno à
-visão geral e estados de carregamento, vazio, erro/repetição e sucesso. O token
-permanece apenas no `AuthContext`; IDs/contexto interno são descartados antes de
-guardar eventos no estado React, exceto o cursor opaco necessário à próxima
-página. O head `94aee2d` passou ESLint, TypeScript, build Vite, Prettier nos
-arquivos alterados e 22 testes Vitest. Login, painel, histórico e paginação foram
-validados visualmente em larguras mobile e desktop com dados sintéticos; não
-houve erro ou aviso no console.
+acessível pelo menu. Ela entrega paginação por cursor, filtros server-side por
+ação/resultado, carregar mais, retorno à visão geral e estados de carregamento,
+vazio, erro/repetição e sucesso. O token permanece apenas no `AuthContext`;
+IDs/contexto interno são descartados antes de guardar eventos no estado React,
+exceto o cursor opaco necessário à próxima página.
+
+No head `53ec708`, Black verificou 71 arquivos, Flake8 passou e 98 testes
+unitários da API passaram; ESLint, TypeScript, build Vite, Prettier dos arquivos
+alterados e 23 testes Vitest também passaram. Login, painel, histórico,
+paginação e filtros foram validados visualmente com dados sintéticos; não houve
+erro ou aviso no console. Um teste PostgreSQL dos filtros foi adicionado, mas os
+12 testes de integração não foram executados neste checkout porque o Docker
+Desktop e a porta 5432 estavam indisponíveis. Repeti-los após o rebase real é
+obrigatório.
 
 Essa branch foi criada sobre `feature/17-auditoria` e recebeu por cherry-pick a
 interface #15; por isso **não abrir PR ainda**. Depois que #50 e #51 estiverem

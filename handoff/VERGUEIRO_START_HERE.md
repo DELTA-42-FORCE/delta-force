@@ -10,8 +10,8 @@ testes, prints, commits ou PRs.
 - autenticação segura do proprietário no backend: PR #41;
 - primeira interface visível de setup/login/painel/logout: PR #50;
 - auditoria append-only, migration e consulta autenticada: PR #51;
-- painel “Atividade recente” e histórico paginado ligados à auditoria real:
-  branch `feature/17-auditoria-web`, head `94aee2d`, ainda sem PR;
+- painel “Atividade recente” e histórico paginado/filtrado ligados à auditoria
+  real: branch `feature/17-auditoria-web`, head `53ec708`, ainda sem PR;
 - spike do aplicativo local Windows: PR #49 sobre a ADR da PR #48;
 - propostas/questionários separados para catálogo, remetente e backup.
 
@@ -33,12 +33,16 @@ npm run typecheck
 npm run build
 ```
 
-O head esperado é `94aee2d`. Foram obtidos 22 testes Vitest verdes, ESLint,
-TypeScript, build Vite e validação visual mobile/desktop. O painel usa
-`GET /audit/events?limit=5`; o histórico usa páginas de 20 e o cursor estável do
-backend. O bearer fica somente em memória, e IDs/contextos internos são
-descartados antes de entrar no estado da interface, exceto o cursor opaco da
-próxima página.
+O head esperado é `53ec708`. Foram obtidos 98 testes unitários da API, 23 testes
+Vitest, Black, Flake8, ESLint, TypeScript, build Vite e validação visual. O painel
+usa `GET /audit/events?limit=5`; o histórico usa páginas de 20, filtros tipados
+`action`/`result` e o cursor estável do backend. O bearer fica somente em memória,
+e IDs/contextos internos são descartados antes de entrar no estado da interface,
+exceto o cursor opaco da próxima página.
+
+O teste de integração PostgreSQL dos filtros foi escrito, mas não executado
+neste checkout porque Docker Desktop/porta 5432 estavam indisponíveis. Rodar
+`just api-test-integration` depois do rebase real e antes da PR é obrigatório.
 
 ## Ordem segura de integração
 
@@ -58,9 +62,10 @@ git push --force-with-lease
 
 O hash `b883852` é o cherry-pick temporário da interface #15. O comando acima
 deve ser executado apenas quando #50 e #51 já estiverem em `develop`; ele mantém
-as mudanças próprias `4ba1e54` e `94aee2d`. Depois disso, revisar o diff contra
-`origin/develop` e abrir uma PR pequena. Se a história remota tiver mudado, não
-rode o rebase por hipótese: inspecione `git log --graph` e ajuste o plano.
+as mudanças próprias `4ba1e54`, `94aee2d` e `53ec708`. Depois disso, revisar o
+diff contra `origin/develop` e abrir uma PR pequena. Se a história remota tiver
+mudado, não rode o rebase por hipótese: inspecione `git log --graph` e ajuste o
+plano.
 
 ## O que ainda bloqueia novos módulos
 
