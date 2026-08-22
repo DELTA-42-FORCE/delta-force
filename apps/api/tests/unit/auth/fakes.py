@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from uuid import UUID
 
+from crm_api.domain.audit.entities import AuditEvent, AuditEventCursor
 from crm_api.domain.auth.entities import Session, User
 
 
@@ -85,3 +86,39 @@ class FakePasswordHasher:
 class FakeSessionTokenHasher:
     def hash(self, token: str) -> str:
         return f"hashed:{token}"
+
+
+@dataclass
+class FakeAuditEventRepository:
+    events: list[AuditEvent] = field(default_factory=list)
+
+    async def append(self, event: AuditEvent) -> None:
+        self.events.append(event)
+
+    async def list_recent(
+        self, *, limit: int, before: AuditEventCursor | None
+    ) -> list[AuditEvent]:
+        newest_first = sorted(
+            self.events,
+            key=lambda event: (event.occurred_at, event.id),
+            reverse=True,
+        )
+        if before is not None:
+            newest_first = [
+                event
+                for event in newest_first
+                if (event.occurred_at, event.id) < (before.occurred_at, before.id)
+            ]
+        return newest_first[:limit]
+
+
+@dataclass
+class FakeTransaction:
+    commit_calls: int = 0
+    rollback_calls: int = 0
+
+    async def commit(self) -> None:
+        self.commit_calls += 1
+
+    async def rollback(self) -> None:
+        self.rollback_calls += 1

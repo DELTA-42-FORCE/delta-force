@@ -7,21 +7,26 @@ import pytest
 from fastapi import Depends, HTTPException, status
 from fastapi.testclient import TestClient
 
+from crm_api.application.audit.record_audit_event import RecordAuditEventUseCase
 from crm_api.application.auth.authenticate_user import AuthenticateUserUseCase
 from crm_api.application.auth.get_current_user import GetCurrentUserUseCase
 from crm_api.application.auth.logout import LogoutUseCase
+from crm_api.application.auth.session_issuer import SessionIssuer
 from crm_api.application.auth.setup_owner import (
     GetSetupStatusUseCase,
     SetupOwnerUseCase,
 )
+from crm_api.application.auth.view_owner_profile import ViewOwnerProfileUseCase
 from crm_api.domain.auth.entities import User
 from crm_api.domain.auth.errors import InactiveUserError, InvalidSessionError
 from crm_api.main import app
 from crm_api.presentation.auth import dependencies
 from fakes import (
+    FakeAuditEventRepository,
     FakePasswordHasher,
     FakeSessionRepository,
     FakeSessionTokenHasher,
+    FakeTransaction,
     FakeUserRepository,
 )
 
@@ -38,11 +43,21 @@ ACTIVE_USER = User(
 def client() -> Iterator[TestClient]:
     users = FakeUserRepository({ACTIVE_USER.email: ACTIVE_USER})
     sessions = FakeSessionRepository()
+    audit_events = FakeAuditEventRepository()
+    transaction = FakeTransaction()
+    recorder = RecordAuditEventUseCase(events=audit_events)
+    session_issuer = SessionIssuer(
+        sessions=sessions,
+        token_hasher=FakeSessionTokenHasher(),
+        session_ttl=timedelta(hours=1),
+    )
 
     async def override_get_current_user(
-        session_token: Annotated[str, Depends(dependencies.get_bearer_token)],
+        session_token: Annotated[str | None, Depends(dependencies.get_bearer_token)],
     ) -> User:
         try:
+            if session_token is None:
+                raise InvalidSessionError
             return await GetCurrentUserUseCase(
                 sessions=sessions,
                 users=users,
@@ -57,14 +72,19 @@ def client() -> Iterator[TestClient]:
     def override_authenticate_use_case() -> AuthenticateUserUseCase:
         return AuthenticateUserUseCase(
             users=users,
-            sessions=sessions,
             password_hasher=FakePasswordHasher(),
-            token_hasher=FakeSessionTokenHasher(),
-            session_ttl=timedelta(hours=1),
+            session_issuer=session_issuer,
+            audit=recorder,
+            transaction=transaction,
         )
 
     def override_logout_use_case() -> LogoutUseCase:
-        return LogoutUseCase(sessions=sessions, token_hasher=FakeSessionTokenHasher())
+        return LogoutUseCase(
+            sessions=sessions,
+            token_hasher=FakeSessionTokenHasher(),
+            audit=recorder,
+            transaction=transaction,
+        )
 
     app.dependency_overrides[dependencies.get_authenticate_user_use_case] = (
         override_authenticate_use_case
@@ -73,6 +93,12 @@ def client() -> Iterator[TestClient]:
         override_logout_use_case
     )
     app.dependency_overrides[dependencies.get_current_user] = override_get_current_user
+    app.dependency_overrides[dependencies.get_view_owner_profile_use_case] = (
+        lambda: ViewOwnerProfileUseCase(
+            audit=recorder,
+            transaction=transaction,
+        )
+    )
 
     with TestClient(app) as test_client:
         yield test_client
@@ -166,17 +192,19 @@ def test_first_setup_creates_owner_and_returns_session() -> None:
     users = FakeUserRepository()
     sessions = FakeSessionRepository()
     password_hasher = FakePasswordHasher()
-    authenticate = AuthenticateUserUseCase(
-        users=users,
+    audit_events = FakeAuditEventRepository()
+    transaction = FakeTransaction()
+    session_issuer = SessionIssuer(
         sessions=sessions,
-        password_hasher=password_hasher,
         token_hasher=FakeSessionTokenHasher(),
         session_ttl=timedelta(hours=1),
     )
     setup = SetupOwnerUseCase(
         users=users,
         password_hasher=password_hasher,
-        authenticate=authenticate,
+        session_issuer=session_issuer,
+        audit=RecordAuditEventUseCase(events=audit_events),
+        transaction=transaction,
     )
     app.dependency_overrides[dependencies.get_setup_status_use_case] = lambda: (
         GetSetupStatusUseCase(users=users)

@@ -13,6 +13,7 @@ from crm_api.application.auth.setup_owner import (
     GetSetupStatusUseCase,
     SetupOwnerUseCase,
 )
+from crm_api.application.auth.view_owner_profile import ViewOwnerProfileUseCase
 from crm_api.domain.auth.errors import (
     InactiveUserError,
     InvalidCredentialsError,
@@ -25,6 +26,7 @@ from crm_api.presentation.auth.dependencies import (
     get_logout_use_case,
     get_setup_owner_use_case,
     get_setup_status_use_case,
+    get_view_owner_profile_use_case,
 )
 from crm_api.presentation.auth.schemas import (
     AuthenticatedUser,
@@ -98,11 +100,17 @@ async def login(
 
 
 @router.get("/me", response_model=AuthenticatedUser)
-async def read_current_user(current_user: CurrentUser) -> AuthenticatedUser:
+async def read_current_user(
+    current_user: CurrentUser,
+    use_case: Annotated[
+        ViewOwnerProfileUseCase, Depends(get_view_owner_profile_use_case)
+    ],
+) -> AuthenticatedUser:
+    user = await use_case.execute(user=current_user)
     return AuthenticatedUser(
-        id=current_user.id,
-        email=current_user.email,
-        full_name=current_user.full_name,
+        id=user.id,
+        email=user.email,
+        full_name=user.full_name,
     )
 
 
@@ -112,5 +120,9 @@ async def logout(
     session_token: BearerToken,
     use_case: Annotated[LogoutUseCase, Depends(get_logout_use_case)],
 ) -> None:
-    del current_user  # exige sessão válida antes de permitir o logout
-    await use_case.execute(session_token=session_token)
+    if session_token is None:  # protegido por CurrentUser; satisfaz a tipagem
+        raise RuntimeError("authenticated request is missing its session token")
+    await use_case.execute(
+        session_token=session_token,
+        actor_user_id=current_user.id,
+    )

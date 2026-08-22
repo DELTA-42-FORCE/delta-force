@@ -5,6 +5,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from crm_api.core.config import get_settings
 from crm_api.infrastructure.database import check_database_connection
+from crm_api.presentation.audit.routes import router as audit_router
 from crm_api.presentation.auth.routes import router as auth_router
 
 app = FastAPI(title="Delta Force CRM API", version="0.1.0")
@@ -15,6 +16,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(auth_router)
+app.include_router(audit_router)
 
 
 @app.get("/health", tags=["health"])
