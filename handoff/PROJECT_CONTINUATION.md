@@ -1,246 +1,213 @@
 # Delta Force CRM — continuidade do projeto
 
-Atualizado em **22 de agosto de 2026**. Esta branch existe para transferir
-contexto entre pessoas ou agentes. Ela não é uma feature e **não deve ser
-mesclada automaticamente em `develop`**.
+Atualizado em **22 de agosto de 2026**. Esta branch transfere contexto entre
+Thiago, Caio, Vergueiro e outros agentes. Ela não é uma feature e não deve ser
+mesclada automaticamente em `develop`.
 
-## Regras antes de continuar
+## Regras obrigatórias
 
-1. Ler `AGENTS.md`, `docs/CLIENT_DECISIONS.md`, `docs/MVP_PLAN.md`,
-   `docs/BACKLOG.md` e a issue trabalhada.
-2. Usar somente dados sintéticos. Nunca colocar cliente real, documento,
-   endereço de e-mail, senha, token, chave, `.env` ou dump no GitHub.
-3. Preservar alterações alheias e executar os gates proporcionais ao risco.
-4. Não implementar regra pendente por hipótese.
-5. O `package-lock.json` não rastreado que existe em um checkout Windows é
-   alheio ao projeto e nunca deve ser adicionado.
+1. Ler `AGENTS.md`, a issue e os documentos relacionados antes de editar.
+2. Usar somente dados sintéticos; nunca versionar PII, documento real, segredo,
+   token, senha, `.env` ou dump.
+3. Não implementar campo, tamanho, tipo documental, criptografia, provedor ou
+   arquitetura ainda pendente por hipótese.
+4. Não fazer merge automático. Thiago autorizou commits, pushes, abertura de PR
+   e pedidos de revisão, mas não autorizou merge.
+5. Preservar alterações alheias. O `package-lock.json` não rastreado na raiz do
+   checkout Windows pertence ao ambiente de Thiago e não deve ser tocado.
 
 ## Estado remoto confirmado
 
-| Linha            | Branch/PR                                 | Commit    | Estado em 22/08/2026                                                 |
-| ---------------- | ----------------------------------------- | --------- | -------------------------------------------------------------------- |
-| Base             | `develop`                                 | `6cb9ac5` | base atual das linhas documentais                                    |
-| Autenticação #15 | `feature/15-autenticacao-backend`, PR #41 | `d2d2a86` | 5 checks verdes; revisão antiga ainda aparece como changes requested |
-| Interface #15    | `feature/15-autenticacao-web`, PR #50     | `9b78ea4` | aberta e mesclável sobre #41; CI aguarda retarget para `develop`     |
-| Auditoria #17    | `feature/17-auditoria`, PR #51            | `2671d11` | aberta e mesclável sobre #41; CI aguarda retarget para `develop`     |
-| Interface #17    | `feature/17-auditoria-web`                | `53ec708` | publicada sem PR; depende das PRs #50 e #51                          |
-| Arquitetura #43  | `chore/43-arquitetura-windows`, PR #48    | `101981c` | changes requested por Caio; não corrigida                            |
-| Spike #43        | `chore/43-windows-spike`, PR #49          | `5539583` | changes requested; deve permanecer isolado                           |
-| Catálogo #14     | `feature/14-catalogo-homologacao`         | `3c9efd1` | questionário/registro publicados; aguarda cliente                    |
-| Remetente #46    | `feature/46-remetente-homologacao`        | `deedc02` | questionário/registro publicados; aguarda provedor                   |
-| Backup #44       | `chore/44-backup-design`                  | `98f29bb` | ADR/questionário publicados sobre #43; implementação bloqueada       |
-
 Repositório: <https://github.com/DELTA-42-FORCE/delta-force>
 
-## Evidência já obtida
+| Linha | Branch/PR | Head | Estado |
+| --- | --- | --- | --- |
+| Base integrada | `develop` | `c111f0c` | #41, #50, #51, #52 e #53 já mescladas pelo time |
+| Arquitetura #43 | `chore/43-arquitetura-windows`, PR #48 | `7f7d6a9` | mergeável; 5 checks verdes; nova revisão de Caio pendente |
+| Spike #43 | `chore/43-windows-spike`, PR #49 | `5539583` | conflicting, changes requested, sem CI; manter isolada |
+| Backup #44 | `chore/44-backup-design` | `98f29bb` antigo | proposta empilhada na ADR antiga; não integrar/rebasear ainda |
+| Remetente #46 | `feature/46-remetente-homologacao` | `deedc02` | sem PR; aguarda e-mail/provedor do cliente |
+| Preview local | `chore/integration-preview-20260822` | descartável | obsoleta após os merges; não publicar |
 
-### Autenticação #15
+Só existem duas PRs abertas: #48 e #49.
 
-A ponta atual da branch resolve os três bloqueios da revisão antiga:
+## Produto já desenvolvido em `develop`
 
-- primeira conta do proprietário por setup seguro;
-- somente hash do token de sessão no banco;
-- fluxo web de setup/login/logout utilizável sem `localStorage`.
+### Autenticação do proprietário
 
-A PR #41 continua precisando de nova revisão humana. O pedido com resposta aos
-três bloqueios foi publicado e marcou `@CaioSTAM`. Não reescrever a branch
-enquanto as PRs #50/#51 estiverem empilhadas nela sem planejar ambos os rebases.
+- primeira conta criada por fluxo de setup;
+- login, sessão por bearer, logout e revogação;
+- somente hash do token persistido;
+- token mantido em memória na interface, nunca em `localStorage`;
+- tela responsiva de primeiro acesso, login e área do proprietário.
 
-A PR #50, `feature/15-autenticacao-web`, transforma esse fluxo em uma primeira
-interface visível e responsiva: primeiro acesso, login, estados de erro/carga,
-painel inicial e logout. Não adiciona dependências nem simula módulos ainda
-indisponíveis. Gates no commit `9b78ea4`: Prettier dos arquivos alterados,
-ESLint, TypeScript, build Vite e 11 testes Vitest passaram; primeiro acesso e
-painel foram inspecionados no navegador com dados sintéticos e sem erro de
-console. Depois do merge da PR #41, rebasear essa branch em `origin/develop`,
-repetir `just web-check` e abrir PR para `develop`.
+### Auditoria
 
-### Auditoria #17
+- migration e trilha append-only;
+- eventos de setup, login, perfil, logout, negações e consultas;
+- contexto allowlisted sem senha, token/hash ou PII submetida;
+- `GET /audit/events` autenticado com cursor keyset;
+- painel “Atividade recente” e histórico completo;
+- paginação, carregar mais e filtros server-side por ação/resultado;
+- estados de loading, vazio, erro/retry e sucesso.
 
-- migration reversível `20260820_0004`;
-- trilha append-only com contexto allowlisted;
-- eventos de setup, login, perfil, logout, negações e consulta da trilha;
-- commit atômico entre mutação de autenticação e evento;
-- `GET /audit/events` autenticado, com cursor keyset estável;
-- sem senha, token/hash, e-mail submetido ou outra PII no contexto técnico.
+### Catálogo em homologação
 
-Gate executado no commit `2671d11`:
+A PR #53 integrou a proposta e `docs/QUESTIONARIO_CATALOGO_CLIENTE.md`, mas não
+homologou os campos. A issue #14 continua `status: blocked`. Não criar schema de
+cliente a partir da expressão “dados pedidos pelo gov.br”.
 
-- Black e Flake8: PASS;
-- 93 testes unitários: PASS;
-- 12 testes PostgreSQL/migrations: PASS.
+## Trabalho executado na PR #48
 
-Depois do merge da PR #41, rebasear #17 em `origin/develop`, repetir os gates e
-abrir PR. A issue #17 deve continuar recebendo eventos das features futuras; não
-usar `Closes #17` prematuramente.
+Caio pediu quatro correções: separar fatos/hipóteses, comparar uma solução menor,
+fechar a transição PostgreSQL → SQLite e devolver assinatura/update/backup a
+gates futuros. O commit `7f7d6a9` atende esses pontos:
 
-A branch `feature/17-auditoria-web` conecta a interface ao endpoint real e
-adiciona “Atividade recente” ao painel autenticado, além de um histórico completo
-acessível pelo menu. Ela entrega paginação por cursor, filtros server-side por
-ação/resultado, carregar mais, retorno à visão geral e estados de carregamento,
-vazio, erro/repetição e sucesso. O token permanece apenas no `AuthContext`;
-IDs/contexto interno são descartados antes de guardar eventos no estado React,
-exceto o cursor opaco necessário à próxima página.
+- `docs/CLIENT_DECISIONS.md` foi restaurado aos fatos confirmados em `develop`;
+- `docs/ARCHITECTURE.md` não publica mais a proposta como arquitetura vigente;
+- `docs/MVP_PLAN.md` contém gates, não uma cadeia customizada já decidida;
+- a ADR 0002 caiu de 530 para cerca de 357 linhas;
+- a proposta é Tauri direto + React + FastAPI/PyInstaller `onedir` +
+  SQLite/filesystem, condicionada ao aceite técnico;
+- launcher separado, updater, manifesto assinado e protocolo A/B/gerações foram
+  removidos do MVP;
+- shell Python/WebView, Electron, navegador/PWA e PostgreSQL/MinIO locais foram
+  comparados com custo recorrente de build, CI e suporte;
+- o time precisa nomear responsável por Rust/Tauri e CI Windows antes do aceite;
+- computador/Windows final, proteção do disco, assinatura/custódia, WebView2 e
+  proteção/recuperação do backup permanecem pendentes;
+- a ADR 0001 deverá ser limitada ao desenvolvimento/transição no mesmo commit que
+  aceitar a ADR 0002.
 
-No head `53ec708`, Black verificou 71 arquivos, Flake8 passou e 98 testes
-unitários da API passaram; ESLint, TypeScript, build Vite, Prettier dos arquivos
-alterados e 23 testes Vitest também passaram. Login, painel, histórico,
-paginação e filtros foram validados visualmente com dados sintéticos; não houve
-erro ou aviso no console. Um teste PostgreSQL dos filtros foi adicionado, mas os
-12 testes de integração não foram executados neste checkout porque o Docker
-Desktop e a porta 5432 estavam indisponíveis. Repeti-los após o rebase real é
-obrigatório.
+Pedido de nova revisão:
+<https://github.com/DELTA-42-FORCE/delta-force/pull/48#issuecomment-5382896982>
 
-Essa branch foi criada sobre `feature/17-auditoria` e recebeu por cherry-pick a
-interface #15; por isso **não abrir PR ainda**. Depois que #50 e #51 estiverem
-integradas em `develop`, preservar um backup, rebasear os commits posteriores a
-`b883852` sobre `origin/develop`, repetir `just web-check` e então abrir uma PR
-pequena.
+### Compatibilidade SQLite comprovadamente pendente
 
-### Windows #43
+A investigação executou a cadeia Alembic real contra SQLite:
 
-A ADR 0002 ainda está **Proposta**. O spike sintético já provou:
+- `0001` e `0002` passam;
+- `20260819_0003_hash_session_tokens.py` falha com
+  `NotImplementedError` ao alterar/remover/criar constraints sem batch mode.
 
-- React em janela Tauri e API PyInstaller `onedir`;
-- loopback com porta efêmera, bootstrap one-shot e capability por execução;
-- Host/Origin estritos, instância única e Job Object sem sidecar órfão;
-- SQLite com invariantes de durabilidade e integridade;
-- recusa de manifesto/árvore adulterados;
-- relatório sanitizado ligado a digest de 38 fontes
-  `b280db5793c6eecd182469b39602ccd4675b871a28ce392fdb4936cdff2dcac3`.
+Outros gaps atuais:
 
-Caio solicitou mudanças nas PRs #48 e #49 em 22/08/2026. Nenhuma correção foi
-iniciada após essa revisão. Antes de alterar código ou aceitar a ADR, é preciso:
+- `core/config.py` aceita apenas `postgresql+psycopg://`;
+- não existe driver SQLite assíncrono no produto;
+- modelos/migrations usam UUID específico do PostgreSQL;
+- setup concorrente usa `pg_advisory_xact_lock`;
+- o engine não habilita `PRAGMA foreign_keys=ON`;
+- CI e integração são PostgreSQL-only;
+- o smoke da #49 usa tabelas artificiais e não prova migrations/modelos do CRM.
 
-1. separar fatos confirmados, hipóteses e decisões pendentes; Windows 11 Pro,
-   BitLocker, assinatura/custódia/orçamento e recovery code não podem aparecer
-   como fatos aprovados sem confirmação;
-2. comparar a cadeia proposta com alternativas menores para o MVP, incluindo
-   custo de manutenção e suporte;
-3. fechar a estratégia PostgreSQL → SQLite, compatibilidade de migrations e
-   gates de integração obrigatórios;
-4. manter assinatura, atualização e backup como gates futuros enquanto suas
-   decisões operacionais estiverem pendentes;
-5. decidir, somente após a ADR corrigida e aceita, se o spike fica em repositório
-   separado, se apenas relatório/digest permanece na issue ou se um recorte
-   mínimo ganha nova PR.
+Não existe banco PostgreSQL do cliente. A primeira instalação deverá criar um
+SQLite vazio e portar toda a cadeia. Se surgir banco real antes da entrega, será
+necessária issue separada de exportação/importação, integridade e rollback.
 
-A PR #49 tem mais de 10 mil linhas/lockfiles de protótipo e não executa CI por
-estar empilhada. A revisão exige mantê-la isolada e sem merge. Não tentar
-resolver isso retargetando a PR ou incorporando o spike antes da decisão.
+Gates registrados na ADR:
 
-Assinatura real/VM limpa (#27), DACL/TOCTOU (#21), backup (#44) e inspeção do
-notebook definitivo são gates posteriores. Eles bloqueiam distribuição ou dados
-reais, não a decisão arquitetural.
+- `upgrade base → head` e preservação de dados em PostgreSQL e SQLite de arquivo;
+- UUID, UTC, índices, checks, FKs/cascatas, paginação e auditoria em ambos;
+- setup concorrente com exatamente um `201`, um `409` e um proprietário;
+- `integrity_check=ok`, `foreign_key_check` vazio e `alembic_version=head`;
+- reinício idempotente após interrupção;
+- fluxo empacotado em Windows limpo.
 
-### Catálogo #14
+### Validação do head `7f7d6a9`
 
-Enviar ao cliente o arquivo
-`docs/QUESTIONARIO_CATALOGO_CLIENTE.md` da branch publicada. A implementação de
-schema/API/UI de clientes, documentos, importação e ficha PDF permanece
-bloqueada até todas as respostas serem homologadas no registro técnico.
+Local:
 
-### Remetente #46
+- `git diff --check`: PASS;
+- Docker Compose config: PASS;
+- Black (71 arquivos) e Flake8: PASS;
+- pytest: 98 passed, 12 integration deselected;
+- ESLint e TypeScript: PASS;
+- Vitest: 23 passed;
+- Prettier local acusa CRLF em arquivos web não alterados;
+- integração PostgreSQL local não rodou porque o daemon Docker está desligado.
 
-Enviar ao cliente `docs/QUESTIONARIO_REMETENTE_CLIENTE.md`. Não pedir senha,
-token, MFA, endereço real ou lista de clientes no GitHub/chat. Depois de saber o
-provedor/produto, preencher o registro usando somente documentação oficial. O
-envio real permanece bloqueado; Mailpit continua exclusivo do desenvolvimento.
+GitHub Actions: cinco checks verdes, incluindo integração PostgreSQL e gate web
+com Prettier. A PR está mergeável, mas ainda aguarda nova revisão humana.
 
-### Backup #44
+## PR #49: não mexer agora
 
-A branch `chore/44-backup-design`, empilhada sobre a ADR 0002, contém a ADR 0003
-e o questionário seguro do cliente. A proposta define recovery code portátil,
-container autenticado, snapshot SQLite, blobs/configuração não secreta,
-restauração transacional e gates contra corrupção/alvo errado. Ela permanece
-**Proposta**: não adicionar biblioteca nem código criptográfico até a ADR 0002
-ser aceita, o questionário ser homologado e a revisão criptográfica aprovar
-suíte, framing, nonces e limites internos.
+A #49 ficou `CONFLICTING` depois do rebase correto da #48. Isso é esperado e não
+deve ser “consertado”: Caio pediu que o protótipo permaneça fora do produto. Não
+rebasear, retargetar, resolver conflitos ou incorporar seus lockfiles.
 
-### Prova local de integração
+Após a ADR ser aceita, o time deve escolher uma destas opções:
 
-Uma branch **local e descartável**, `chore/integration-preview-20260822`, foi
-criada em `origin/develop@6cb9ac5` e recebeu, nesta ordem:
+1. manter apenas relatório sanitizado/digest e referência ao commit na issue #43;
+2. mover o experimento integral para repositório separado;
+3. criar uma nova PR mínima, baseada em `develop`, com CI e issue própria.
 
-1. `origin/feature/15-autenticacao-backend@d2d2a86`;
-2. `origin/feature/15-autenticacao-web@9b78ea4`;
-3. `origin/feature/17-auditoria@2671d11`.
+## Bloqueios atuais
 
-Os três merges concluíram sem conflito. A branch não foi publicada e não deve
-virar PR. Evidência na combinação exata:
+| Dependência | Bloqueia | Ação para liberar |
+| --- | --- | --- |
+| revisão/aceite da #48 | implementação desktop/SQLite e #44 | Caio revisar; Thiago autorizar eventual merge |
+| catálogo #14 | #18–#23, #34 e #45 | cliente responder todo o questionário e time homologar |
+| tamanho máximo PDF/JPEG | upload/importação | cliente/time definir limite explícito |
+| remetente/provedor #46 | #24/#25 | cliente informar conta e produto, sem enviar senha/token |
+| proteção/recuperação do backup | #44 e dados reais | decisão própria da #44 + revisão criptográfica |
+| equipamento final | release/dados reais | inspeção e decisão de Windows/proteção em #27 |
 
-- árvore `apps/api` igual a `feature/17-auditoria`:
-  `c9989f17be248448a6ed0031c641c1d67a9f0897`;
-- árvore `apps/web` igual a `feature/15-autenticacao-web`:
-  `1cecc43dea55096311773a0f78d700726d50e870`;
-- Black: 71 arquivos; Flake8: PASS; pytest: 93 passaram/12 integration
-  desmarcados;
-- Prettier dos arquivos alterados (`endOfLine=auto` no checkout Windows),
-  ESLint, TypeScript, 11 testes Vitest e build Vite: PASS;
-- `git diff --check origin/develop...HEAD`: PASS.
-
-Os 12 testes PostgreSQL não foram repetidos nessa worktree porque a CLI Docker e
-a porta 5432 não estavam disponíveis. O último gate PostgreSQL passou em
-`feature/17-auditoria@2671d11`, e o hash idêntico da árvore `apps/api` permite
-reutilizar essa evidência; ainda assim, repetir `just api-test-integration`
-depois do rebase real continua obrigatório antes da PR da auditoria.
-
-As PRs empilhadas #49/#50/#51 não disparam o workflow atual porque
-`.github/workflows/ci.yml` limita `pull_request.branches` a `main` e `develop`.
-Não retargetar antes da integração das bases apenas para forçar CI, pois isso
-misturaria diffs. Depois do rebase/retarget real, todos os checks obrigatórios
-devem ficar verdes antes de merge.
-
-`SecVergueiro` foi adicionado como revisor das PRs #49, #50 e #51. `CaioSTAM`
-mantém changes requested na revisão antiga da #41 e nas novas revisões das PRs
-#48/#49. Nenhuma dessas PRs tem autorização para merge automático.
+Todos os módulos funcionais restantes do MVP estão marcados `blocked`, exceto a
+#27, que é aceite de ponta a ponta e deve ocorrer no final. Portanto, não existe
+agora uma feature de cliente/documento segura para codar sem uma resposta externa.
 
 ## Ordem recomendada
 
-1. Aguardar a nova revisão da PR #41; não executar merge automático.
-2. Corrigir os bloqueios registrados nas revisões #48/#49; não alterar a ADR
-   para **Aceita**, retargetar ou integrar o spike sem nova aprovação explícita.
-3. Enviar os questionários #14 e #46 ao cliente.
-4. Reconciliar no GitHub as issues #24, #25 e #27 usando os rascunhos desta
-   branch, após nova leitura do estado remoto.
-5. Quando #15 for integrada, rebasear as PRs #50/#51 em `origin/develop`,
-   retargetar ambas para `develop` e repetir os gates/CI.
-6. Depois que #50 e #51 forem integradas, limpar a pilha de
-   `feature/17-auditoria-web`, repetir os gates e abrir a PR dessa fatia.
-7. Depois da aprovação da interface e homologação do catálogo #14, iniciar o
-   módulo funcional de clientes.
-8. Quando a ADR #43 for aceita, criar/vincular a issue de implementação
-   desktop/SQLite e revisar a ADR criptográfica já proposta da #44.
-9. Depois da homologação #14: #18/#19/#20, depois #21/#22/#23/#45/#34.
-10. Depois da homologação #46 e da #24: implementar #25; fechar #26 e #27 por
-    último.
+1. Monitorar a nova revisão da #48 e tratar somente achados objetivos.
+2. Se Caio aprovar, avisar Thiago; não fazer merge sem autorização explícita.
+3. Após merge autorizado, criar issue de implementação desktop/SQLite baseada em
+   `develop`; não partir da PR #49.
+4. Enviar ao cliente o questionário #14 e obter o remetente/provedor #46.
+5. Homologar #14; implementar #18, depois #19 e #20.
+6. Implementar armazenamento/documentos (#21/#22/#23), importação #45 e ficha PDF
+   #34 somente após campos/tipos/tamanho estarem fechados.
+7. Repropor #44 sem assumir recovery code/algoritmo; obter revisão criptográfica.
+8. Implementar modelos/envio de e-mail (#24/#25) após homologar #46.
+9. Finalizar operação/LGPD #26 e aceite Windows #27 por último.
 
-## Arquivos auxiliares desta branch
-
-- `handoff/issue-drafts/24.md`
-- `handoff/issue-drafts/25.md`
-- `handoff/issue-drafts/27.md`
-- `handoff/pr-bodies/14-catalog.md`
-- `handoff/pr-bodies/17-audit.md`
-- `handoff/pr-bodies/15-auth-web.md`
-- `handoff/pr-bodies/46-sender.md`
-- `handoff/pr-bodies/43-spike.md`
-- `handoff/review-notes/41-rereview.md`
-- `handoff/review-notes/48-and-spike.md`
-- `handoff/VERGUEIRO_START_HERE.md`
-
-Antes de usar um rascunho, ler novamente a issue remota e preservar qualquer
-mudança feita depois desta data.
-
-## Comandos iniciais
+## Comandos de retomada
 
 ```powershell
 git fetch origin --prune
 git status --short --branch
 git worktree list
-gh pr view 41 --repo DELTA-42-FORCE/delta-force
+git log --oneline --decorate -8 origin/develop
 gh pr view 48 --repo DELTA-42-FORCE/delta-force
+gh pr checks 48 --repo DELTA-42-FORCE/delta-force
 gh pr view 49 --repo DELTA-42-FORCE/delta-force
-gh pr view 50 --repo DELTA-42-FORCE/delta-force
-gh pr view 51 --repo DELTA-42-FORCE/delta-force
+gh issue list --repo DELTA-42-FORCE/delta-force --state open --limit 100
 ```
+
+Para continuar a #48 se houver novo review:
+
+```powershell
+git fetch origin --prune
+git switch chore/43-arquitetura-windows
+git rebase origin/develop
+# corrigir somente os achados e executar os gates
+git push --force-with-lease
+```
+
+Antes de qualquer push reescrito, conferir `git status`, `git log --graph` e a
+ponta remota. Nunca usar `--force` simples.
+
+## Arquivos auxiliares desta branch
+
+- `handoff/VERGUEIRO_START_HERE.md`
+- `handoff/issue-drafts/24.md`
+- `handoff/issue-drafts/25.md`
+- `handoff/issue-drafts/27.md`
+- `handoff/pr-bodies/14-catalog.md`
+- `handoff/pr-bodies/15-auth-web.md`
+- `handoff/pr-bodies/17-audit.md`
+- `handoff/pr-bodies/43-spike.md`
+- `handoff/pr-bodies/46-sender.md`
+- `handoff/review-notes/41-rereview.md`
+- `handoff/review-notes/48-and-spike.md`
+
+Os rascunhos antigos são histórico; leia o estado remoto antes de reutilizá-los.

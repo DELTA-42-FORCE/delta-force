@@ -1,108 +1,99 @@
 # Vergueiro — comece por aqui
 
-Este guia registra o ponto exato deixado por Thiago/Codex em **22 de agosto de
-2026**. A fonte completa é `handoff/PROJECT_CONTINUATION.md`. Não faça merge
-automático e nunca use dados reais de cliente nos ambientes de desenvolvimento,
-testes, prints, commits ou PRs.
+Estado confirmado em **22 de agosto de 2026**. Leia primeiro `AGENTS.md` e
+`handoff/PROJECT_CONTINUATION.md`. Não faça merge automático e use somente dados
+sintéticos.
 
-## O que já foi desenvolvido
+## O que já está em `develop`
 
-- autenticação segura do proprietário no backend: PR #41;
-- primeira interface visível de setup/login/painel/logout: PR #50;
-- auditoria append-only, migration e consulta autenticada: PR #51;
-- painel “Atividade recente” e histórico paginado/filtrado ligados à auditoria
-  real: branch `feature/17-auditoria-web`, head `53ec708`, ainda sem PR;
-- spike do aplicativo local Windows: PR #49 sobre a ADR da PR #48;
-- propostas/questionários separados para catálogo, remetente e backup.
+`origin/develop` está em `c111f0c` e já contém:
 
-Você (`SecVergueiro`) está solicitado como revisor nas PRs #49, #50 e #51. Caio
-continua solicitado nas PRs #41 e #48 porque há revisão anterior ou decisão
-arquitetural pendente.
+- PR #41: setup/login/logout e autenticação segura do proprietário;
+- PR #50: interface responsiva de primeiro acesso, login e painel;
+- PR #51: auditoria append-only e consulta autenticada;
+- PR #52: atividade recente, histórico, paginação e filtros da auditoria;
+- PR #53: proposta/questionário para homologar o catálogo cadastral.
 
-## Alerta crítico Windows
+Essas entregas são código real do produto, não apenas mockup. A API possui 98
+testes unitários/não integração e a web possui 23 testes Vitest no estado atual.
 
-Caio solicitou mudanças nas PRs #48 e #49 em 22/08/2026. A ADR confunde fatos
-confirmados com hipóteses, precisa comparar alternativas menores e ainda não
-fecha a migração PostgreSQL → SQLite. O spike deve permanecer isolado: não fazer
-merge, retarget ou incorporar suas mais de 10 mil linhas/lockfiles antes de a
-ADR ser corrigida e aceita. O destino do spike — repositório separado, somente
-relatório/digest ou recorte mínimo — continua pendente.
+## PRs abertas
 
-## Ver a entrega mais nova
+### PR #48 — arquitetura Windows
 
-```powershell
-git fetch origin --prune
-git switch feature/17-auditoria-web
-git pull --rebase
-Set-Location apps/web
-npm ci
-npm test -- --run
-npm run lint
-npm run typecheck
-npm run build
-```
+- branch: `chore/43-arquitetura-windows`;
+- head esperado: `7f7d6a9`;
+- base: `develop`;
+- estado: mergeável e cinco checks verdes;
+- revisão: nova revisão pedida a `CaioSTAM`; o GitHub ainda mostra
+  `CHANGES_REQUESTED` da revisão anterior;
+- regra: **não fazer merge sem autorização explícita de Thiago**.
 
-O head esperado é `53ec708`. Foram obtidos 98 testes unitários da API, 23 testes
-Vitest, Black, Flake8, ESLint, TypeScript, build Vite e validação visual. O painel
-usa `GET /audit/events?limit=5`; o histórico usa páginas de 20, filtros tipados
-`action`/`result` e o cursor estável do backend. O bearer fica somente em memória,
-e IDs/contextos internos são descartados antes de entrar no estado da interface,
-exceto o cursor opaco da próxima página.
+A ADR 0002 continua **Proposta**. A revisão retirou Windows 11 Pro/BitLocker e
+recovery code dos fatos do cliente, reduziu o MVP para Tauri direto + sidecar e
+removeu launcher, updater, manifesto e gerações próprios. Também registra que:
 
-O teste de integração PostgreSQL dos filtros foi escrito, mas não executado
-neste checkout porque Docker Desktop/porta 5432 estavam indisponíveis. Rodar
-`just api-test-integration` depois do rebase real e antes da PR é obrigatório.
+- não existe banco PostgreSQL do cliente a converter;
+- a primeira instalação deverá nascer em SQLite vazio;
+- a migration `0003` falha hoje no SQLite sem batch/copy-and-move;
+- PostgreSQL e SQLite precisam de uma matriz real de integração durante a
+  transição;
+- assinatura, proteção do disco, WebView2 e proteção/recuperação do backup ainda
+  são decisões/gates futuros.
 
-## Ordem segura de integração
+### PR #49 — spike Windows
 
-1. Revisar #41 e resolver a revisão antiga; integrar somente com aprovação.
-2. Rebasear/retargetar #50 e #51 para `develop`, repetir gates e aguardar CI.
-3. Integrar #50 e #51 com revisão humana.
-4. Somente depois, limpar a pilha da interface de auditoria:
+- branch: `chore/43-windows-spike`, head `5539583`;
+- base: PR #48;
+- estado: `CONFLICTING` e `CHANGES_REQUESTED`, sem CI;
+- regra: manter isolada; **não rebasear para `develop`, não retargetar e não
+  resolver o conflito agora**.
 
-```powershell
-git fetch origin --prune
-git switch feature/17-auditoria-web
-git branch backup/17-auditoria-web-before-rebase
-git rebase --onto origin/develop b883852
-just web-check
-git push --force-with-lease
-```
+Depois que a ADR for aceita, o time decidirá se preserva apenas relatório/digest
+na issue #43, move o experimento para outro repositório ou abre um recorte mínimo
+novo. Não reutilize os quase 10 mil linhas e lockfiles da #49 como produto.
 
-O hash `b883852` é o cherry-pick temporário da interface #15. O comando acima
-deve ser executado apenas quando #50 e #51 já estiverem em `develop`; ele mantém
-as mudanças próprias `4ba1e54`, `94aee2d` e `53ec708`. Depois disso, revisar o
-diff contra `origin/develop` e abrir uma PR pequena. Se a história remota tiver
-mudado, não rode o rebase por hipótese: inspecione `git log --graph` e ajuste o
-plano.
+## O que bloqueia novo código do MVP
 
-## O que ainda bloqueia novos módulos
+- **#14 / #18–#23 / #34 / #45:** o catálogo de campos, obrigatoriedade, tipos de
+  documento e tamanho máximo ainda precisa ser respondido/homologado pelo
+  cliente. “Mesmos dados do gov.br” não é schema suficiente.
+- **#43 / #44:** a ADR Windows ainda aguarda revisão; backup depende também de
+  decisão de proteção/recuperação e revisão criptográfica.
+- **#46 / #24–#25:** o cliente ainda não informou e-mail/provedor remetente.
 
-- clientes/documentos/PDF: falta homologar o catálogo explícito de campos,
-  obrigatoriedade e tamanho máximo; “os mesmos dados do gov.br” não é schema;
-- Windows/SQLite: a ADR #43 continua proposta e requer aprovação técnica;
-- backup em HD: depende da ADR Windows, respostas de recuperação/criptografia e
-  revisão criptográfica;
-- mala direta: falta o provedor/remetente que o cliente disse que enviaria.
+Não invente essas regras para começar telas ou migrations. O próximo módulo
+funcional seguro é #18 somente depois da homologação completa da #14.
 
-Não invente essas decisões para acelerar. Enquanto aguardam resposta, o trabalho
-útil é revisar as PRs abertas, limpar as pilhas após os merges e confirmar os
-gates. O `package-lock.json` não rastreado na raiz do checkout do Thiago é alheio
-ao projeto e não deve ser adicionado.
+## Próximos passos seguros
 
-## Comandos para recuperar o contexto
+1. Conferir se Caio respondeu na PR #48; corrigir somente novos achados
+   verificáveis e nunca alterar o status da ADR por conta própria.
+2. Se a PR #48 for aprovada, avisar Thiago. Não fazer merge sem nova autorização.
+3. Depois do merge autorizado da #48, criar/vincular uma issue pequena para o
+   adapter SQLite, migrations portáveis e shell mínimo; a PR deve nascer de
+   `develop`, não da spike #49.
+4. Obter do cliente as respostas de
+   `docs/QUESTIONARIO_CATALOGO_CLIENTE.md` e o remetente/provedor de e-mail.
+5. Homologar #14 antes de implementar #18; em seguida seguir #19 e #20.
+6. Reescrever a proposta de backup #44 depois da decisão Windows; a branch antiga
+   contém hipóteses que a revisão da #48 devolveu para decisão pendente.
+
+## Comandos para recuperar o estado
 
 ```powershell
 git fetch origin --prune
 git status --short --branch
 git worktree list
-gh pr view 41 --repo DELTA-42-FORCE/delta-force
+git log --oneline --decorate -8 origin/develop
 gh pr view 48 --repo DELTA-42-FORCE/delta-force
+gh pr checks 48 --repo DELTA-42-FORCE/delta-force
 gh pr view 49 --repo DELTA-42-FORCE/delta-force
-gh pr view 50 --repo DELTA-42-FORCE/delta-force
-gh pr view 51 --repo DELTA-42-FORCE/delta-force
+gh issue view 14 --repo DELTA-42-FORCE/delta-force
+gh issue view 43 --repo DELTA-42-FORCE/delta-force
+gh issue view 46 --repo DELTA-42-FORCE/delta-force
 ```
 
-Antes de qualquer alteração, leia `AGENTS.md`, a issue e os documentos citados
-nele. Preserve mudanças de Caio/Thiago/Vergueiro e registre no handoff o commit,
-os testes executados e qualquer decisão ainda pendente.
+O `package-lock.json` não rastreado na raiz do checkout de Thiago é alheio ao
+projeto: não adicionar, remover ou sobrescrever. Antes de parar, registre branch,
+commit, testes, bloqueios e próximo comando neste handoff.
