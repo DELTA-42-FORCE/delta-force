@@ -21,11 +21,13 @@ mesclada automaticamente em `develop`**.
 | ---------------- | ----------------------------------------- | --------- | -------------------------------------------------------------------- |
 | Base             | `develop`                                 | `6cb9ac5` | base atual das linhas documentais                                    |
 | Autenticação #15 | `feature/15-autenticacao-backend`, PR #41 | `d2d2a86` | 5 checks verdes; revisão antiga ainda aparece como changes requested |
+| Interface #15    | `feature/15-autenticacao-web`             | `9b78ea4` | publicada sobre a autenticação; sem PR                               |
 | Auditoria #17    | `feature/17-auditoria`                    | `2671d11` | publicada e empilhada sobre #15; sem PR                              |
 | Arquitetura #43  | `chore/43-arquitetura-windows`, PR #48    | `101981c` | 5 checks verdes; sem aprovação técnica                               |
 | Spike #43        | `chore/43-windows-spike`                  | `5539583` | publicado e empilhado sobre a arquitetura; sem PR                    |
 | Catálogo #14     | `feature/14-catalogo-homologacao`         | `3c9efd1` | questionário/registro publicados; aguarda cliente                    |
 | Remetente #46    | `feature/46-remetente-homologacao`        | `deedc02` | questionário/registro publicados; aguarda provedor                   |
+| Backup #44       | `chore/44-backup-design`                  | `98f29bb` | ADR/questionário publicados sobre #43; implementação bloqueada       |
 
 Repositório: <https://github.com/DELTA-42-FORCE/delta-force>
 
@@ -41,6 +43,15 @@ A ponta atual da branch resolve os três bloqueios da revisão antiga:
 
 A PR #41 continua precisando de nova revisão humana. Não reescrever a branch
 enquanto a #17 estiver empilhada nela sem planejar ambos os rebases.
+
+A branch `feature/15-autenticacao-web` transforma esse fluxo em uma primeira
+interface visível e responsiva: primeiro acesso, login, estados de erro/carga,
+painel inicial e logout. Não adiciona dependências nem simula módulos ainda
+indisponíveis. Gates no commit `9b78ea4`: Prettier dos arquivos alterados,
+ESLint, TypeScript, build Vite e 11 testes Vitest passaram; primeiro acesso e
+painel foram inspecionados no navegador com dados sintéticos e sem erro de
+console. Depois do merge da PR #41, rebasear essa branch em `origin/develop`,
+repetir `just web-check` e abrir PR para `develop`.
 
 ### Auditoria #17
 
@@ -97,6 +108,16 @@ token, MFA, endereço real ou lista de clientes no GitHub/chat. Depois de saber 
 provedor/produto, preencher o registro usando somente documentação oficial. O
 envio real permanece bloqueado; Mailpit continua exclusivo do desenvolvimento.
 
+### Backup #44
+
+A branch `chore/44-backup-design`, empilhada sobre a ADR 0002, contém a ADR 0003
+e o questionário seguro do cliente. A proposta define recovery code portátil,
+container autenticado, snapshot SQLite, blobs/configuração não secreta,
+restauração transacional e gates contra corrupção/alvo errado. Ela permanece
+**Proposta**: não adicionar biblioteca nem código criptográfico até a ADR 0002
+ser aceita, o questionário ser homologado e a revisão criptográfica aprovar
+suíte, framing, nonces e limites internos.
+
 ## Ordem recomendada
 
 1. Solicitar nova revisão da PR #41 e responder aos três pontos antigos com
@@ -107,10 +128,12 @@ envio real permanece bloqueado; Mailpit continua exclusivo do desenvolvimento.
 4. Reconciliar no GitHub as issues #24, #25 e #27 usando os rascunhos desta
    branch, após nova leitura do estado remoto.
 5. Quando #15 for integrada, rebasear/publicar #17.
-6. Quando a ADR #43 for aceita, criar/vincular a issue de implementação
-   desktop/SQLite e então definir a ADR criptográfica da #44.
-7. Depois da homologação #14: #18/#19/#20, depois #21/#22/#23/#45/#34.
-8. Depois da homologação #46 e da #24: implementar #25; fechar #26 e #27 por
+6. Depois do merge da PR #41, rebasear e revisar a interface #15 antes de iniciar
+   o módulo funcional de clientes.
+7. Quando a ADR #43 for aceita, criar/vincular a issue de implementação
+   desktop/SQLite e revisar a ADR criptográfica já proposta da #44.
+8. Depois da homologação #14: #18/#19/#20, depois #21/#22/#23/#45/#34.
+9. Depois da homologação #46 e da #24: implementar #25; fechar #26 e #27 por
    último.
 
 ## Arquivos auxiliares desta branch
