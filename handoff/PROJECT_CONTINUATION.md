@@ -23,6 +23,7 @@ mesclada automaticamente em `develop`**.
 | Autenticação #15 | `feature/15-autenticacao-backend`, PR #41 | `d2d2a86` | 5 checks verdes; revisão antiga ainda aparece como changes requested |
 | Interface #15    | `feature/15-autenticacao-web`, PR #50     | `9b78ea4` | aberta e mesclável sobre #41; CI aguarda retarget para `develop`     |
 | Auditoria #17    | `feature/17-auditoria`, PR #51            | `2671d11` | aberta e mesclável sobre #41; CI aguarda retarget para `develop`     |
+| Interface #17    | `feature/17-auditoria-web`                | `4ba1e54` | publicada sem PR; depende das PRs #50 e #51                          |
 | Arquitetura #43  | `chore/43-arquitetura-windows`, PR #48    | `101981c` | 5 checks verdes; sem aprovação técnica                               |
 | Spike #43        | `chore/43-windows-spike`, PR #49          | `5539583` | aberto e mesclável sobre #48; aguarda revisão técnica                |
 | Catálogo #14     | `feature/14-catalogo-homologacao`         | `3c9efd1` | questionário/registro publicados; aguarda cliente                    |
@@ -72,6 +73,20 @@ Gate executado no commit `2671d11`:
 Depois do merge da PR #41, rebasear #17 em `origin/develop`, repetir os gates e
 abrir PR. A issue #17 deve continuar recebendo eventos das features futuras; não
 usar `Closes #17` prematuramente.
+
+A branch `feature/17-auditoria-web` conecta a interface ao endpoint real e
+adiciona “Atividade recente” ao painel autenticado. Ela entrega estados de
+carregamento, vazio, erro/repetição e sucesso, mantém o token apenas no
+`AuthContext` e descarta IDs/contexto interno antes de guardar eventos no estado
+React. O commit `4ba1e54` passou ESLint, TypeScript, build Vite, Prettier nos
+arquivos alterados e 16 testes Vitest. Login e painel foram validados visualmente
+em larguras mobile e desktop com dados sintéticos; não houve erro ou aviso no
+console.
+
+Essa branch foi criada sobre `feature/17-auditoria` e recebeu por cherry-pick a
+interface #15; por isso **não abrir PR ainda**. Depois que #50 e #51 estiverem
+integradas em `develop`, preservar um backup, rebasear somente `4ba1e54` sobre
+`origin/develop`, repetir `just web-check` e então abrir uma PR pequena.
 
 ### Windows #43
 
@@ -155,6 +170,10 @@ Não retargetar antes da integração das bases apenas para forçar CI, pois iss
 misturaria diffs. Depois do rebase/retarget real, todos os checks obrigatórios
 devem ficar verdes antes de merge.
 
+`SecVergueiro` foi adicionado como revisor das PRs #49, #50 e #51. `CaioSTAM`
+continua marcado nos pedidos de nova revisão das PRs #41 e #48. Nenhuma dessas
+PRs tem autorização para merge automático.
+
 ## Ordem recomendada
 
 1. Aguardar a nova revisão da PR #41; não executar merge automático.
@@ -165,13 +184,15 @@ devem ficar verdes antes de merge.
    branch, após nova leitura do estado remoto.
 5. Quando #15 for integrada, rebasear as PRs #50/#51 em `origin/develop`,
    retargetar ambas para `develop` e repetir os gates/CI.
-6. Depois da aprovação da PR #50, integrar a interface antes de iniciar o módulo
-   funcional de clientes.
-7. Quando a ADR #43 for aceita, criar/vincular a issue de implementação
+6. Depois que #50 e #51 forem integradas, limpar a pilha de
+   `feature/17-auditoria-web`, repetir os gates e abrir a PR dessa fatia.
+7. Depois da aprovação da interface e homologação do catálogo #14, iniciar o
+   módulo funcional de clientes.
+8. Quando a ADR #43 for aceita, criar/vincular a issue de implementação
    desktop/SQLite e revisar a ADR criptográfica já proposta da #44.
-8. Depois da homologação #14: #18/#19/#20, depois #21/#22/#23/#45/#34.
-9. Depois da homologação #46 e da #24: implementar #25; fechar #26 e #27 por
-   último.
+9. Depois da homologação #14: #18/#19/#20, depois #21/#22/#23/#45/#34.
+10. Depois da homologação #46 e da #24: implementar #25; fechar #26 e #27 por
+    último.
 
 ## Arquivos auxiliares desta branch
 
@@ -185,6 +206,7 @@ devem ficar verdes antes de merge.
 - `handoff/pr-bodies/43-spike.md`
 - `handoff/review-notes/41-rereview.md`
 - `handoff/review-notes/48-and-spike.md`
+- `handoff/VERGUEIRO_START_HERE.md`
 
 Antes de usar um rascunho, ler novamente a issue remota e preservar qualquer
 mudança feita depois desta data.
@@ -197,4 +219,7 @@ git status --short --branch
 git worktree list
 gh pr view 41 --repo DELTA-42-FORCE/delta-force
 gh pr view 48 --repo DELTA-42-FORCE/delta-force
+gh pr view 49 --repo DELTA-42-FORCE/delta-force
+gh pr view 50 --repo DELTA-42-FORCE/delta-force
+gh pr view 51 --repo DELTA-42-FORCE/delta-force
 ```
