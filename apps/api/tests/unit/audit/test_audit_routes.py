@@ -41,7 +41,12 @@ class MemoryAuditRepository:
         self.events.append(event)
 
     async def list_recent(
-        self, *, limit: int, before: AuditEventCursor | None
+        self,
+        *,
+        limit: int,
+        before: AuditEventCursor | None,
+        action: AuditAction | None,
+        result: AuditResult | None,
     ) -> list[AuditEvent]:
         ordered = sorted(
             self.events,
@@ -54,6 +59,10 @@ class MemoryAuditRepository:
                 for event in ordered
                 if (event.occurred_at, event.id) < (before.occurred_at, before.id)
             ]
+        if action is not None:
+            ordered = [event for event in ordered if event.action is action]
+        if result is not None:
+            ordered = [event for event in ordered if event.result is result]
         return ordered[:limit]
 
 
@@ -150,6 +159,40 @@ def test_owner_lists_sanitized_events_with_stable_pagination(
     assert repository.events[-1].action == "audit.log_view"
     assert repository.events[-1].actor_user_id == OWNER_ID
     assert repository.events[-1].context == {}
+
+
+def test_owner_filters_events_by_action_and_result(
+    audit_client: tuple[TestClient, MemoryAuditRepository, SpyTransaction],
+) -> None:
+    client, repository, transaction = audit_client
+
+    response = client.get(
+        "/audit/events",
+        params={"action": "auth.login", "result": "denied"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body["items"]) == 1
+    assert body["items"][0]["action"] == "auth.login"
+    assert body["items"][0]["result"] == "denied"
+    assert repository.events[-1].action == "audit.log_view"
+    assert transaction.commit_calls == 1
+
+
+@pytest.mark.parametrize("query", ("action=unknown", "result=unknown"))
+def test_invalid_catalog_filter_is_rejected_without_recording_a_view(
+    audit_client: tuple[TestClient, MemoryAuditRepository, SpyTransaction],
+    query: str,
+) -> None:
+    client, repository, transaction = audit_client
+    initial_event_count = len(repository.events)
+
+    response = client.get(f"/audit/events?{query}")
+
+    assert response.status_code == 422
+    assert len(repository.events) == initial_event_count
+    assert transaction.commit_calls == 0
 
 
 @pytest.mark.parametrize(

@@ -36,14 +36,22 @@ class ListAuditEventsUseCase:
         actor_user_id: UUID,
         limit: int,
         before: AuditEventCursor | None,
+        action: AuditAction | None = None,
+        result: AuditResult | None = None,
     ) -> AuditEventPage:
         if not 1 <= limit <= 100:
             raise ValueError("limit must be between 1 and 100")
+        if action is not None and not isinstance(action, AuditAction):
+            raise ValueError("action filter is invalid")
+        if result is not None and not isinstance(result, AuditResult):
+            raise ValueError("result filter is invalid")
 
         try:
             events = await self.events.list_recent(
                 limit=limit + 1,
                 before=before,
+                action=action,
+                result=result,
             )
             page_items = tuple(events[:limit])
             next_cursor = (

@@ -1,12 +1,41 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import type { AuditCursor, AuditEvent, AuditEventPage } from './auditApi'
+import type {
+  AuditActionFilter,
+  AuditCursor,
+  AuditEvent,
+  AuditEventPage,
+  AuditFilters,
+  AuditResultFilter,
+} from './auditApi'
 import { AuditEventList } from './AuditEventList'
 
 interface AuditHistoryPageProps {
-  loadPage: (cursor: AuditCursor | null) => Promise<AuditEventPage>
+  loadPage: (
+    cursor: AuditCursor | null,
+    filters: AuditFilters,
+  ) => Promise<AuditEventPage>
   onBack: () => void
 }
+
+const ACTION_FILTER_OPTIONS: ReadonlyArray<
+  readonly [AuditActionFilter, string]
+> = [
+  ['auth.owner_setup', 'Criação da conta'],
+  ['auth.login', 'Entradas'],
+  ['auth.owner_profile_view', 'Consultas ao perfil'],
+  ['auth.logout', 'Saídas'],
+  ['auth.access_denied', 'Acessos negados'],
+  ['audit.log_view', 'Consultas à auditoria'],
+]
+
+const RESULT_FILTER_OPTIONS: ReadonlyArray<
+  readonly [AuditResultFilter, string]
+> = [
+  ['success', 'Concluídas'],
+  ['denied', 'Negadas'],
+  ['failure', 'Falhas'],
+]
 
 export function AuditHistoryPage({ loadPage, onBack }: AuditHistoryPageProps) {
   const [events, setEvents] = useState<AuditEvent[]>([])
@@ -15,13 +44,27 @@ export function AuditHistoryPage({ loadPage, onBack }: AuditHistoryPageProps) {
   const [moreState, setMoreState] = useState<'idle' | 'loading' | 'error'>(
     'idle',
   )
+  const [actionFilter, setActionFilter] = useState<AuditActionFilter | null>(
+    null,
+  )
+  const [resultFilter, setResultFilter] = useState<AuditResultFilter | null>(
+    null,
+  )
   const [loadSequence, setLoadSequence] = useState(0)
-  const initialRequestRef = useRef<Promise<AuditEventPage> | null>(null)
+  const initialRequestRef = useRef<{
+    key: string
+    request: Promise<AuditEventPage>
+  } | null>(null)
 
   useEffect(() => {
     let active = true
-    const request = initialRequestRef.current ?? loadPage(null)
-    initialRequestRef.current = request
+    const requestKey = `${actionFilter ?? 'all'}:${resultFilter ?? 'all'}:${loadSequence}`
+    const cachedRequest = initialRequestRef.current
+    const request =
+      cachedRequest?.key === requestKey
+        ? cachedRequest.request
+        : loadPage(null, { action: actionFilter, result: resultFilter })
+    initialRequestRef.current = { key: requestKey, request }
 
     void request
       .then((page) => {
@@ -37,7 +80,7 @@ export function AuditHistoryPage({ loadPage, onBack }: AuditHistoryPageProps) {
     return () => {
       active = false
     }
-  }, [loadPage, loadSequence])
+  }, [actionFilter, loadPage, loadSequence, resultFilter])
 
   const retryInitial = useCallback(() => {
     initialRequestRef.current = null
@@ -45,18 +88,45 @@ export function AuditHistoryPage({ loadPage, onBack }: AuditHistoryPageProps) {
     setLoadSequence((current) => current + 1)
   }, [])
 
+  const resetForFilter = useCallback(() => {
+    initialRequestRef.current = null
+    setEvents([])
+    setNextCursor(null)
+    setMoreState('idle')
+    setState('loading')
+  }, [])
+
+  const changeActionFilter = useCallback(
+    (value: string) => {
+      resetForFilter()
+      setActionFilter(value === '' ? null : (value as AuditActionFilter))
+    },
+    [resetForFilter],
+  )
+
+  const changeResultFilter = useCallback(
+    (value: string) => {
+      resetForFilter()
+      setResultFilter(value === '' ? null : (value as AuditResultFilter))
+    },
+    [resetForFilter],
+  )
+
   const loadMore = useCallback(async () => {
     if (nextCursor === null || moreState === 'loading') return
     setMoreState('loading')
     try {
-      const page = await loadPage(nextCursor)
+      const page = await loadPage(nextCursor, {
+        action: actionFilter,
+        result: resultFilter,
+      })
       setEvents((current) => [...current, ...page.items])
       setNextCursor(page.nextCursor)
       setMoreState('idle')
     } catch {
       setMoreState('error')
     }
-  }, [loadPage, moreState, nextCursor])
+  }, [actionFilter, loadPage, moreState, nextCursor, resultFilter])
 
   return (
     <section className="audit-page" aria-labelledby="audit-history-title">
@@ -78,6 +148,37 @@ export function AuditHistoryPage({ loadPage, onBack }: AuditHistoryPageProps) {
         <span className="status-pill">
           <span aria-hidden="true">●</span> Acesso protegido
         </span>
+      </div>
+
+      <div className="audit-filters" aria-label="Filtros do histórico">
+        <label>
+          Tipo de ação
+          <select
+            value={actionFilter ?? ''}
+            onChange={(event) => changeActionFilter(event.target.value)}
+          >
+            <option value="">Todas as ações</option>
+            {ACTION_FILTER_OPTIONS.map(([value, label]) => (
+              <option value={value} key={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Resultado
+          <select
+            value={resultFilter ?? ''}
+            onChange={(event) => changeResultFilter(event.target.value)}
+          >
+            <option value="">Todos os resultados</option>
+            {RESULT_FILTER_OPTIONS.map(([value, label]) => (
+              <option value={value} key={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <div className="activity-card" aria-live="polite">

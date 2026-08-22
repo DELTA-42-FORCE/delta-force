@@ -24,7 +24,12 @@ class FakeAuditEventRepository:
         self.events.append(event)
 
     async def list_recent(
-        self, *, limit: int, before: AuditEventCursor | None
+        self,
+        *,
+        limit: int,
+        before: AuditEventCursor | None,
+        action: AuditAction | None,
+        result: AuditResult | None,
     ) -> list[AuditEvent]:
         return self.events
 

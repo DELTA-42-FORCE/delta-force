@@ -24,7 +24,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -810,6 +811,40 @@ button.workspace-nav__item--active:hover {
   line-height: 1.6;
 }
 
+.audit-filters {
+  display: grid;
+  margin-bottom: 1rem;
+  padding: 1rem 1.25rem;
+  grid-template-columns: repeat(2, minmax(0, 15rem));
+  gap: 1rem;
+  border: 1px solid #e0e5ec;
+  border-radius: 0.9rem;
+  background: #fff;
+}
+
+.audit-filters label {
+  display: grid;
+  gap: 0.4rem;
+  color: #425168;
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.audit-filters select {
+  min-height: 2.7rem;
+  padding: 0.55rem 2.2rem 0.55rem 0.75rem;
+  border: 1px solid #ced6e1;
+  border-radius: 0.65rem;
+  outline: none;
+  color: #24334a;
+  background: #fff;
+}
+
+.audit-filters select:focus {
+  border-color: #07829a;
+  box-shadow: 0 0 0 0.2rem rgb(7 130 154 / 13%);
+}
+
 .audit-page__more {
   display: flex;
   padding: 1rem 1.25rem;
@@ -919,6 +954,10 @@ button.workspace-nav__item--active:hover {
 
   .audit-page__more {
     flex-direction: column;
+  }
+
+  .audit-filters {
+    grid-template-columns: 1fr;
   }
 }
 

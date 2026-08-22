@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 
 import { listAuditEvents, listRecentAuditEvents } from './audit/auditApi'
-import type { AuditCursor } from './audit/auditApi'
+import type { AuditCursor, AuditFilters } from './audit/auditApi'
 import { AuditHistoryPage } from './audit/AuditHistoryPage'
 import { RecentActivity } from './audit/RecentActivity'
 import { AuthProvider, useAuth } from './auth/AuthContext'
@@ -20,8 +20,8 @@ function Root() {
   )
 
   const loadAuditPage = useCallback(
-    (cursor: AuditCursor | null) =>
-      listAuditEvents(authenticatedGet, { limit: 20, cursor }),
+    (cursor: AuditCursor | null, filters: AuditFilters) =>
+      listAuditEvents(authenticatedGet, { limit: 20, cursor, filters }),
     [authenticatedGet],
   )
 

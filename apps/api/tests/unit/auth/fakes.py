@@ -4,7 +4,12 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from uuid import UUID
 
-from crm_api.domain.audit.entities import AuditEvent, AuditEventCursor
+from crm_api.domain.audit.entities import (
+    AuditAction,
+    AuditEvent,
+    AuditEventCursor,
+    AuditResult,
+)
 from crm_api.domain.auth.entities import Session, User
 
 
@@ -96,7 +101,12 @@ class FakeAuditEventRepository:
         self.events.append(event)
 
     async def list_recent(
-        self, *, limit: int, before: AuditEventCursor | None
+        self,
+        *,
+        limit: int,
+        before: AuditEventCursor | None,
+        action: AuditAction | None,
+        result: AuditResult | None,
     ) -> list[AuditEvent]:
         newest_first = sorted(
             self.events,
@@ -109,6 +119,10 @@ class FakeAuditEventRepository:
                 for event in newest_first
                 if (event.occurred_at, event.id) < (before.occurred_at, before.id)
             ]
+        if action is not None:
+            newest_first = [event for event in newest_first if event.action is action]
+        if result is not None:
+            newest_first = [event for event in newest_first if event.result is result]
         return newest_first[:limit]
 
 

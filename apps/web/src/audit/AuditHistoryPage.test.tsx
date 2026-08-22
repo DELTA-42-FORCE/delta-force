@@ -2,13 +2,15 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { AuditCursor, AuditEventPage } from './auditApi'
+import type { AuditCursor, AuditEventPage, AuditFilters } from './auditApi'
 import { AuditHistoryPage } from './AuditHistoryPage'
 
 const CURSOR: AuditCursor = {
   occurred_at: '2026-08-22T18:30:00Z',
   id: '00000000-0000-0000-0000-000000000002',
 }
+
+const DEFAULT_FILTERS: AuditFilters = { action: null, result: null }
 
 function page(action: string, nextCursor: AuditCursor | null): AuditEventPage {
   return {
@@ -31,7 +33,12 @@ afterEach(() => {
 describe('AuditHistoryPage', () => {
   it('loads older pages with the stable cursor and keeps prior events', async () => {
     const loadPage = vi
-      .fn<(cursor: AuditCursor | null) => Promise<AuditEventPage>>()
+      .fn<
+        (
+          cursor: AuditCursor | null,
+          filters: AuditFilters,
+        ) => Promise<AuditEventPage>
+      >()
       .mockResolvedValueOnce(page('auth.login', CURSOR))
       .mockResolvedValueOnce(page('auth.logout', null))
     const user = userEvent.setup()
@@ -43,8 +50,8 @@ describe('AuditHistoryPage', () => {
 
     expect(await screen.findByText('Saída realizada')).toBeVisible()
     expect(screen.getByText('Entrada realizada')).toBeVisible()
-    expect(loadPage).toHaveBeenNthCalledWith(1, null)
-    expect(loadPage).toHaveBeenNthCalledWith(2, CURSOR)
+    expect(loadPage).toHaveBeenNthCalledWith(1, null, DEFAULT_FILTERS)
+    expect(loadPage).toHaveBeenNthCalledWith(2, CURSOR, DEFAULT_FILTERS)
     expect(
       screen.queryByRole('button', { name: 'Carregar mais' }),
     ).not.toBeInTheDocument()
@@ -65,7 +72,12 @@ describe('AuditHistoryPage', () => {
 
   it('retries an initial failure', async () => {
     const loadPage = vi
-      .fn<(cursor: AuditCursor | null) => Promise<AuditEventPage>>()
+      .fn<
+        (
+          cursor: AuditCursor | null,
+          filters: AuditFilters,
+        ) => Promise<AuditEventPage>
+      >()
       .mockRejectedValueOnce(new Error('service unavailable'))
       .mockResolvedValueOnce({ items: [], nextCursor: null })
     const user = userEvent.setup()
@@ -84,7 +96,12 @@ describe('AuditHistoryPage', () => {
 
   it('preserves events and retries when loading an older page fails', async () => {
     const loadPage = vi
-      .fn<(cursor: AuditCursor | null) => Promise<AuditEventPage>>()
+      .fn<
+        (
+          cursor: AuditCursor | null,
+          filters: AuditFilters,
+        ) => Promise<AuditEventPage>
+      >()
       .mockResolvedValueOnce(page('auth.login', CURSOR))
       .mockRejectedValueOnce(new Error('service unavailable'))
       .mockResolvedValueOnce(page('auth.logout', null))
@@ -103,5 +120,36 @@ describe('AuditHistoryPage', () => {
     )
     expect(await screen.findByText('Saída realizada')).toBeVisible()
     expect(loadPage).toHaveBeenCalledTimes(3)
+  })
+
+  it('reloads from the first page when action and result filters change', async () => {
+    const loadPage = vi
+      .fn<
+        (
+          cursor: AuditCursor | null,
+          filters: AuditFilters,
+        ) => Promise<AuditEventPage>
+      >()
+      .mockResolvedValue({ items: [], nextCursor: null })
+    const user = userEvent.setup()
+    render(<AuditHistoryPage loadPage={loadPage} onBack={() => undefined} />)
+    await waitFor(() => expect(loadPage).toHaveBeenCalledTimes(1))
+
+    await user.selectOptions(
+      screen.getByLabelText('Tipo de ação'),
+      'auth.login',
+    )
+    await waitFor(() => expect(loadPage).toHaveBeenCalledTimes(2))
+    expect(loadPage).toHaveBeenNthCalledWith(2, null, {
+      action: 'auth.login',
+      result: null,
+    })
+
+    await user.selectOptions(screen.getByLabelText('Resultado'), 'denied')
+    await waitFor(() => expect(loadPage).toHaveBeenCalledTimes(3))
+    expect(loadPage).toHaveBeenNthCalledWith(3, null, {
+      action: 'auth.login',
+      result: 'denied',
+    })
   })
 })

@@ -37,6 +37,7 @@ describe('listRecentAuditEvents', () => {
 
     await listAuditEvents(authenticatedGet, {
       limit: 20,
+      filters: { action: 'auth.login', result: 'denied' },
       cursor: {
         occurred_at: '2026-08-22T18:30:00Z',
         id: '00000000-0000-0000-0000-000000000002',
@@ -44,7 +45,7 @@ describe('listRecentAuditEvents', () => {
     })
 
     expect(authenticatedGet).toHaveBeenCalledWith(
-      '/audit/events?limit=20&before_occurred_at=2026-08-22T18%3A30%3A00Z&before_id=00000000-0000-0000-0000-000000000002',
+      '/audit/events?limit=20&action=auth.login&result=denied&before_occurred_at=2026-08-22T18%3A30%3A00Z&before_id=00000000-0000-0000-0000-000000000002',
     )
   })
 })

@@ -2,7 +2,12 @@
 
 from typing import Protocol
 
-from crm_api.domain.audit.entities import AuditEvent, AuditEventCursor
+from crm_api.domain.audit.entities import (
+    AuditAction,
+    AuditEvent,
+    AuditEventCursor,
+    AuditResult,
+)
 
 
 class AuditEventRepository(Protocol):
@@ -11,5 +16,10 @@ class AuditEventRepository(Protocol):
     async def append(self, event: AuditEvent) -> None: ...
 
     async def list_recent(
-        self, *, limit: int, before: AuditEventCursor | None
+        self,
+        *,
+        limit: int,
+        before: AuditEventCursor | None,
+        action: AuditAction | None,
+        result: AuditResult | None,
     ) -> list[AuditEvent]: ...

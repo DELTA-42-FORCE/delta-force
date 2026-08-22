@@ -61,9 +61,18 @@ class SqlAlchemyAuditEventRepository:
         await self.session.flush()
 
     async def list_recent(
-        self, *, limit: int, before: AuditEventCursor | None
+        self,
+        *,
+        limit: int,
+        before: AuditEventCursor | None,
+        action: AuditAction | None,
+        result: AuditResult | None,
     ) -> list[AuditEvent]:
         statement = select(AuditEventModel)
+        if action is not None:
+            statement = statement.where(AuditEventModel.action == action.value)
+        if result is not None:
+            statement = statement.where(AuditEventModel.result == result.value)
         if before is not None:
             statement = statement.where(
                 or_(
