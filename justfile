@@ -1,4 +1,5 @@
 set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
+set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 
 default:
     @just --list
@@ -26,34 +27,37 @@ workspace-check:
 
 # --- API (Python / FastAPI) ---
 api-install:
-    cd apps/api && uv sync --all-groups
+    cd apps/api; uv sync --all-groups
 
 api-format:
-    cd apps/api && uv run black src tests
+    cd apps/api; uv run black src tests
 
 api-format-check:
-    cd apps/api && uv run black --check src tests
+    cd apps/api; uv run black --check src tests
+
+# Sobe a API local no Windows sem expor a porta à rede.
+api-dev:
+    cd apps/api; uv run python -m crm_api.dev_server
 
 api-lint:
-    cd apps/api && uv run flake8 src tests
+    cd apps/api; uv run flake8 src tests
 
 api-test *args:
-    cd apps/api && uv run pytest {{args}}
+    cd apps/api; uv run pytest {{args}}
 
 api-test-integration:
     docker compose --env-file .env -f infra/compose.yaml up -d postgres
-    @for attempt in {1..15}; do docker compose --env-file .env -f infra/compose.yaml exec -T postgres sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"' && break || sleep 2; done
-    cd apps/api && uv run alembic upgrade head
-    cd apps/api && uv run pytest -m integration
+    cd apps/api; uv run python scripts/wait_for_database.py
+    cd apps/api; uv run python scripts/run_integration_tests.py
 
 api-migrate:
-    cd apps/api && uv run alembic upgrade head
+    cd apps/api; uv run alembic upgrade head
 
 api-rollback revision="-1":
-    cd apps/api && uv run alembic downgrade {{revision}}
+    cd apps/api; uv run alembic downgrade {{revision}}
 
 api-makemigration message:
-    cd apps/api && uv run alembic revision --autogenerate -m "{{message}}"
+    cd apps/api; uv run alembic revision --autogenerate -m "{{message}}"
 
 api-check:
     just api-format-check
@@ -69,6 +73,9 @@ api-audit:
 # --- Web (React / TypeScript) ---
 web-install:
     npm --prefix apps/web ci
+
+web-dev:
+    npm --prefix apps/web run dev
 
 web-format:
     npm --prefix apps/web run format
