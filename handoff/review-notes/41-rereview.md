@@ -1,5 +1,7 @@
 ## Resposta aos bloqueios da revisão anterior
 
+@CaioSTAM, por favor, faça uma nova revisão da ponta atual deste PR.
+
 A ponta atual `d2d2a86` resolve os três pontos registrados na revisão do commit
 `5d6b320`:
 

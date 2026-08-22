@@ -21,10 +21,10 @@ mesclada automaticamente em `develop`**.
 | ---------------- | ----------------------------------------- | --------- | -------------------------------------------------------------------- |
 | Base             | `develop`                                 | `6cb9ac5` | base atual das linhas documentais                                    |
 | Autenticação #15 | `feature/15-autenticacao-backend`, PR #41 | `d2d2a86` | 5 checks verdes; revisão antiga ainda aparece como changes requested |
-| Interface #15    | `feature/15-autenticacao-web`             | `9b78ea4` | publicada sobre a autenticação; sem PR                               |
-| Auditoria #17    | `feature/17-auditoria`                    | `2671d11` | publicada e empilhada sobre #15; sem PR                              |
+| Interface #15    | `feature/15-autenticacao-web`, PR #50     | `9b78ea4` | aberta e mesclável sobre #41; CI aguarda retarget para `develop`     |
+| Auditoria #17    | `feature/17-auditoria`, PR #51            | `2671d11` | aberta e mesclável sobre #41; CI aguarda retarget para `develop`     |
 | Arquitetura #43  | `chore/43-arquitetura-windows`, PR #48    | `101981c` | 5 checks verdes; sem aprovação técnica                               |
-| Spike #43        | `chore/43-windows-spike`                  | `5539583` | publicado e empilhado sobre a arquitetura; sem PR                    |
+| Spike #43        | `chore/43-windows-spike`, PR #49          | `5539583` | aberto e mesclável sobre #48; aguarda revisão técnica                |
 | Catálogo #14     | `feature/14-catalogo-homologacao`         | `3c9efd1` | questionário/registro publicados; aguarda cliente                    |
 | Remetente #46    | `feature/46-remetente-homologacao`        | `deedc02` | questionário/registro publicados; aguarda provedor                   |
 | Backup #44       | `chore/44-backup-design`                  | `98f29bb` | ADR/questionário publicados sobre #43; implementação bloqueada       |
@@ -41,10 +41,11 @@ A ponta atual da branch resolve os três bloqueios da revisão antiga:
 - somente hash do token de sessão no banco;
 - fluxo web de setup/login/logout utilizável sem `localStorage`.
 
-A PR #41 continua precisando de nova revisão humana. Não reescrever a branch
-enquanto a #17 estiver empilhada nela sem planejar ambos os rebases.
+A PR #41 continua precisando de nova revisão humana. O pedido com resposta aos
+três bloqueios foi publicado e marcou `@CaioSTAM`. Não reescrever a branch
+enquanto as PRs #50/#51 estiverem empilhadas nela sem planejar ambos os rebases.
 
-A branch `feature/15-autenticacao-web` transforma esse fluxo em uma primeira
+A PR #50, `feature/15-autenticacao-web`, transforma esse fluxo em uma primeira
 interface visível e responsiva: primeiro acesso, login, estados de erro/carga,
 painel inicial e logout. Não adiciona dependências nem simula módulos ainda
 indisponíveis. Gates no commit `9b78ea4`: Prettier dos arquivos alterados,
@@ -84,9 +85,11 @@ A ADR 0002 ainda está **Proposta**. O spike sintético já provou:
 - relatório sanitizado ligado a digest de 38 fontes
   `b280db5793c6eecd182469b39602ccd4675b871a28ce392fdb4936cdff2dcac3`.
 
-Faltam somente os gates formais para aceitar a ADR:
+O spike foi aberto na PR #49 contra a branch da PR #48, e o pedido de revisão
+conjunta foi publicado na #48 marcando `@CaioSTAM`. Faltam somente os gates
+formais para aceitar a ADR:
 
-1. abrir/revisar o PR empilhado do spike;
+1. revisar a PR empilhada #49;
 2. obter aprovação técnica explícita;
 3. registrar o aprovador e alterar a ADR para **Aceita** em mudança revisável.
 
@@ -146,18 +149,24 @@ a porta 5432 não estavam disponíveis. O último gate PostgreSQL passou em
 reutilizar essa evidência; ainda assim, repetir `just api-test-integration`
 depois do rebase real continua obrigatório antes da PR da auditoria.
 
+As PRs empilhadas #49/#50/#51 não disparam o workflow atual porque
+`.github/workflows/ci.yml` limita `pull_request.branches` a `main` e `develop`.
+Não retargetar antes da integração das bases apenas para forçar CI, pois isso
+misturaria diffs. Depois do rebase/retarget real, todos os checks obrigatórios
+devem ficar verdes antes de merge.
+
 ## Ordem recomendada
 
-1. Solicitar nova revisão da PR #41 e responder aos três pontos antigos com
-   evidência da ponta atual.
-2. Abrir PR empilhado do spike #43 contra `chore/43-arquitetura-windows` e pedir
-   revisão técnica conjunta com a PR #48.
+1. Aguardar a nova revisão da PR #41; não executar merge automático.
+2. Aguardar a revisão técnica conjunta das PRs #48/#49; não alterar a ADR para
+   **Aceita** sem aprovação explícita.
 3. Enviar os questionários #14 e #46 ao cliente.
 4. Reconciliar no GitHub as issues #24, #25 e #27 usando os rascunhos desta
    branch, após nova leitura do estado remoto.
-5. Quando #15 for integrada, rebasear/publicar #17.
-6. Depois do merge da PR #41, rebasear e revisar a interface #15 antes de iniciar
-   o módulo funcional de clientes.
+5. Quando #15 for integrada, rebasear as PRs #50/#51 em `origin/develop`,
+   retargetar ambas para `develop` e repetir os gates/CI.
+6. Depois da aprovação da PR #50, integrar a interface antes de iniciar o módulo
+   funcional de clientes.
 7. Quando a ADR #43 for aceita, criar/vincular a issue de implementação
    desktop/SQLite e revisar a ADR criptográfica já proposta da #44.
 8. Depois da homologação #14: #18/#19/#20, depois #21/#22/#23/#45/#34.
@@ -171,6 +180,7 @@ depois do rebase real continua obrigatório antes da PR da auditoria.
 - `handoff/issue-drafts/27.md`
 - `handoff/pr-bodies/14-catalog.md`
 - `handoff/pr-bodies/17-audit.md`
+- `handoff/pr-bodies/15-auth-web.md`
 - `handoff/pr-bodies/46-sender.md`
 - `handoff/pr-bodies/43-spike.md`
 - `handoff/review-notes/41-rereview.md`

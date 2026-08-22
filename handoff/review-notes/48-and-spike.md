@@ -1,8 +1,10 @@
 ## Pedido de revisão técnica — ADR Windows e spike
 
+@CaioSTAM, por favor, revise em conjunto esta ADR e o spike empilhado da PR #49.
+
 A PR #48 contém a ADR 0002 como **Proposta**. O spike isolado está publicado em
-`chore/43-windows-spike` e deve ser revisado em PR empilhado contra
-`chore/43-arquitetura-windows`, para que o diff mostre somente as evidências.
+`chore/43-windows-spike`, na PR #49 contra `chore/43-arquitetura-windows`, para
+que o diff mostre somente as evidências.
 
 O gate reproduzível do spike aprovou:
 
