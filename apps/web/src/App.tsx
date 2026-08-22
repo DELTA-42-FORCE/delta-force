@@ -1,13 +1,20 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 
+import { listRecentAuditEvents } from './audit/auditApi'
+import { RecentActivity } from './audit/RecentActivity'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import { LoginPage } from './auth/LoginPage'
 import { SetupPage } from './auth/SetupPage'
 import { Brand } from './ui/Brand'
 
 function Root() {
-  const { status, user, logout, retry } = useAuth()
+  const { status, user, authenticatedGet, logout, retry } = useAuth()
   const [logoutNotice, setLogoutNotice] = useState<string | null>(null)
+
+  const loadRecentActivity = useCallback(
+    () => listRecentAuditEvents(authenticatedGet),
+    [authenticatedGet],
+  )
 
   async function handleLogout() {
     setLogoutNotice(null)
@@ -191,6 +198,8 @@ function Root() {
               ))}
             </div>
           </section>
+
+          <RecentActivity loadEvents={loadRecentActivity} />
         </div>
       </main>
     </div>

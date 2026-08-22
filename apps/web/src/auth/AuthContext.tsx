@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 
-import { ApiError } from '../lib/apiClient'
+import { apiFetch, ApiError } from '../lib/apiClient'
 import {
   login as loginRequest,
   logout as logoutRequest,
@@ -27,6 +27,7 @@ type AuthStatus =
 interface AuthContextValue {
   status: AuthStatus
   user: AuthenticatedUser | null
+  authenticatedGet: <T>(path: string) => Promise<T>
   login: (email: string, password: string) => Promise<void>
   setup: (input: SetupOwnerInput) => Promise<void>
   logout: () => Promise<void>
@@ -121,14 +122,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [clearSession, token])
 
+  const authenticatedGet = useCallback(
+    async <T,>(path: string): Promise<T> => {
+      if (token === null) throw new ApiError(401, 'session is not available')
+
+      try {
+        return await apiFetch<T>(path, { token })
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) clearSession()
+        throw error
+      }
+    },
+    [clearSession, token],
+  )
+
   const retry = useCallback(() => {
     setStatus('checking-setup')
     setCheckSequence((current) => current + 1)
   }, [])
 
   const value = useMemo(
-    () => ({ status, user, login, setup, logout, retry }),
-    [status, user, login, setup, logout, retry],
+    () => ({
+      status,
+      user,
+      authenticatedGet,
+      login,
+      setup,
+      logout,
+      retry,
+    }),
+    [status, user, authenticatedGet, login, setup, logout, retry],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

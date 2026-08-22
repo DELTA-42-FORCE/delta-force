@@ -640,6 +640,116 @@ button {
   color: #08758f;
 }
 
+.activity-section {
+  margin-top: 2.5rem;
+}
+
+.activity-card {
+  overflow: hidden;
+  min-height: 8rem;
+  border: 1px solid #e0e5ec;
+  border-radius: 0.9rem;
+  background: #fff;
+  box-shadow: 0 0.8rem 2.5rem rgb(25 48 77 / 4%);
+}
+
+.activity-state {
+  display: flex;
+  min-height: 8rem;
+  padding: 1.5rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  color: #6d798b;
+  text-align: center;
+}
+
+.activity-state .loader {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.activity-state p {
+  margin: 0;
+}
+
+.activity-state__icon {
+  display: grid;
+  width: 2.3rem;
+  height: 2.3rem;
+  place-items: center;
+  border-radius: 50%;
+  color: #237151;
+  background: #effbf5;
+  font-weight: 800;
+}
+
+.activity-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.activity-list__item {
+  display: grid;
+  min-height: 4.6rem;
+  padding: 1rem 1.25rem;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.85rem;
+  border-bottom: 1px solid #edf0f4;
+}
+
+.activity-list__item:last-child {
+  border-bottom: 0;
+}
+
+.activity-list__marker {
+  width: 0.65rem;
+  height: 0.65rem;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #1594a8;
+  box-shadow: 0 0 0 2px #bde2e7;
+}
+
+.activity-list__item div {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.activity-list__item strong {
+  color: #25344a;
+  font-size: 0.82rem;
+}
+
+.activity-list__item time {
+  color: #7c899a;
+  font-size: 0.7rem;
+}
+
+.activity-result {
+  padding: 0.35rem 0.55rem;
+  border-radius: 999px;
+  color: #596779;
+  background: #eef1f5;
+  font-size: 0.63rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.activity-result--success {
+  color: #237151;
+  background: #eaf8f1;
+}
+
+.activity-result--denied,
+.activity-result--failure {
+  color: #8d2630;
+  background: #fff0f1;
+}
+
 @media (max-width: 1050px) {
   .module-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -711,6 +821,15 @@ button {
 
   .progress-card__icon {
     margin-bottom: 1rem;
+  }
+
+  .activity-list__item {
+    grid-template-columns: auto 1fr;
+  }
+
+  .activity-result {
+    grid-column: 2;
+    justify-self: start;
   }
 }
 
