@@ -128,7 +128,12 @@ async def test_repository_lists_newest_events_with_stable_pagination() -> None:
         occurred_at=expected.occurred_at,
         id=expected.id,
     )
-    events = await repository.list_recent(limit=5, before=cursor)
+    events = await repository.list_recent(
+        limit=5,
+        before=cursor,
+        action=AuditAction.LOGIN,
+        result=AuditResult.DENIED,
+    )
 
     assert events == [expected]
     [statement] = session.statements
@@ -138,7 +143,9 @@ async def test_repository_lists_newest_events_with_stable_pagination() -> None:
             compile_kwargs={"literal_binds": True},
         )
     )
-    assert "WHERE audit_events.occurred_at <" in sql
+    assert "audit_events.occurred_at <" in sql
+    assert "audit_events.action = 'auth.login'" in sql
+    assert "audit_events.result = 'denied'" in sql
     assert "OR audit_events.occurred_at =" in sql
     assert "audit_events.id <" in sql
     assert "ORDER BY audit_events.occurred_at DESC, audit_events.id DESC" in sql

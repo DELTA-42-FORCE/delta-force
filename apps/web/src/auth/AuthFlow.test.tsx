@@ -17,6 +17,14 @@ async function signIn(sessionLifetimeMs = 60_000) {
       full_name: 'Proprietário Delta Force',
     },
   }))
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ items: [], limit: 5, next_cursor: null }),
+    }),
+  )
 
   const user = userEvent.setup()
   render(<App />)
@@ -37,6 +45,7 @@ async function signIn(sessionLifetimeMs = 60_000) {
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
   window.localStorage.clear()
 })
 
@@ -114,6 +123,45 @@ describe('owner authentication flow', () => {
       await screen.findByRole('button', { name: 'Entrar' }),
     ).toBeInTheDocument()
     expect(logoutSpy).toHaveBeenCalledWith('raw-secret-token')
+  })
+
+  it('loads recent activity with the in-memory session token', async () => {
+    await signIn()
+
+    await waitFor(() => expect(fetch).toHaveBeenCalledOnce())
+    expect(fetch).toHaveBeenCalledWith(
+      'http://localhost:8000/audit/events?limit=5',
+      expect.objectContaining({
+        headers: { Authorization: 'Bearer raw-secret-token' },
+      }),
+    )
+  })
+
+  it('opens the complete authenticated audit history from the menu', async () => {
+    const user = await signIn()
+    await waitFor(() => expect(fetch).toHaveBeenCalledOnce())
+
+    await user.click(screen.getByRole('button', { name: 'Auditoria' }))
+
+    expect(
+      await screen.findByRole('heading', { name: 'Histórico de auditoria' }),
+    ).toBeVisible()
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2))
+    expect(fetch).toHaveBeenLastCalledWith(
+      'http://localhost:8000/audit/events?limit=20',
+      expect.objectContaining({
+        headers: { Authorization: 'Bearer raw-secret-token' },
+      }),
+    )
+
+    await user.click(
+      screen.getByRole('button', { name: '← Voltar para visão geral' }),
+    )
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Bem-vindo, Proprietário Delta Force',
+      }),
+    ).toBeVisible()
   })
 
   it('clears an already invalid session after logout returns 401', async () => {

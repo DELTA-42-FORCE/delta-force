@@ -7,7 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from crm_api.application.audit.list_audit_events import ListAuditEventsUseCase
-from crm_api.domain.audit.entities import AuditEventCursor
+from crm_api.domain.audit.entities import AuditAction, AuditEventCursor, AuditResult
 from crm_api.presentation.audit.dependencies import (
     get_list_audit_events_use_case,
 )
@@ -28,6 +28,8 @@ async def list_audit_events(
         ListAuditEventsUseCase, Depends(get_list_audit_events_use_case)
     ],
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    action: Annotated[AuditAction | None, Query()] = None,
+    result: Annotated[AuditResult | None, Query()] = None,
     before_occurred_at: Annotated[datetime | None, Query()] = None,
     before_id: Annotated[UUID | None, Query()] = None,
 ) -> AuditEventListResponse:
@@ -52,6 +54,8 @@ async def list_audit_events(
         actor_user_id=current_user.id,
         limit=limit,
         before=cursor,
+        action=action,
+        result=result,
     )
 
     return AuditEventListResponse(

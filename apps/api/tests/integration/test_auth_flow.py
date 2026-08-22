@@ -334,6 +334,17 @@ async def test_authentication_actions_are_audited_without_secrets(
     assert second_page["items"][0]["action"] == "auth.login"
     assert second_page["items"][0]["id"] != first_page["items"][0]["id"]
 
+    filtered_response = client.get(
+        "/audit/events",
+        headers=auth_header,
+        params={"action": "auth.login", "result": "success"},
+    )
+    assert filtered_response.status_code == 200
+    filtered_items = filtered_response.json()["items"]
+    assert filtered_items
+    assert all(item["action"] == "auth.login" for item in filtered_items)
+    assert all(item["result"] == "success" for item in filtered_items)
+
     logout_response = client.post("/auth/logout", headers=auth_header)
     assert logout_response.status_code == 204
     revoked_response = client.get("/auth/me", headers=auth_header)
@@ -375,6 +386,7 @@ async def test_authentication_actions_are_audited_without_secrets(
         "auth.owner_profile_view",
         "audit.log_view",
         "audit.log_view",
+        "audit.log_view",
         "auth.logout",
     ]
     denied_events = [
@@ -389,7 +401,9 @@ async def test_authentication_actions_are_audited_without_secrets(
         event.context["reason_code"] == "invalid_session" for event in denied_events
     )
 
-    serialized_response = (audit_response.text + second_page_response.text).lower()
+    serialized_response = (
+        audit_response.text + second_page_response.text + filtered_response.text
+    ).lower()
     serialized_events = str(
         [
             (
