@@ -1,6 +1,6 @@
 # — comece por aqui
 
-Estado confirmado em **22 de agosto de 2026**. Leia primeiro `AGENTS.md` e
+Estado confirmado em **24 de agosto de 2026**. Leia primeiro `AGENTS.md` e
 `handoff/PROJECT_CONTINUATION.md`. Não faça merge automático e use somente dados
 sintéticos.
 
@@ -22,11 +22,12 @@ testes unitários/não integração e a web possui 23 testes Vitest no estado at
 ### PR #48 — arquitetura Windows
 
 - branch: `chore/43-arquitetura-windows`;
-- head esperado: `7f7d6a9`;
+- head esperado: `437c352`;
 - base: `develop`;
 - estado: mergeável e cinco checks verdes;
-- revisão: nova revisão pedida a `CaioSTAM`; o GitHub ainda mostra
-  `CHANGES_REQUESTED` da revisão anterior;
+- revisão: Caio reconheceu a melhora e pediu três ajustes finais; eles foram
+  publicados e uma nova revisão foi solicitada. O GitHub ainda mostra
+  `CHANGES_REQUESTED` até a resposta sobre o novo head;
 - regra: **não fazer merge sem autorização explícita de Thiago**.
 
 A ADR 0002 continua **Proposta**. A revisão retirou Windows 11 Pro/BitLocker e
@@ -40,6 +41,10 @@ removeu launcher, updater, manifesto e gerações próprios. Também registra qu
   transição;
 - assinatura, proteção do disco, WebView2 e proteção/recuperação do backup ainda
   são decisões/gates futuros.
+- #15 e #17 estão concluídas; a futura issue desktop validará autenticação e
+  auditoria no runtime local.
+- o segredo bruto será entregue à API uma vez por `stdin` herdado; somente a
+  capability chega ao React por IPC interno, vinculada à instância e em memória.
 
 ### PR #49 — spike Windows
 
@@ -67,8 +72,8 @@ funcional seguro é #18 somente depois da homologação completa da #14.
 
 ## Próximos passos seguros
 
-1. Conferir se Caio respondeu na PR #48; corrigir somente novos achados
-   verificáveis e nunca alterar o status da ADR por conta própria.
+1. Conferir se Caio respondeu ao commit `437c352` na PR #48; corrigir somente
+   novos achados verificáveis e nunca alterar o status da ADR por conta própria.
 2. Se a PR #48 for aprovada, avisar Thiago. Não fazer merge sem nova autorização.
 3. Depois do merge autorizado da #48, criar/vincular uma issue pequena para o
    adapter SQLite, migrations portáveis e shell mínimo; a PR deve nascer de

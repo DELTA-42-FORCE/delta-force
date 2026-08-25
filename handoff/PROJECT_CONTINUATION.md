@@ -1,6 +1,6 @@
 # Delta Force CRM — continuidade do projeto
 
-Atualizado em **22 de agosto de 2026**. Esta branch transfere contexto entre
+Atualizado em **24 de agosto de 2026**. Esta branch transfere contexto entre
 Thiago, Caio, Vergueiro e outros agentes. Ela não é uma feature e não deve ser
 mesclada automaticamente em `develop`.
 
@@ -23,7 +23,7 @@ Repositório: <https://github.com/DELTA-42-FORCE/delta-force>
 | Linha | Branch/PR | Head | Estado |
 | --- | --- | --- | --- |
 | Base integrada | `develop` | `c111f0c` | #41, #50, #51, #52 e #53 já mescladas pelo time |
-| Arquitetura #43 | `chore/43-arquitetura-windows`, PR #48 | `7f7d6a9` | mergeável; 5 checks verdes; nova revisão de Caio pendente |
+| Arquitetura #43 | `chore/43-arquitetura-windows`, PR #48 | `437c352` | mergeável; 5 checks verdes; resposta de Caio ao novo head pendente |
 | Spike #43 | `chore/43-windows-spike`, PR #49 | `5539583` | conflicting, changes requested, sem CI; manter isolada |
 | Backup #44 | `chore/44-backup-design` | `98f29bb` antigo | proposta empilhada na ADR antiga; não integrar/rebasear ainda |
 | Remetente #46 | `feature/46-remetente-homologacao` | `deedc02` | sem PR; aguarda e-mail/provedor do cliente |
@@ -79,8 +79,15 @@ gates futuros. O commit `7f7d6a9` atende esses pontos:
 - a ADR 0001 deverá ser limitada ao desenvolvimento/transição no mesmo commit que
   aceitar a ADR 0002.
 
-Pedido de nova revisão:
-<https://github.com/DELTA-42-FORCE/delta-force/pull/48#issuecomment-5382896982>
+Caio reconheceu esses avanços em 23/08 e pediu três ajustes finais. O commit
+`437c352` registra #15/#17 como concluídas, define o bootstrap por `stdin`
+herdado com capability somente via IPC interno e concentra SQLite, migrations,
+concorrência da primeira conta, lifecycle e CI dual em uma nova issue desktop
+pequena baseada em `develop`. A escolha Tauri/alternativa continua pendente do
+time; a ADR não foi aceita automaticamente.
+
+Pedido mais recente de revisão:
+<https://github.com/DELTA-42-FORCE/delta-force/pull/48#issuecomment-5404412018>
 
 ### Compatibilidade SQLite comprovadamente pendente
 
@@ -113,7 +120,7 @@ Gates registrados na ADR:
 - reinício idempotente após interrupção;
 - fluxo empacotado em Windows limpo.
 
-### Validação do head `7f7d6a9`
+### Validação do head `437c352`
 
 Local:
 
@@ -123,7 +130,6 @@ Local:
 - pytest: 98 passed, 12 integration deselected;
 - ESLint e TypeScript: PASS;
 - Vitest: 23 passed;
-- Prettier local acusa CRLF em arquivos web não alterados;
 - integração PostgreSQL local não rodou porque o daemon Docker está desligado.
 
 GitHub Actions: cinco checks verdes, incluindo integração PostgreSQL e gate web
@@ -158,10 +164,12 @@ agora uma feature de cliente/documento segura para codar sem uma resposta extern
 
 ## Ordem recomendada
 
-1. Monitorar a nova revisão da #48 e tratar somente achados objetivos.
+1. Monitorar a resposta de Caio ao commit `437c352` da #48 e tratar somente
+   achados objetivos.
 2. Se Caio aprovar, avisar Thiago; não fazer merge sem autorização explícita.
-3. Após merge autorizado, criar issue de implementação desktop/SQLite baseada em
-   `develop`; não partir da PR #49.
+3. Após merge autorizado, criar issue pequena de integração desktop/SQLite
+   baseada em `develop`, cobrindo migrations, bootstrap/capability, lifecycle e
+   CI PostgreSQL/SQLite; não partir da PR #49.
 4. Enviar ao cliente o questionário #14 e obter o remetente/provedor #46.
 5. Homologar #14; implementar #18, depois #19 e #20.
 6. Implementar armazenamento/documentos (#21/#22/#23), importação #45 e ficha PDF
