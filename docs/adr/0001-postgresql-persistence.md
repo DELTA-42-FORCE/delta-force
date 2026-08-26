@@ -1,6 +1,9 @@
 # ADR 0001 — Persistência PostgreSQL assíncrona e migrations Alembic
 
-**Status:** Aceita
+**Status:** Substituída pela [ADR 0003](0003-sqlite-como-persistencia-local.md)
+
+> Registro histórico da fundação inicial. PostgreSQL não é mais a persistência
+> alvo do CRM; a transição para SQLite é regida pela ADR 0003.
 
 ## Contexto
 

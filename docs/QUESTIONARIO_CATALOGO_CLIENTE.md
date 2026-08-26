@@ -1,4 +1,8 @@
-# Perguntas para fechar o cadastro e os documentos do CRM
+# Histórico — questionário de catálogo cadastral rígido (fora do MVP)
+
+> **Não aplicar ao MVP atual.** O time aprovou a pasta digital flexível em 25 de
+> agosto de 2026. Este questionário é preservado apenas como referência para uma
+> futura repriorização de campos formais.
 
 - **Versão:** 0.1 — 21 de agosto de 2026
 - **Objetivo:** definir exatamente o que o sistema deve guardar e mostrar

@@ -1,4 +1,9 @@
-# Catálogo cadastral e documental — registro técnico para homologação
+# Histórico — catálogo cadastral e documental rígido (fora do MVP)
+
+> **Não usar para implementar o MVP.** Em 25 de agosto de 2026, o produto foi
+> redefinido como pasta digital flexível: somente o nome de identificação é
+> exigido ao criar cliente; dados e documentos são opcionais. Esta proposta
+> permanece apenas como histórico para eventual reavaliação futura.
 
 - **Status:** aguardando homologação do cliente — **não implementar ainda**
 - **Versão do rascunho:** 0.1
