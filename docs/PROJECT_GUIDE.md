@@ -41,12 +41,12 @@ Use Conventional Commits: `feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore
 | `just check` | Validação completa exigida no PR. |
 | `just audit` | Auditoria manual: Bandit, vulnerabilidades Python/JavaScript e relatório de versões novas. Não atualiza dependências. |
 | `just api-check` | Black, Flake8 e testes unitários da API. |
-| `just api-migrate` | Aplica migrations Alembic no PostgreSQL configurado. |
+| `just api-migrate` | Durante a transição, aplica migrations no banco atualmente configurado. O alvo final é SQLite em arquivo. |
 | `just api-rollback` | Reverte a última migration; use `just api-rollback base` somente em banco local descartável. |
 | `just api-makemigration "descricao"` | Gera uma migration a ser revisada antes de ser aplicada. |
-| `just api-test-integration` | Sobe PostgreSQL local, aplica migrations e executa testes de integração. |
+| `just api-test-integration` | Durante a transição, executa a integração legada; a issue SQLite deve substituí-la por testes em arquivo SQLite. |
 | `just web-check` | Prettier, ESLint, tipos e testes do web. |
-| `just infra-up` | Sobe PostgreSQL, MinIO e Mailpit localmente. |
+| `just infra-up` | Sobe serviços auxiliares legados/opcionais; não é pré-requisito do CRM. |
 | `just infra-down` | Para os serviços sem apagar dados. |
 | `just infra-reset` | Apaga os volumes locais; use conscientemente. |
 
@@ -71,4 +71,10 @@ Não usamos atualização automática de dependências por pull request. Em uma 
 
 ## Banco de dados e migrations
 
-Copie `.env.example` para `.env` antes de executar comandos de banco. Use `just infra-up` para iniciar PostgreSQL e `just api-migrate` para aplicar migrations. Nunca edite a tabela `alembic_version` manualmente, nunca aplique migration de produção por este repositório sem autorização explícita e nunca gere migrations sem revisar o diff produzido.
+Copie `.env.example` para `.env` antes de executar comandos de banco. A ADR 0003
+define SQLite em arquivo como banco de desenvolvimento e entrega. Até a issue
+#54 atualizar os comandos, os alvos PostgreSQL existentes são apenas
+legados; não crie funcionalidades persistentes novas sobre eles. Nunca edite a
+tabela `alembic_version` manualmente, nunca aplique migration de produção por
+este repositório sem autorização explícita e nunca gere migrations sem revisar o
+diff produzido.

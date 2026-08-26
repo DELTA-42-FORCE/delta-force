@@ -1,6 +1,6 @@
 # Decisões confirmadas com o cliente
 
-**Atualizado em 19 de agosto de 2026.** Este registro complementa o levantamento
+**Atualizado em 25 de agosto de 2026.** Este registro complementa o levantamento
 de requisitos. Em caso de divergência, uma decisão posterior confirmada pelo
 cliente prevalece sobre uma hipótese anterior.
 
@@ -19,10 +19,10 @@ cliente prevalece sobre uma hipótese anterior.
 
 - Informações e documentos devem ficar no computador do cliente; o banco guarda
   dados operacionais e metadados, nunca o conteúdo binário do documento.
-- O cadastro deve partir dos dados solicitados para criação de conta em serviços
-  `gov.br`. Antes de modelar a migration, o time deve registrar o catálogo
-  explícito de campos e a fonte da regra em #14; não é permitido inferir campos
-  adicionais sem homologação.
+- O CRM é uma **pasta digital flexível por cliente**. Criar um cliente exige
+  somente um nome de identificação; todos os demais dados e documentos são
+  opcionais e podem ser incluídos ao longo do tempo. Não há catálogo rígido de
+  `gov.br`, regra de reservista ou documento obrigatório no MVP.
 - Os documentos são pessoais, predominantemente PDF. O MVP aceita somente
   **PDF** e, para fotos, **JPEG** após validação de conteúdo.
 - O limite de tamanho ainda não foi informado. Até a definição, uploads e
@@ -42,10 +42,14 @@ cliente prevalece sobre uma hipótese anterior.
 - O e-mail remetente da mala direta ainda será informado pelo cliente. Nenhuma
   credencial, conta de teste real ou segredo deve ser adicionado ao repositório.
 
+## Decisões técnicas registradas
+
+- SQLite em arquivo será usado no desenvolvimento e na entrega local; documentos
+  serão guardados em filesystem privado. A decisão está na ADR 0003.
+
 ## Decisões técnicas ainda necessárias
 
-As decisões acima não autorizam escolher por hipótese a tecnologia de entrega.
-A issue #43 definirá, por ADR aprovada, o empacotamento Windows, persistência de
-produção, diretório privado de dados, primeira execução e estratégia de
-atualização. PostgreSQL, MinIO, Mailpit e Docker Compose continuam sendo a
-infraestrutura de desenvolvimento até essa decisão.
+A issue #43 ainda definirá, por ADR aprovada, o shell/empacotamento Windows,
+diretório privado final, primeira execução e estratégia de atualização. A
+criptografia e a recuperação do backup, o limite máximo de upload e o provedor
+de e-mail seguem pendentes.

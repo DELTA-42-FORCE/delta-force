@@ -2,43 +2,48 @@
 
 O repositório é um monorepo: a API e a interface compartilham documentação, automações e infraestrutura, mas preservam dependências e testes isolados.
 
-## Desenvolvimento
+## Desenvolvimento e dados locais
 
 ```text
-apps/web ────────────────► apps/api ─────────────► PostgreSQL
+apps/web ────────────────► apps/api ─────────────► SQLite em arquivo
   interface interna          autenticação e regras      dados operacionais
                               │
-                              ├──────────────────────► MinIO
-                              │                         documentos digitalizados
+                              ├──────────────────────► filesystem privado
+                              │                         documentos PDF/JPEG
                               └──────────────────────► provedor de e-mail
-                                                        (Mailpit local)
+                                                        (Mailpit, quando aplicável)
 ```
 
-PostgreSQL, MinIO, Mailpit e Docker Compose são a infraestrutura de
-**desenvolvimento**. Eles não significam que o cliente precisará instalar Docker
-ou administrar esses serviços no computador Windows.
+SQLite e filesystem privado são o alvo para desenvolvimento e entrega, conforme
+a [ADR 0003](adr/0003-sqlite-como-persistencia-local.md). Docker, PostgreSQL e
+MinIO não são pré-requisitos. A fundação PostgreSQL ainda existente é apenas
+transitória e será removida/substituída pela issue #54.
 
 ## Entrega ao cliente
 
 O cenário aprovado é um aplicativo local Windows, usado somente pelo
 proprietário e com dados/documentos no próprio dispositivo. A arquitetura de
-produção — embalagem do aplicativo, banco, armazenamento privado de documentos,
-primeira execução, atualização e backup — será definida pela ADR da issue #43.
-Até essa aprovação, nenhuma dependência desktop ou troca de persistência deve
-ser introduzida por conveniência.
+produção — embalagem do aplicativo, diretório privado final, primeira execução,
+atualização e backup — será definida pela ADR da issue #43. A persistência SQLite
+já está decidida; nenhuma dependência desktop deve ser introduzida por conveniência.
 
 Na API, a evolução deve manter as fronteiras abaixo:
 
 - `domain`: entidades, regras e interfaces sem dependência de HTTP ou banco;
 - `application`: casos de uso, DTOs e autorização;
-- `infrastructure`: PostgreSQL, armazenamento de arquivos, e-mail e integrações;
+- `infrastructure`: SQLite, armazenamento de arquivos, e-mail e integrações;
 - `presentation`: rotas HTTP, serialização e autenticação de requisição.
 
 Essa separação reproduz o princípio adotado no Genesi, mas inicia pequena: não crie camadas vazias sem uma funcionalidade real. Toda decisão estrutural que mude este desenho deve ser registrada em `docs/adr/`.
 
 ## Persistência
 
-O PostgreSQL é acessado somente pelo adaptador em `apps/api/src/crm_api/infrastructure/database.py`. A configuração é validada por `core/config.py`, usa o driver assíncrono `psycopg` e não deve ser lida diretamente por rotas HTTP. Migrations são controladas pelo Alembic em `apps/api/alembic/`; cada alteração de esquema futura requer migration reversível e teste correspondente.
+SQLite será acessado somente pelo adaptador em
+`apps/api/src/crm_api/infrastructure/database.py`. A configuração não deve ser
+lida diretamente por rotas HTTP. Migrations são controladas pelo Alembic em
+`apps/api/alembic/`; cada alteração de esquema futura requer migration reversível
+e teste correspondente. A implementação atual PostgreSQL será portada pela issue
+de transição #54 antes de novas entidades persistentes.
 
 Na instalação do cliente, documentos continuarão fora do banco e em área privada
 da aplicação; somente metadados podem ser persistidos no banco. Backup e
@@ -70,8 +75,8 @@ enquanto houver histórico. A consulta usa cursor por `(occurred_at, id)`, não
 offset, para que o próprio evento de visualização ou novos registros não
 desloquem páginas já percorridas.
 
-O PostgreSQL continua sendo o banco operacional desta etapa. O adaptador
-normaliza como UTC timestamps sem fuso que um SQLite futuro possa devolver. Ao
-implementar o engine SQLite da entrega Windows, habilitar e testar
-`PRAGMA foreign_keys=ON` em toda conexão é obrigatório antes de considerar a FK
-`RESTRICT` efetiva; compilar o DDL isoladamente não prova essa garantia.
+No SQLite, habilitar e testar `PRAGMA foreign_keys=ON` em toda conexão é
+obrigatório antes de considerar uma FK efetiva. A transição também deve definir e
+testar journal, timeout de lock, `synchronous=FULL`, timestamps UTC e a
+integridade após reabrir o arquivo; compilar DDL isoladamente não prova essas
+garantias.

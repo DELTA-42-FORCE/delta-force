@@ -27,10 +27,9 @@ O produto é um CRM **interno** de gestão de clientes. Ele manipulará dados pe
 
 Não implemente item fora do MVP sem issue e decisão explícita. As decisões
 confirmadas estão em `docs/CLIENT_DECISIONS.md` e o caminho de entrega em
-`docs/MVP_PLAN.md`. Regras ainda pendentes — catálogo explícito de
-campos/tamanho máximo, arquitetura de entrega local, criptografia do backup e
-provedor de e-mail — estão no backlog. Não as invente: registre a dependência e
-peça definição.
+`docs/MVP_PLAN.md`. Regras ainda pendentes — tamanho máximo de upload,
+arquitetura de entrega local, criptografia do backup e provedor de e-mail —
+estão no backlog. Não as invente: registre a dependência e peça definição.
 
 ## Fontes de verdade
 
@@ -46,19 +45,21 @@ peça definição.
 
 | Camada | Tecnologia |
 | --- | --- |
-| Backend | Python 3.12+, FastAPI, SQLAlchemy 2, `psycopg`, Alembic, `uv`, Black, Flake8 e pytest. |
+| Backend | Python 3.12+, FastAPI, SQLAlchemy 2, driver SQLite assíncrono, Alembic, `uv`, Black, Flake8 e pytest. |
 | Frontend | React 19, TypeScript, Vite, ESLint, Prettier e Vitest. |
-| Dados de desenvolvimento | PostgreSQL 16. |
-| Documentos de desenvolvimento | Armazenamento de objetos compatível com S3; MinIO no desenvolvimento. |
-| E-mail local | Mailpit. |
-| Infra local | Docker Compose. |
+| Dados | SQLite em arquivo, no desenvolvimento e no aplicativo Windows. |
+| Documentos | Filesystem privado; o banco guarda somente metadados. |
+| E-mail local | Mailpit, somente quando a issue de e-mail o exigir. |
+| Infra local | Não requer Docker, PostgreSQL ou MinIO. |
 | Automação | `just` e GitHub Actions; auditoria manual de dependências. |
 
-A entrega de produção será um aplicativo local Windows; seu empacotamento,
-banco e armazenamento serão definidos pela ADR da issue #43. Não troque
-bibliotecas-base, gerenciadores de dependência ou banco de dados sem uma ADR em
-`docs/adr/` e aprovação do time. Dependências devem ser adicionadas apenas quando
-uma issue justificar seu uso e os lockfiles correspondentes devem ser atualizados.
+A decisão de SQLite está aceita na ADR 0003. O código atual ainda contém a
+fundação PostgreSQL e só deve ser migrado na issue #54;
+até ela terminar, não crie funcionalidade persistente nova sobre detalhes de
+PostgreSQL. O shell e o empacotamento Windows continuam na ADR da issue #43.
+Não troque bibliotecas-base, gerenciadores de dependência ou banco de dados sem
+ADR em `docs/adr/` e aprovação do time. Dependências devem ser adicionadas apenas
+quando uma issue justificar seu uso e os lockfiles correspondentes devem ser atualizados.
 
 Não há atualização automática de dependências por pull request. Execute `just audit` periodicamente ou antes de uma atualização: ele falha em vulnerabilidades de código/dependências e lista versões novas apenas para decisão explícita do time.
 
@@ -67,7 +68,7 @@ Não há atualização automática de dependências por pull request. Execute `j
 ```text
 apps/api/       API FastAPI e testes Python
 apps/web/       Interface React/TypeScript e testes
-infra/          PostgreSQL, MinIO e Mailpit para desenvolvimento local
+infra/          recursos locais transitórios e serviços auxiliares opcionais
 docs/           Requisitos, backlog, arquitetura e decisões
 .github/        CI e templates de colaboração
 ```
@@ -124,7 +125,7 @@ Cada entrega deve ter testes proporcionais ao risco: unidade para regra de negó
 - Tipagem explícita, validação na borda e respostas/erros consistentes.
 - Rotas ficam finas; casos de uso concentram fluxo de negócio; adaptadores de banco, e-mail e objetos ficam isolados.
 - Toda mudança de esquema persistente deve ter migration reversível, testes e estratégia de compatibilidade.
-- Não acople regras a PostgreSQL, MinIO, PagBank ou provedor de e-mail; use interfaces/adaptadores quando a integração entrar no escopo.
+- Não acople regras a SQLite, filesystem, PagBank ou provedor de e-mail; use interfaces/adaptadores quando a integração entrar no escopo.
 
 ### Web
 

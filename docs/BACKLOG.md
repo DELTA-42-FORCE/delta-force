@@ -4,15 +4,15 @@ Este arquivo é a fonte para abertura inicial de issues. Cada seção abaixo cor
 
 ## MVP
 
-### 1. Definir catálogo cadastral e documentos aceitos
+### 1. Formalizar a pasta digital flexível
 
-**Labels:** `type: feature`, `area: docs`, `priority: mvp`, `status: blocked`.
+**Labels:** `type: feature`, `area: docs`, `priority: mvp`.
 
-**Critérios de aceite:** catálogo explícito de campos obrigatórios/opcionais a
-partir da referência `gov.br`; lista de documentos PDF/JPEG e respectivos
-tamanhos; regras condicionais homologadas; layout e campos da ficha PDF
-formalizados. No MVP há somente o proprietário, portanto não existe matriz de
-papéis. Atende às pendências de CAD-01/02/05 e NF-05.
+**Critérios de aceite:** criar cliente requer somente nome de identificação;
+demais informações e documentos são opcionais e podem ser incluídos depois.
+PDF/JPEG são os formatos aceitos, com tamanho máximo ainda pendente. Não há
+catálogo rígido de `gov.br`, regra de reservista ou documento obrigatório. No
+MVP há somente o proprietário, portanto não existe matriz de papéis.
 
 ### 2. Configurar e autenticar o proprietário local
 
@@ -38,29 +38,33 @@ Fora do MVP: somente o proprietário utilizará o CRM local.
 download, backup e restauração relevantes registram ator, data/hora, recurso e
 resultado; acesso sem sessão válida é negado. Atende NF-02 e NF-06.
 
-### 5. Modelar e persistir o cadastro de clientes
+### 5. Modelar e persistir a pasta de cliente
 
 **Labels:** `type: feature`, `area: api`, `priority: mvp`. **Depende de:** 1.
 
-**Critérios de aceite:** modelo contempla o catálogo homologado a partir da
-referência `gov.br`, além dos campos documentais aprovados; migration e testes
-cobrem as regras de identidade. Atende CAD-01, CAD-02 e CAD-03.
+**Critérios de aceite:** modelo começa com nome de identificação obrigatório e
+campos opcionais extensíveis; migration e testes garantem que dados podem ser
+completados gradualmente, sem exigir CPF, reservista ou arquivos. Depende da
+transição para SQLite.
 
 ### 6. Disponibilizar cadastro, busca, consulta e edição de clientes
 
 **Labels:** `type: feature`, `area: api`, `area: web`, `priority: mvp`. **Depende de:** 2, 4 e 5.
 
-**Critérios de aceite:** usuário autorizado cria, pesquisa, consulta e edita cliente; CPF tem validação e unicidade; dados são visíveis somente a quem tem autorização.
+**Critérios de aceite:** proprietário cria, pesquisa, consulta e edita cliente;
+nome é obrigatório e os campos adicionais são opcionais. Dados só são visíveis
+na sessão autenticada.
 
-### 7. Aplicar regra de reservista conforme sexo cadastrado
+### 7. Reavaliar campos formais e reservista
 
-**Labels:** `type: feature`, `area: api`, `area: web`, `priority: mvp`. **Depende de:** 5 e 6.
+**Labels:** `type: feature`, `area: api`, `area: web`, `priority: future`.
 
-**Critérios de aceite:** ao indicar sexo masculino, o cadastro solicita e valida a presença do dado de reservista conforme a regra homologada; demais casos seguem o catálogo aprovado. Atende CAD-04.
+Fora do MVP. Só retomar se uma necessidade operacional concreta do proprietário
+justificar campos ou validações rígidas.
 
 ### 8. Provisionar armazenamento privado de documentos e política operacional
 
-**Labels:** `type: security`, `area: api`, `area: infra`, `priority: mvp`. **Depende de:** 1.
+**Labels:** `type: security`, `area: api`, `area: infra`, `priority: mvp`. **Depende de:** 5.
 
 **Critérios de aceite:** documentos PDF/JPEG são armazenados fora do banco em
 área privada local; acesso exige sessão válida; retenção sem prazo de descarte,
