@@ -1,90 +1,98 @@
-# — comece por aqui
+# Vergueiro — comece por aqui
 
-Estado confirmado em **24 de agosto de 2026**. Leia primeiro `AGENTS.md` e
-`handoff/PROJECT_CONTINUATION.md`. Não faça merge automático e use somente dados
-sintéticos.
+Estado confirmado em **29 de agosto de 2026**. Leia primeiro `AGENTS.md`,
+`docs/adr/0003-sqlite-como-persistencia-local.md`, `docs/MVP_PLAN.md` e
+`handoff/PROJECT_CONTINUATION.md`. Use somente dados sintéticos e não faça merge
+automático.
 
 ## O que já está em `develop`
 
-`origin/develop` está em `c111f0c` e já contém:
+`origin/develop` está em `2384618` e já contém código real do produto:
 
-- PR #41: setup/login/logout e autenticação segura do proprietário;
-- PR #50: interface responsiva de primeiro acesso, login e painel;
-- PR #51: auditoria append-only e consulta autenticada;
-- PR #52: atividade recente, histórico, paginação e filtros da auditoria;
-- PR #53: proposta/questionário para homologar o catálogo cadastral.
+- primeira conta, login, sessão e logout do proprietário;
+- interface de primeiro acesso, login e painel;
+- auditoria append-only, consulta autenticada e histórico na interface;
+- ADR 0003 aceita: SQLite em arquivo e filesystem privado são os alvos tanto do
+  desenvolvimento quanto da entrega;
+- pasta digital flexível: somente o nome é obrigatório na criação do cliente;
+  os demais dados e documentos são opcionais.
 
-Essas entregas são código real do produto, não apenas mockup. A API possui 98
-testes unitários/não integração e a web possui 23 testes Vitest no estado atual.
+O limite máximo de PDF/JPEG, o remetente/provedor de e-mail e a proteção do
+backup continuam pendentes. Não invente esses valores.
 
-## PRs abertas
+## Decisões novas do Caio
 
-### PR #48 — arquitetura Windows
+Na PR #48, Caio confirmou a direção técnica:
 
-- branch: `chore/43-arquitetura-windows`;
-- head esperado: `437c352`;
+- Tauri 2 direto como shell;
+- React existente dentro da janela;
+- FastAPI empacotada como sidecar;
+- SQLite em arquivo;
+- Tauri limitado a janela, supervisão do sidecar e integrações nativas
+  indispensáveis;
+- regras, autenticação, auditoria e dados continuam no FastAPI;
+- instalação manual simples, sem launcher ou atualizador próprios;
+- não haverá especialista Rust fixo, mas toda alteração em Tauri/CI Windows terá
+  autor responsável e revisão de pelo menos outro integrante.
+
+## Estado das PRs
+
+### PR #48 — ADR Windows
+
+- branch: `chore/43-arquitetura-windows`, head atual `437c352`;
 - base: `develop`;
-- estado: mergeável e cinco checks verdes;
-- revisão: Caio reconheceu a melhora e pediu três ajustes finais; eles foram
-  publicados e uma nova revisão foi solicitada. O GitHub ainda mostra
-  `CHANGES_REQUESTED` até a resposta sobre o novo head;
-- regra: **não fazer merge sem autorização explícita de Thiago**.
-
-A ADR 0002 continua **Proposta**. A revisão retirou Windows 11 Pro/BitLocker e
-recovery code dos fatos do cliente, reduziu o MVP para Tauri direto + sidecar e
-removeu launcher, updater, manifesto e gerações próprios. Também registra que:
-
-- não existe banco PostgreSQL do cliente a converter;
-- a primeira instalação deverá nascer em SQLite vazio;
-- a migration `0003` falha hoje no SQLite sem batch/copy-and-move;
-- PostgreSQL e SQLite precisam de uma matriz real de integração durante a
-  transição;
-- assinatura, proteção do disco, WebView2 e proteção/recuperação do backup ainda
-  são decisões/gates futuros.
-- #15 e #17 estão concluídas; a futura issue desktop validará autenticação e
-  auditoria no runtime local.
-- o segredo bruto será entregue à API uma vez por `stdin` herdado; somente a
-  capability chega ao React por IPC interno, vinculada à instância e em memória.
+- estado atual: `CONFLICTING` e `CHANGES_REQUESTED`, porque `develop` avançou;
+- Caio considerou os bloqueios anteriores atendidos e pediu a sincronização com
+  a ADR 0003/#54, a confirmação de Tauri e a atualização dos gates;
+- próximo passo: rebasear sobre `origin/develop`, corrigir somente a documentação
+  solicitada, executar os checks, fazer push com `--force-with-lease` e pedir
+  nova revisão;
+- **não fazer merge sem autorização nova e explícita de Thiago**.
 
 ### PR #49 — spike Windows
 
 - branch: `chore/43-windows-spike`, head `5539583`;
-- base: PR #48;
-- estado: `CONFLICTING` e `CHANGES_REQUESTED`, sem CI;
-- regra: manter isolada; **não rebasear para `develop`, não retargetar e não
-  resolver o conflito agora**.
+- continua isolada e não será integrada em `develop`;
+- não rebasear, não retargetar, não resolver conflitos e não reutilizar seus
+  lockfiles;
+- após o aceite da ADR, deve ser fechada sem merge; preservar somente evidência
+  sanitizada que o time julgar útil.
 
-Depois que a ADR for aceita, o time decidirá se preserva apenas relatório/digest
-na issue #43, move o experimento para outro repositório ou abre um recorte mínimo
-novo. Não reutilize os quase 10 mil linhas e lockfiles da #49 como produto.
+### PR #55 — decisão SQLite
 
-## O que bloqueia novo código do MVP
+- foi integrada em `develop` como `2384618`;
+- fechou a issue #14 e aceitou a ADR 0003;
+- a implementação ficou na issue #54, que está aberta e `status: ready`.
 
-- **#14 / #18–#23 / #34 / #45:** o catálogo de campos, obrigatoriedade, tipos de
-  documento e tamanho máximo ainda precisa ser respondido/homologado pelo
-  cliente. “Mesmos dados do gov.br” não é schema suficiente.
-- **#43 / #44:** a ADR Windows ainda aguarda revisão; backup depende também de
-  decisão de proteção/recuperação e revisão criptográfica.
-- **#46 / #24–#25:** o cliente ainda não informou e-mail/provedor remetente.
+## Trabalho de código que pode começar
 
-Não invente essas regras para começar telas ou migrations. O próximo módulo
-funcional seguro é #18 somente depois da homologação completa da #14.
+A issue **#54 — Portar a persistência para SQLite local** é o próximo recorte
+seguro e deve nascer de `origin/develop`, nunca da PR #49. Ela cobre:
 
-## Próximos passos seguros
+- driver SQLite assíncrono e configuração de banco em arquivo;
+- models e migrations portáveis;
+- concorrência segura na criação do primeiro proprietário;
+- `foreign_keys`, WAL, timeout de lock e `synchronous=FULL`;
+- migrations, autenticação e auditoria com fechamento/reabertura;
+- `integrity_check`, `foreign_key_check`, comandos locais e CI sem Docker.
 
-1. Conferir se Caio respondeu ao commit `437c352` na PR #48; corrigir somente
-   novos achados verificáveis e nunca alterar o status da ADR por conta própria.
-2. Se a PR #48 for aprovada, avisar Thiago. Não fazer merge sem nova autorização.
-3. Depois do merge autorizado da #48, criar/vincular uma issue pequena para o
-   adapter SQLite, migrations portáveis e shell mínimo; a PR deve nascer de
-   `develop`, não da spike #49.
-4. Obter do cliente as respostas de
-   `docs/QUESTIONARIO_CATALOGO_CLIENTE.md` e o remetente/provedor de e-mail.
-5. Homologar #14 antes de implementar #18; em seguida seguir #19 e #20.
-6. Reescrever a proposta de backup #44 depois da decisão Windows; a branch antiga
-   contém hipóteses que a revisão da #48 devolveu para decisão pendente.
+Depois da #54 revisada, seguir #18 e #19 para modelo/API/telas da pasta flexível
+de cliente. Documentos (#21/#22/#23), importação (#45) e ficha PDF (#34) vêm
+depois; upload não pode ser liberado antes da definição do limite máximo.
 
-## Comandos para recuperar o estado
+## Ordem recomendada
+
+1. Atualizar a PR #48 conforme o último comentário do Caio e pedir revisão.
+2. Em branch nova baseada em `origin/develop`, implementar a issue #54.
+3. Após revisão da #54, implementar #18 e #19.
+4. Tratar filesystem/documentos, checklist, importação e ficha PDF.
+5. Implementar e-mail somente após #46; backup somente após as decisões da #44.
+6. Encerrar com operação/LGPD e teste ponta a ponta #27.
+
+Os passos 1 e 2 podem avançar em branches separadas, mas mudanças em arquivos
+compartilhados devem ser coordenadas. Não faça merge automático.
+
+## Comandos de retomada
 
 ```powershell
 git fetch origin --prune
@@ -92,13 +100,14 @@ git status --short --branch
 git worktree list
 git log --oneline --decorate -8 origin/develop
 gh pr view 48 --repo DELTA-42-FORCE/delta-force
-gh pr checks 48 --repo DELTA-42-FORCE/delta-force
 gh pr view 49 --repo DELTA-42-FORCE/delta-force
-gh issue view 14 --repo DELTA-42-FORCE/delta-force
-gh issue view 43 --repo DELTA-42-FORCE/delta-force
-gh issue view 46 --repo DELTA-42-FORCE/delta-force
+gh issue view 54 --repo DELTA-42-FORCE/delta-force
+gh issue list --repo DELTA-42-FORCE/delta-force --state open --limit 100
 ```
 
+Para iniciar a #54, crie uma branch curta a partir de `origin/develop` e siga os
+critérios da issue. Antes de revisão, execute `just check` e registre migrations,
+testes, limitações e decisões pendentes.
+
 O `package-lock.json` não rastreado na raiz do checkout de Thiago é alheio ao
-projeto: não adicionar, remover ou sobrescrever. Antes de parar, registre branch,
-commit, testes, bloqueios e próximo comando neste handoff.
+projeto: não adicionar, remover ou sobrescrever.
