@@ -48,8 +48,21 @@ jobs:
       - run: just api-install
       - run: just api-test
 
+  api-integration-sqlite:
+    name: API — SQLite integration (obrigatório)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: apps/api/uv.lock
+      - uses: extractions/setup-just@v2
+      - run: just api-install
+      - run: just api-test-integration-sqlite
+
   api-integration:
-    name: API — PostgreSQL integration
+    name: API — PostgreSQL integration (legado, ADR 0003)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -9,6 +9,10 @@ _DESTINATION_OVERRIDE_PARAMETERS = frozenset({"dbname", "host", "hostaddr", "ser
 def ensure_loopback_database_url(url: str) -> None:
     """Recusa URLs cujo destino efetivo possa sair da máquina local."""
     parsed = urlsplit(url)
+    if parsed.scheme.split("+", 1)[0] == "sqlite":
+        # Arquivo local: não existe host de rede a validar.
+        return
+
     query_parameters = {
         key.lower() for key, _ in parse_qsl(parsed.query, keep_blank_values=True)
     }

@@ -6,7 +6,7 @@ from crm_api.main import app
 pytestmark = pytest.mark.integration
 
 
-def test_readiness_check_connects_to_local_postgres() -> None:
+def test_readiness_check_connects_to_the_configured_database() -> None:
     response = TestClient(app).get("/health/ready")
 
     assert response.status_code == 200

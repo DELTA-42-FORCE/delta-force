@@ -2,11 +2,13 @@ import asyncio
 import hashlib
 import uuid
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete, select, text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from crm_api.domain.auth.entities import User
 from crm_api.infrastructure.audit.models import AuditEventModel
@@ -16,15 +18,24 @@ from crm_api.infrastructure.audit.repositories import (
 from crm_api.infrastructure.auth.models import SessionModel, UserModel
 from crm_api.infrastructure.auth.passwords import BcryptPasswordHasher
 from crm_api.infrastructure.auth.repositories import SqlAlchemyUserRepository
-from crm_api.infrastructure.database import get_session_factory
+from crm_api.infrastructure.database import get_engine, get_session_factory
 from crm_api.main import app
 
 pytestmark = pytest.mark.integration
 
 
+async def _disposable_database_name(session: AsyncSession) -> str | None:
+    """Identifica o banco descartável independentemente do dialeto ativo."""
+    engine = get_engine()
+    if engine.dialect.name == "sqlite":
+        database = engine.url.database
+        return Path(database).stem if database else None
+    return await session.scalar(text("SELECT current_database()"))
+
+
 async def clear_disposable_auth_data() -> None:
     async with get_session_factory()() as session:
-        database_name = await session.scalar(text("SELECT current_database()"))
+        database_name = await _disposable_database_name(session)
         if database_name is None or not database_name.startswith(
             "delta_force_integration_"
         ):

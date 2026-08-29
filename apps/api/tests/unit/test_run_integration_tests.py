@@ -21,6 +21,8 @@ SCRIPT_SPEC.loader.exec_module(run_integration_tests)
         "postgresql+psycopg://crm:crm@localhost:5432/crm",
         "postgresql+psycopg://crm:crm@127.0.0.1:5432/crm",
         "postgresql+psycopg://crm:crm@[::1]:5432/crm",
+        "sqlite+aiosqlite:///./crm.sqlite3",
+        "sqlite+aiosqlite:///:memory:",
     ],
 )
 def test_loopback_database_url_is_allowed(database_url: str) -> None:

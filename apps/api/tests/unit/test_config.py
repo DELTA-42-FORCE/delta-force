@@ -4,7 +4,19 @@ from pydantic import ValidationError
 from crm_api.core.config import get_settings
 
 
-def test_settings_accepts_async_psycopg_url(
+def test_settings_accepts_sqlite_aiosqlite_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", "sqlite+aiosqlite:///./crm.sqlite3")
+    get_settings.cache_clear()
+
+    settings = get_settings()
+
+    assert settings.database_url.endswith("/crm.sqlite3")
+    get_settings.cache_clear()
+
+
+def test_settings_accepts_async_psycopg_url_during_transition(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv(
@@ -25,7 +37,7 @@ def test_settings_rejects_a_non_standard_database_driver(
     monkeypatch.setenv("DATABASE_URL", "postgresql://localhost:5432/crm")
     get_settings.cache_clear()
 
-    with pytest.raises(ValidationError, match="postgresql\\+psycopg"):
+    with pytest.raises(ValidationError, match="sqlite\\+aiosqlite"):
         get_settings()
 
     get_settings.cache_clear()

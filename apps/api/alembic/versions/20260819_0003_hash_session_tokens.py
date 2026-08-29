@@ -36,10 +36,15 @@ def upgrade() -> None:
             .values(token_hash=hashlib.sha256(token.encode("utf-8")).hexdigest())
         )
 
-    op.alter_column("sessions", "token_hash", nullable=False)
-    op.drop_constraint(LEGACY_PRIMARY_KEY_NAME, "sessions", type_="primary")
-    op.drop_column("sessions", "token")
-    op.create_primary_key(HASH_PRIMARY_KEY_NAME, "sessions", ["token_hash"])
+    # batch_alter_table recria a tabela (copy-and-move) em vez de emitir ALTER
+    # TABLE ... DROP CONSTRAINT/ADD CONSTRAINT, que o SQLite não suporta. O
+    # mesmo caminho roda nos dois dialetos para não haver dois comportamentos
+    # de migration a manter (ADR 0003 / #54).
+    with op.batch_alter_table("sessions", recreate="always") as batch_op:
+        batch_op.alter_column("token_hash", nullable=False)
+        batch_op.drop_constraint(LEGACY_PRIMARY_KEY_NAME, type_="primary")
+        batch_op.drop_column("token")
+        batch_op.create_primary_key(HASH_PRIMARY_KEY_NAME, ["token_hash"])
 
 
 def downgrade() -> None:
@@ -52,7 +57,8 @@ def downgrade() -> None:
         sa.column("token_hash", sa.String()),
     )
     connection.execute(sessions.update().values(token=sessions.c.token_hash))
-    op.alter_column("sessions", "token", nullable=False)
-    op.drop_constraint(HASH_PRIMARY_KEY_NAME, "sessions", type_="primary")
-    op.drop_column("sessions", "token_hash")
-    op.create_primary_key(LEGACY_PRIMARY_KEY_NAME, "sessions", ["token"])
+    with op.batch_alter_table("sessions", recreate="always") as batch_op:
+        batch_op.alter_column("token", nullable=False)
+        batch_op.drop_constraint(HASH_PRIMARY_KEY_NAME, type_="primary")
+        batch_op.drop_column("token_hash")
+        batch_op.create_primary_key(LEGACY_PRIMARY_KEY_NAME, ["token"])

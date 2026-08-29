@@ -1,7 +1,6 @@
 """Adaptador SQLAlchemy da porta de auditoria."""
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
 
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,19 +14,13 @@ from crm_api.domain.audit.entities import (
     AuditResult,
 )
 from crm_api.infrastructure.audit.models import AuditEventModel
-
-
-def _as_utc(value: datetime) -> datetime:
-    """Normaliza também timestamps ingênuos devolvidos pelo SQLite futuro."""
-    if value.tzinfo is None or value.utcoffset() is None:
-        return value.replace(tzinfo=UTC)
-    return value.astimezone(UTC)
+from crm_api.infrastructure.timestamps import as_utc
 
 
 def _to_event(model: AuditEventModel) -> AuditEvent:
     return AuditEvent(
         id=model.id,
-        occurred_at=_as_utc(model.occurred_at),
+        occurred_at=as_utc(model.occurred_at),
         actor_kind=AuditActorKind(model.actor_kind),
         actor_user_id=model.actor_user_id,
         action=AuditAction(model.action),
