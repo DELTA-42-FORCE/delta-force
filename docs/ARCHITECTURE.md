@@ -23,9 +23,18 @@ transitória e será removida/substituída pela issue #54.
 
 O cenário aprovado é um aplicativo local Windows, usado somente pelo
 proprietário e com dados/documentos no próprio dispositivo. A arquitetura de
-produção — embalagem do aplicativo, diretório privado final, primeira execução,
-atualização e backup — será definida pela ADR da issue #43. A persistência SQLite
-já está decidida; nenhuma dependência desktop deve ser introduzida por conveniência.
+entrega — embalagem do aplicativo, diretório privado final, primeira execução,
+atualização e backup — está em avaliação na
+[ADR 0002](adr/0002-aplicativo-local-windows.md), com status **Proposta**. A
+persistência SQLite já está decidida pela ADR 0003 e não faz parte do escopo da
+ADR 0002. Até o aceite técnico da ADR 0002, nenhuma dependência desktop ou
+mecanismo de distribuição descrito nela faz parte da arquitetura vigente; o
+spike da issue #43 (PR #49) permanece experimento isolado e não deve ser
+integrado ao produto.
+
+Versão/edição do Windows, proteção do disco, assinatura do instalador e método de
+recuperação do backup ainda são decisões operacionais pendentes. Elas não devem
+ser registradas como fatos confirmados pelo cliente.
 
 Na API, a evolução deve manter as fronteiras abaixo:
 
