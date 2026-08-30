@@ -34,11 +34,13 @@ class AuditEventModel(Base):
         CheckConstraint(
             "action IN ('auth.owner_setup', 'auth.login', "
             "'auth.owner_profile_view', 'auth.logout', "
-            "'auth.access_denied', 'audit.log_view')",
+            "'auth.access_denied', 'audit.log_view', "
+            "'client_folder.created')",
             name="ck_audit_events_action",
         ),
         CheckConstraint(
-            "resource_type IN ('owner_account', 'session', 'route', " "'audit_log')",
+            "resource_type IN ('owner_account', 'session', 'route', "
+            "'audit_log', 'client_folder')",
             name="ck_audit_events_resource_type",
         ),
         CheckConstraint(
