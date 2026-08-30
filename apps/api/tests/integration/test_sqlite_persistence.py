@@ -23,6 +23,7 @@ pytestmark = pytest.mark.integration
 API_DIRECTORY = Path(__file__).resolve().parents[2]
 LEGACY_SESSION_REVISION = "20260812_0002"
 PREVIOUS_AUDIT_REVISION = "20260819_0003"
+PREVIOUS_CLIENT_FOLDER_REVISION = "20260829_0005"
 
 
 def run_alembic(command: str, revision: str) -> None:
@@ -295,3 +296,53 @@ def test_audit_database_rejects_invalid_catalog_and_actor_identity() -> None:
                 connection.execute("DELETE FROM audit_events WHERE id = ?", (event_id,))
             connection.execute("DELETE FROM users WHERE id = ?", (user_id,))
             connection.commit()
+
+
+def test_client_folder_migration_round_trip_restores_schema_and_audit_catalog() -> None:
+    path = ensure_disposable_database()
+
+    run_alembic("downgrade", PREVIOUS_CLIENT_FOLDER_REVISION)
+    try:
+        with connect(path) as connection:
+            table_names = {
+                row[0]
+                for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                )
+            }
+            assert "client_folders" not in table_names
+            with pytest.raises(sqlite3.IntegrityError):
+                insert_audit_event(
+                    connection,
+                    actor_kind="anonymous",
+                    actor_user_id=None,
+                    action="client_folder.created",
+                    resource_type="client_folder",
+                )
+
+        run_alembic("upgrade", "head")
+        with connect(path) as connection:
+            table_names = {
+                row[0]
+                for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                )
+            }
+            assert "client_folders" in table_names
+            with pytest.raises(sqlite3.IntegrityError):
+                connection.execute(
+                    "INSERT INTO client_folders (id, display_name, profile_data) "
+                    "VALUES (?, ?, ?)",
+                    (uuid.uuid4().hex, " ", "{}"),
+                )
+            event_id = insert_audit_event(
+                connection,
+                actor_kind="anonymous",
+                actor_user_id=None,
+                action="client_folder.created",
+                resource_type="client_folder",
+            )
+            connection.execute("DELETE FROM audit_events WHERE id = ?", (event_id,))
+            connection.commit()
+    finally:
+        run_alembic("upgrade", "head")

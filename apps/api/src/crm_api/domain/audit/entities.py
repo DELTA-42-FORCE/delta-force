@@ -32,6 +32,7 @@ class AuditAction(StrEnum):
     LOGOUT = "auth.logout"
     ACCESS_DENIED = "auth.access_denied"
     AUDIT_LOG_VIEW = "audit.log_view"
+    CLIENT_FOLDER_CREATED = "client_folder.created"
 
 
 class AuditResourceType(StrEnum):
@@ -41,6 +42,7 @@ class AuditResourceType(StrEnum):
     SESSION = "session"
     ROUTE = "route"
     AUDIT_LOG = "audit_log"
+    CLIENT_FOLDER = "client_folder"
 
 
 @dataclass(frozen=True, slots=True)
