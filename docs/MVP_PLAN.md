@@ -9,31 +9,27 @@ PR continua curto, nasce de `develop`, referencia uma issue e volta para
 1. **#54 — persistência SQLite:** a ADR 0003 definiu SQLite em arquivo e filesystem
    privado para desenvolvimento e entrega. A issue deve portar o
    adaptador, migrations, autenticação e auditoria antes de novas entidades.
-2. **#43 — arquitetura de entrega local Windows:** decidir somente o shell,
-   instalador, diretórios privados finais, primeira execução e atualização. A
-   escolha de persistência já não está pendente nessa issue. A proposta está na
-   ADR 0002 e ainda depende das confirmações e aprovações registradas nela.
+2. **#43 — arquitetura de entrega local Windows:** a ADR 0002 aceita definiu
+   shell Tauri 2, FastAPI empacotada com PyInstaller `onedir`, diretórios
+   privados, primeira execução e atualização manual. A escolha de persistência
+   já não está pendente nessa issue.
 3. **#14 — pasta digital flexível:** formalizar que nome é o único dado exigido
    para criar cliente; demais dados e documentos são opcionais. O limite de
    tamanho de PDF/JPEG permanece pendente.
 4. **#46 — remetente:** aguardar a conta/provedor informado pelo cliente e
    documentar sua configuração segura.
 
-### Plano de instalação Windows da #43
+### Próximos passos da entrega Windows
 
-Este plano só se torna decisão de produção quando a ADR 0002 mudar para
-**Aceita**. Até lá:
+A ADR 0002 já é a decisão de produção. Sua implementação deve seguir esta
+ordem:
 
-1. comparar as alternativas de shell e empacotamento, incluindo custo de
-   implementação, CI e suporte;
-2. revisar a proposta reduzida, sem incorporar o spike experimental ao produto;
-3. após o aceite técnico, abrir uma issue pequena de integração desktop baseada
-   em `develop`, sem reutilizar a PR #49, para shell/sidecar, bootstrap/capability
-   por IPC e lifecycle do processo, validando no runtime local a autenticação
-   (#15) e a auditoria (#17) já integradas; a persistência SQLite é tratada
-   separadamente pela #54;
-4. decidir na #44 a proteção e a recuperação do backup em HD externo;
-5. validar instalação, atualização manual, desinstalação e restauração na #27.
+1. após a conclusão da #54, abrir uma issue pequena de integração desktop
+   baseada em `develop`, sem reutilizar a PR #49, para shell/sidecar,
+   bootstrap/capability por IPC e lifecycle do processo, validando no runtime
+   local a autenticação (#15) e a auditoria (#17) já integradas;
+2. decidir na #44 a proteção e a recuperação do backup em HD externo;
+3. validar instalação, atualização manual, desinstalação e restauração na #27.
 
 Versão/edição do Windows, proteção do disco, assinatura/custódia e recuperação do
 backup permanecem pendentes. O plano não antecipa essas escolhas como aprovadas.

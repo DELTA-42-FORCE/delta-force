@@ -22,15 +22,14 @@ transitória e será removida/substituída pela issue #54.
 ## Entrega ao cliente
 
 O cenário aprovado é um aplicativo local Windows, usado somente pelo
-proprietário e com dados/documentos no próprio dispositivo. A arquitetura de
-entrega — embalagem do aplicativo, diretório privado final, primeira execução,
-atualização e backup — está em avaliação na
-[ADR 0002](adr/0002-aplicativo-local-windows.md), com status **Proposta**. A
-persistência SQLite já está decidida pela ADR 0003 e não faz parte do escopo da
-ADR 0002. Até o aceite técnico da ADR 0002, nenhuma dependência desktop ou
-mecanismo de distribuição descrito nela faz parte da arquitetura vigente; o
-spike da issue #43 (PR #49) permanece experimento isolado e não deve ser
-integrado ao produto.
+proprietário e com dados/documentos no próprio dispositivo. A
+[ADR 0002](adr/0002-aplicativo-local-windows.md), com status **Aceita**,
+define a entrega: Tauri 2 como shell e supervisor mínimo, React na janela e
+FastAPI empacotada com PyInstaller `onedir`. A persistência SQLite já está
+decidida pela ADR 0003 e não faz parte do escopo da ADR 0002. A implementação
+do shell depende da conclusão da #54 e será feita em uma nova issue de
+integração desktop; o spike da issue #43 (PR #49) permanece experimento isolado
+e não deve ser integrado ao produto.
 
 Versão/edição do Windows, proteção do disco, assinatura do instalador e método de
 recuperação do backup ainda são decisões operacionais pendentes. Elas não devem
