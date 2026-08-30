@@ -9,7 +9,6 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.dialects import postgresql
 
 revision: str = "20260812_0002"
 down_revision: str | Sequence[str] | None = "20260808_0001"
@@ -23,15 +22,13 @@ def upgrade() -> None:
         "users",
         sa.Column(
             "id",
-            postgresql.UUID(as_uuid=True),
+            sa.Uuid(as_uuid=True),
             primary_key=True,
         ),
         sa.Column("email", sa.String(), nullable=False),
         sa.Column("full_name", sa.String(), nullable=False),
         sa.Column("password_hash", sa.String(), nullable=False),
-        sa.Column(
-            "is_active", sa.Boolean(), nullable=False, server_default=sa.true()
-        ),
+        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.true()),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -43,10 +40,10 @@ def upgrade() -> None:
 
     op.create_table(
         "sessions",
-        sa.Column("token", sa.String(), primary_key=True),
+        sa.Column("token", sa.String(), nullable=False),
         sa.Column(
             "user_id",
-            postgresql.UUID(as_uuid=True),
+            sa.Uuid(as_uuid=True),
             sa.ForeignKey("users.id", ondelete="CASCADE"),
             nullable=False,
         ),
@@ -58,6 +55,10 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.func.now(),
         ),
+        # Nomeado explicitamente: no SQLite uma chave primária definida na
+        # coluna (primary_key=True) fica sem nome refletível, o que impede a
+        # migration 0003 de trocá-la de forma portável em batch mode.
+        sa.PrimaryKeyConstraint("token", name="sessions_pkey"),
     )
     op.create_index("ix_sessions_user_id", "sessions", ["user_id"])
 

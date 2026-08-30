@@ -4,11 +4,13 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from crm_api.domain.auth.entities import Session, User
-from crm_api.infrastructure.auth.models import SessionModel, UserModel
+from crm_api.infrastructure.auth.models import OwnerSlotModel, SessionModel, UserModel
+from crm_api.infrastructure.timestamps import as_utc
 
 
 def _to_user(model: UserModel) -> User:
@@ -25,14 +27,14 @@ def _to_session(model: SessionModel) -> Session:
     return Session(
         token_hash=model.token_hash,
         user_id=model.user_id,
-        expires_at=model.expires_at,
-        revoked_at=model.revoked_at,
+        expires_at=as_utc(model.expires_at),
+        revoked_at=as_utc(model.revoked_at) if model.revoked_at is not None else None,
     )
 
 
 @dataclass(frozen=True, slots=True)
 class SqlAlchemyUserRepository:
-    """Consulta usuários internos persistidos no PostgreSQL."""
+    """Consulta usuários internos persistidos no banco configurado."""
 
     session: AsyncSession
 
@@ -52,9 +54,16 @@ class SqlAlchemyUserRepository:
     async def create_owner_if_none(
         self, *, email: str, full_name: str, password_hash: str
     ) -> User | None:
-        # Serializa somente o curto fluxo de primeira configuração. A trava é
-        # transacional e impede duas requisições simultâneas de criarem contas.
-        await self.session.execute(text("SELECT pg_advisory_xact_lock(1420015)"))
+        # A linha única de owner_slot substitui o advisory lock do PostgreSQL:
+        # a restrição de chave primária ao inserir id=1 é atômica em qualquer
+        # dialeto, então apenas uma requisição concorrente vence a corrida.
+        self.session.add(OwnerSlotModel(id=1))
+        try:
+            await self.session.flush()
+        except IntegrityError:
+            await self.session.rollback()
+            return None
+
         if await self.has_any():
             return None
 
@@ -71,7 +80,7 @@ class SqlAlchemyUserRepository:
 
 @dataclass(frozen=True, slots=True)
 class SqlAlchemySessionRepository:
-    """Gerencia o ciclo de vida das sessões de acesso no PostgreSQL."""
+    """Gerencia o ciclo de vida das sessões de acesso no banco configurado."""
 
     session: AsyncSession
 

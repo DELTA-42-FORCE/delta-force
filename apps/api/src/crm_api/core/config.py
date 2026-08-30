@@ -8,6 +8,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[5]
 
+SUPPORTED_DATABASE_URL_PREFIXES = (
+    "sqlite+aiosqlite://",
+    "postgresql+psycopg://",
+)
+
 
 class Settings(BaseSettings):
     """Configurações necessárias para adaptadores de infraestrutura."""
@@ -24,10 +29,13 @@ class Settings(BaseSettings):
 
     @field_validator("database_url")
     @classmethod
-    def database_url_uses_async_psycopg(cls, value: str) -> str:
-        """Garante o driver assíncrono padronizado para PostgreSQL."""
-        if not value.startswith("postgresql+psycopg://"):
-            message = "DATABASE_URL must use postgresql+psycopg://"
+    def database_url_uses_a_supported_async_driver(cls, value: str) -> str:
+        """Aceita SQLite (alvo da ADR 0003) e PostgreSQL (fundação legada da #54)."""
+        if not value.startswith(SUPPORTED_DATABASE_URL_PREFIXES):
+            message = (
+                "DATABASE_URL must use sqlite+aiosqlite:// or, during the "
+                "PostgreSQL transition (#54), postgresql+psycopg://"
+            )
             raise ValueError(message)
         return value
 

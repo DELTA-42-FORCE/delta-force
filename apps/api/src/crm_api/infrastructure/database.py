@@ -1,9 +1,10 @@
-"""Adaptador assíncrono de persistência PostgreSQL."""
+"""Adaptador assíncrono de persistência (SQLite em arquivo e PostgreSQL legado)."""
 
 from collections.abc import AsyncIterator
 from functools import lru_cache
+from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.orm import DeclarativeBase
@@ -15,13 +16,37 @@ class Base(DeclarativeBase):
     """Base declarativa para futuros modelos persistentes do CRM."""
 
 
+def _configure_sqlite_connection(engine: AsyncEngine) -> None:
+    """Alinha o driver SQLite ao modelo transacional do SQLAlchemy (ADR 0003)."""
+
+    @event.listens_for(engine.sync_engine, "connect")
+    def _set_sqlite_pragmas(dbapi_connection: Any, connection_record: Any) -> None:
+        del connection_record
+        # Desliga o controle implícito de transação do pysqlite/aiosqlite para
+        # que o SQLAlchemy decida quando abrir cada transação (ver evento "begin").
+        dbapi_connection.isolation_level = None
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA synchronous=FULL")
+        cursor.execute("PRAGMA busy_timeout=5000")
+        cursor.close()
+
+    @event.listens_for(engine.sync_engine, "begin")
+    def _begin_sqlite_transaction(connection: Any) -> None:
+        connection.exec_driver_sql("BEGIN")
+
+
 @lru_cache
 def get_engine() -> AsyncEngine:
     """Cria o engine compartilhado, sem conectar até ser necessário."""
-    return create_async_engine(
+    engine = create_async_engine(
         get_settings().database_url,
         pool_pre_ping=True,
     )
+    if engine.dialect.name == "sqlite":
+        _configure_sqlite_connection(engine)
+    return engine
 
 
 @lru_cache

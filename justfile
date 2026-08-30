@@ -30,21 +30,28 @@ api-install:
     cd apps/api; uv sync --all-groups
 
 api-format:
-    cd apps/api; uv run black src tests
+    cd apps/api; uv run black src tests scripts alembic
 
 api-format-check:
-    cd apps/api; uv run black --check src tests
+    cd apps/api; uv run black --check src tests scripts alembic
 
 # Sobe a API local no Windows sem expor a porta à rede.
 api-dev:
     cd apps/api; uv run python -m crm_api.dev_server
 
 api-lint:
-    cd apps/api; uv run flake8 src tests
+    cd apps/api; uv run flake8 src tests scripts alembic
 
 api-test *args:
     cd apps/api; uv run pytest {{args}}
 
+# Alvo obrigatório de integração (ADR 0003): SQLite de arquivo, sem Docker,
+# PostgreSQL ou MinIO.
+api-test-integration-sqlite:
+    cd apps/api; uv run python scripts/run_sqlite_integration_tests.py
+
+# Fundação legada em remoção pela #54; mantido enquanto o código de transição
+# PostgreSQL existir (ADR 0003).
 api-test-integration:
     docker compose --env-file .env -f infra/compose.yaml up -d postgres
     cd apps/api; uv run python scripts/wait_for_database.py
@@ -63,6 +70,7 @@ api-check:
     just api-format-check
     just api-lint
     just api-test
+    just api-test-integration-sqlite
 
 api-audit:
     @echo "Running Bandit (API code security)..."

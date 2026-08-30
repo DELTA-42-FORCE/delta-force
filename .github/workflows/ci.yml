@@ -48,8 +48,21 @@ jobs:
       - run: just api-install
       - run: just api-test
 
+  api-integration-sqlite:
+    name: API — SQLite integration (obrigatório)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: apps/api/uv.lock
+      - uses: extractions/setup-just@v2
+      - run: just api-install
+      - run: just api-test-integration-sqlite
+
   api-integration:
-    name: API — PostgreSQL integration
+    name: API — PostgreSQL integration (legado, ADR 0003)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -61,7 +74,10 @@ jobs:
       - name: Create local integration environment
         run: cp .env.example .env
       - run: just api-install
-      - run: just api-test-integration
+      - name: Run PostgreSQL legacy integration with an explicit database URL
+        env:
+          DATABASE_URL: postgresql+psycopg://delta_force:change-me-local@localhost:5432/delta_force
+        run: just api-test-integration
 
   web-quality:
     name: Web — format, lint, types and tests

@@ -58,6 +58,8 @@ def primary_key_name(connection: psycopg.Connection[tuple[object, ...]]) -> str:
 
 def ensure_disposable_database() -> None:
     url = get_settings().database_url
+    if not url.startswith("postgresql+psycopg://"):
+        pytest.skip("requires a postgresql+psycopg DATABASE_URL")
     ensure_loopback_database_url(url)
     with psycopg.connect(database_url()) as connection:
         result = connection.execute("SELECT current_database()").fetchone()
