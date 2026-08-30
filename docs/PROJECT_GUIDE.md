@@ -72,9 +72,9 @@ Não usamos atualização automática de dependências por pull request. Em uma 
 ## Banco de dados e migrations
 
 Copie `.env.example` para `.env` antes de executar comandos de banco. A ADR 0003
-define SQLite em arquivo como banco de desenvolvimento e entrega. Até a issue
-#54 atualizar os comandos, os alvos PostgreSQL existentes são apenas
-legados; não crie funcionalidades persistentes novas sobre eles. Nunca edite a
-tabela `alembic_version` manualmente, nunca aplique migration de produção por
-este repositório sem autorização explícita e nunca gere migrations sem revisar o
-diff produzido.
+define SQLite em arquivo como banco de desenvolvimento e entrega, implementado
+na #54. Os alvos PostgreSQL existentes são apenas legados; não crie
+funcionalidades persistentes novas sobre eles. Nunca edite a tabela
+`alembic_version` manualmente, nunca aplique migration de produção por este
+repositório sem autorização explícita e nunca gere migrations sem revisar o diff
+produzido.

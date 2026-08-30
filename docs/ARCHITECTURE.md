@@ -16,8 +16,9 @@ apps/web ────────────────► apps/api ───�
 
 SQLite e filesystem privado são o alvo para desenvolvimento e entrega, conforme
 a [ADR 0003](adr/0003-sqlite-como-persistencia-local.md). Docker, PostgreSQL e
-MinIO não são pré-requisitos. A fundação PostgreSQL ainda existente é apenas
-transitória e será removida/substituída pela issue #54.
+MinIO não são pré-requisitos. A fundação SQLite foi entregue pela #54; o suporte
+PostgreSQL restante existe apenas no check legado de compatibilidade e não é
+base para funcionalidades novas.
 
 ## Entrega ao cliente
 
@@ -27,9 +28,8 @@ proprietário e com dados/documentos no próprio dispositivo. A
 define a entrega: Tauri 2 como shell e supervisor mínimo, React na janela e
 FastAPI empacotada com PyInstaller `onedir`. A persistência SQLite já está
 decidida pela ADR 0003 e não faz parte do escopo da ADR 0002. A implementação
-do shell depende da conclusão da #54 e será feita em uma nova issue de
-integração desktop; o spike da issue #43 (PR #49) permanece experimento isolado
-e não deve ser integrado ao produto.
+do shell será feita em uma nova issue de integração desktop; o spike da issue
+#43 (PR #49) permanece experimento isolado e não deve ser integrado ao produto.
 
 Versão/edição do Windows, proteção do disco, assinatura do instalador e método de
 recuperação do backup ainda são decisões operacionais pendentes. Elas não devem
@@ -50,8 +50,8 @@ SQLite será acessado somente pelo adaptador em
 `apps/api/src/crm_api/infrastructure/database.py`. A configuração não deve ser
 lida diretamente por rotas HTTP. Migrations são controladas pelo Alembic em
 `apps/api/alembic/`; cada alteração de esquema futura requer migration reversível
-e teste correspondente. A implementação atual PostgreSQL será portada pela issue
-de transição #54 antes de novas entidades persistentes.
+e teste correspondente. A fundação persistente SQLite já foi portada pela #54;
+as próximas entidades devem usar esse adaptador, sem acoplamento ao PostgreSQL.
 
 Na instalação do cliente, documentos continuarão fora do banco e em área privada
 da aplicação; somente metadados podem ser persistidos no banco. Backup e

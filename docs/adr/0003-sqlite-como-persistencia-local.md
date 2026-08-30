@@ -29,12 +29,12 @@ relação ao aplicativo que será entregue.
   novas funcionalidades específicas de PostgreSQL.
 
 Esta ADR não escolhe o shell, instalador ou distribuição desktop. Essas decisões
-continuam na issue #43 e na ADR 0002, que permanece proposta. Também não define
+continuam na issue #43 e na ADR 0002, que está aceita. Também não define
 criptografia do backup, limite máximo de upload ou o remetente de e-mail.
 
-## Requisitos de implementação
+## Requisitos implementados na #54
 
-A issue #54 deve, antes de iniciar funcionalidades persistentes de
+A issue #54 implementou, antes de iniciar funcionalidades persistentes de
 clientes e documentos:
 
 1. adicionar o driver SQLite e aceitar uma URL SQLite de arquivo configurada;
@@ -48,8 +48,8 @@ clientes e documentos:
 5. executar migrations, autenticação e auditoria em SQLite de arquivo, inclusive
    fechamento/reabertura, `integrity_check` e `foreign_key_check`;
 6. atualizar os comandos locais e o CI para que SQLite seja o teste de
-   integração obrigatório. PostgreSQL poderá ser removido depois que a transição
-   estiver verificada e a documentação/automação não dependerem mais dele.
+   integração obrigatório. PostgreSQL permanece somente como check legado de
+   compatibilidade até sua remoção em manutenção posterior.
 
 Nenhuma migration de dados reais é necessária: a primeira instalação do cliente
 nascerá com banco SQLite vazio. O acervo existente será tratado pela importação

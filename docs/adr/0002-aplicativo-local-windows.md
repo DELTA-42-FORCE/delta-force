@@ -47,8 +47,8 @@ São critérios de aceite e segurança, não respostas do cliente:
   obrigatórias no servidor;
 - instalação, atualização e desinstalação não podem apagar dados silenciosamente;
 - SQLite em arquivo e filesystem privado são a persistência-alvo definida pela
-  ADR 0003; PostgreSQL e MinIO são apenas a fundação legada que a issue #54 está
-  removendo, não a infraestrutura de desenvolvimento permanente.
+  ADR 0003 e implementada pela #54; PostgreSQL e MinIO são apenas cobertura
+  legada, não a infraestrutura de desenvolvimento permanente.
 
 ### Hipóteses em avaliação
 
@@ -82,14 +82,14 @@ responsável técnico único e vale a partir do aceite desta ADR.
 
 O desenvolvimento usa React/Vite e FastAPI. A persistência-alvo é SQLite em
 arquivo com filesystem privado para documentos, decidida pela ADR 0003 e
-implementada pela issue #54, que porta o adaptador, as migrations, a
+implementada pela issue #54, que portou o adaptador, as migrations, a
 autenticação e a auditoria já integradas. Esta ADR parte desse resultado como
-dado e não depende da conclusão da #54 para decidir shell e empacotamento; ela
-depende apenas de #54 estar concluída antes de qualquer instalação real.
+dado; a implementação desktop ainda precisa validar esses fluxos antes de
+qualquer instalação real.
 
-## Decisão proposta para o MVP
+## Decisão do MVP
 
-Se aceita, a implementação seguirá este recorte:
+A implementação seguirá este recorte:
 
 ```text
 Atalho do Windows
@@ -113,9 +113,9 @@ dados/metadados          documentos PDF/JPEG
   negócio permanecem em Python.
 - Empacotar FastAPI com PyInstaller `onedir`, sem Python instalado pelo cliente.
   A árvore deve ser um recurso privado do aplicativo e testada em Windows limpo.
-- Usar o bundle NSIS padrão gerado pelo Tauri como proposta de instalador por
-  usuário. Customização fica limitada a nome, ícone, atalhos e preservação do
-  diretório de dados; a prova do instalador e do WebView2 pertence à #27.
+- Usar o bundle NSIS padrão gerado pelo Tauri como instalador por usuário.
+  Customização fica limitada a nome, ícone, atalhos e preservação do diretório
+  de dados; a prova do instalador e do WebView2 pertence à #27.
 - Não criar launcher separado, manifesto assinado próprio, atualizador próprio,
   protocolo A/B de versões, journal de ativação ou sistema de gerações no MVP.
   Esses mecanismos só voltam a ser considerados mediante risco demonstrado e
@@ -198,11 +198,10 @@ aprovadas e testadas.
 | Navegador/PWA + agente local | Build menor, mas ainda exige instalar, iniciar e proteger um processo local | Pode expor navegador/perfil e lifecycle ao proprietário | Não escolhida: atende pior à experiência pedida; não é rejeição confirmada pelo cliente |
 | Tauri + launcher/manifesto/updater/gerações próprios | Outra raiz nativa e matriz de testes de interrupção em cada release | Alto custo de diagnóstico e recuperação | Removida do MVP; risco não demonstrado |
 
-Tauri direto é a proposta porque reaproveita React/FastAPI e o experimento já
+Tauri direto é a opção aprovada porque reaproveita React/FastAPI e o experimento
 produziu evidência limitada de janela, sidecar e lifecycle. Essa evidência não
-aprova a stack nem substitui CI do produto. A regra de colaboração acima
-substitui a exigência de um responsável fixo por Rust/CI Windows como condição
-de aceite.
+substitui CI do produto. A regra de colaboração acima substitui a exigência de
+um responsável fixo por Rust/CI Windows como condição de aceite.
 
 A comparação de persistência (SQLite/filesystem vs. PostgreSQL/MinIO locais) já
 foi decidida pela [ADR 0003](0003-sqlite-como-persistencia-local.md); não é
@@ -210,20 +209,18 @@ reaberta aqui.
 
 ## Transição PostgreSQL → SQLite
 
-A ADR 0003 e a issue #54 são a fonte da decisão e dos requisitos de
-implementação da transição de persistência (driver, migrations, advisory lock,
-gates de teste nos dois dialetos e remoção de PostgreSQL/MinIO da fundação).
-Esta ADR não repete esses gaps e requisitos; ela só depende da #54 estar
-concluída antes da primeira instalação real, e trata PostgreSQL/MinIO apenas
-como fundação legada em remoção, nunca como ambiente de desenvolvimento
-permanente ou alvo obrigatório após a transição.
+A ADR 0003 e a issue #54 são a fonte da decisão e da implementação da transição
+de persistência (driver, migrations, advisory lock e gates de teste nos dois
+dialetos). Esta ADR não repete esses requisitos; PostgreSQL/MinIO permanecem
+apenas como cobertura legada, nunca como ambiente de desenvolvimento permanente
+ou alvo obrigatório após a transição.
 
 ## Segurança e limites
 
 - Loopback, CORS e uma janela desktop não substituem autenticação/autorização.
 - Tokens, senhas, capability, dados pessoais e caminhos com nome de cliente não
   entram em argumentos, URLs, logs ou `localStorage`.
-- A proposta não promete proteção contra malware, administrador local ou sessão
+- A arquitetura não promete proteção contra malware, administrador local ou sessão
   Windows desbloqueada.
 - A proteção contra perda/roubo do equipamento depende da decisão pendente sobre
   criptografia em repouso; dados reais permanecem bloqueados até sua aprovação.
@@ -284,7 +281,7 @@ dados reais, merge da spike, distribuição, assinatura ou mudança de backup.
 
 | Responsável | Provas posteriores |
 | --- | --- |
-| #54 (decisão de persistência aceita pela ADR 0003; implementação em andamento na PR #56) | driver e migrations SQLite portáveis, concorrência da primeira conta, autenticação, auditoria e CI SQLite — conclusão obrigatória antes de qualquer instalação real |
+| #54 — concluída na PR #56 (decisão de persistência aceita pela ADR 0003) | driver e migrations SQLite portáveis, concorrência da primeira conta, autenticação, auditoria e CI SQLite entregues; a integração desktop deve validá-los no runtime local |
 | Issue de integração desktop a criar | shell mínimo, bootstrap/capability por IPC, lifecycle do sidecar e build Windows; validar no runtime local a autenticação da #15 e a auditoria da #17 já integradas |
 | #21/#45 | armazenamento privado, validação e importação assistida de PDF/JPEG |
 | #44 | snapshot consistente, proteção escolhida e restauração por HD em outro PC |

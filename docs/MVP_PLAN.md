@@ -6,9 +6,9 @@ PR continua curto, nasce de `develop`, referencia uma issue e volta para
 
 ## Marco 0 — fechar a base de decisão
 
-1. **#54 — persistência SQLite:** a ADR 0003 definiu SQLite em arquivo e filesystem
-   privado para desenvolvimento e entrega. A issue deve portar o
-   adaptador, migrations, autenticação e auditoria antes de novas entidades.
+1. **#54 — concluída:** a ADR 0003 definiu SQLite em arquivo e filesystem
+   privado para desenvolvimento e entrega. A issue portou adaptador, migrations,
+   autenticação, auditoria e os checks de integração antes de novas entidades.
 2. **#43 — arquitetura de entrega local Windows:** a ADR 0002 aceita definiu
    shell Tauri 2, FastAPI empacotada com PyInstaller `onedir`, diretórios
    privados, primeira execução e atualização manual. A escolha de persistência
@@ -24,10 +24,10 @@ PR continua curto, nasce de `develop`, referencia uma issue e volta para
 A ADR 0002 já é a decisão de produção. Sua implementação deve seguir esta
 ordem:
 
-1. após a conclusão da #54, abrir uma issue pequena de integração desktop
-   baseada em `develop`, sem reutilizar a PR #49, para shell/sidecar,
-   bootstrap/capability por IPC e lifecycle do processo, validando no runtime
-   local a autenticação (#15) e a auditoria (#17) já integradas;
+1. abrir uma issue pequena de integração desktop baseada em `develop`, sem
+   reutilizar a PR #49, para shell/sidecar, bootstrap/capability por IPC e
+   lifecycle do processo, validando no runtime local a autenticação (#15) e a
+   auditoria (#17) já integradas;
 2. decidir na #44 a proteção e a recuperação do backup em HD externo;
 3. validar instalação, atualização manual, desinstalação e restauração na #27.
 
