@@ -15,7 +15,7 @@ from crm_api.infrastructure.audit.models import AuditEventModel
 from crm_api.infrastructure.audit.repositories import (
     SqlAlchemyAuditEventRepository,
 )
-from crm_api.infrastructure.auth.models import SessionModel, UserModel
+from crm_api.infrastructure.auth.models import OwnerSlotModel, SessionModel, UserModel
 from crm_api.infrastructure.auth.passwords import BcryptPasswordHasher
 from crm_api.infrastructure.auth.repositories import SqlAlchemyUserRepository
 from crm_api.infrastructure.database import get_engine, get_session_factory
@@ -45,6 +45,7 @@ async def clear_disposable_auth_data() -> None:
         await session.execute(delete(AuditEventModel))
         await session.execute(delete(SessionModel))
         await session.execute(delete(UserModel))
+        await session.execute(delete(OwnerSlotModel))
         await session.commit()
 
 
@@ -140,6 +141,41 @@ async def test_concurrent_setup_creates_exactly_one_owner(
     assert success_event.resource_id == str(owners[0].id)
     assert denied_event.actor_user_id is None
     assert denied_event.context == {"reason_code": "setup_already_completed"}
+
+
+async def test_setup_rejects_database_migrated_with_existing_owner() -> None:
+    await clear_disposable_auth_data()
+    existing_owner_id = uuid.uuid4()
+
+    async with get_session_factory()() as session:
+        session.add(
+            UserModel(
+                id=existing_owner_id,
+                email="existing-owner@deltaforce.internal",
+                full_name="Proprietário Existente",
+                password_hash=BcryptPasswordHasher().hash("existing-owner-password"),
+                is_active=True,
+            )
+        )
+        await session.commit()
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://testserver"
+    ) as client:
+        response = await client.post(
+            "/auth/setup",
+            json={
+                "email": "second-owner@deltaforce.internal",
+                "full_name": "Segundo Proprietário",
+                "password": "second-owner-password",
+            },
+        )
+
+    assert response.status_code == 409
+    async with get_session_factory()() as session:
+        owners = (await session.scalars(select(UserModel))).all()
+
+    assert [owner.id for owner in owners] == [existing_owner_id]
 
 
 async def test_audit_failure_rolls_back_owner_setup(

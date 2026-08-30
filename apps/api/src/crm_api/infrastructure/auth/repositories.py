@@ -64,6 +64,9 @@ class SqlAlchemyUserRepository:
             await self.session.rollback()
             return None
 
+        if await self.has_any():
+            return None
+
         model = UserModel(
             email=email,
             full_name=full_name,
