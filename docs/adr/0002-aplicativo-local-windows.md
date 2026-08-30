@@ -1,23 +1,25 @@
 # ADR 0002 — Shell, empacotamento e ciclo de vida do aplicativo local Windows
 
-**Status:** Proposta
+**Status:** Aceita
 
 **Issue:** #43
 
-**Data:** 22 de agosto de 2026 (última revisão em 26 de agosto de 2026)
+**Data:** 22 de agosto de 2026 (última revisão em 29 de agosto de 2026)
 
 **Decisor técnico:** Caio São Thiago — direção Tauri aprovada em comentário
-técnico na PR #48 (26/08/2026), condicionada aos ajustes de sincronização
-documental descritos abaixo antes da mudança formal de status para **Aceita**.
+técnico na PR #48 (26/08/2026); ADR aceita após os ajustes de sincronização
+documental pedidos na revisão de 29/08/2026 (status, redação de aceite e
+formulação do gate da #54).
 
 Esta ADR decide somente shell, empacotamento, primeira execução, atualização,
 desinstalação e diretórios privados finais do aplicativo Windows. A
 persistência de dados (SQLite em arquivo e filesystem privado) já foi decidida
 pela [ADR 0003](0003-sqlite-como-persistencia-local.md) e pela issue #54; esta
-ADR não repete nem reabre essa escolha. Enquanto permanecer como **Proposta**,
-Tauri, Rust e PyInstaller não fazem parte do produto nem podem alterar seus
-lockfiles. A PR #49 continua um experimento isolado e não deve ser integrada ou
-usada como aprovação implícita da arquitetura.
+ADR não repete nem reabre essa escolha. A partir deste aceite, Tauri, Rust e
+PyInstaller passam a ser a arquitetura aceita do produto; a implementação
+segue pela issue de integração desktop a ser criada, não pelo merge da PR #49.
+A PR #49 continua um experimento isolado, não deve ser integrada e não terá
+lockfiles ou código reaproveitados como implementação.
 
 ## Evidências e classificação
 
@@ -262,27 +264,27 @@ seguir.
 - sem responsável fixo de Rust, a exigência de revisão por outro integrante em
   toda PR de Tauri/CI Windows precisa ser sustentada na prática.
 
-## Gates para mudar o status para Aceita
+## Gates satisfeitos para o aceite
 
-1. Revisar e aprovar a separação entre fatos, hipóteses e pendências.
-2. Aprovar explicitamente o recorte Tauri direto ou solicitar a comparação curta
-   com shell Python; nenhuma opção é adotada por silêncio.
-3. Confirmar que os gates de shell/sidecar/instalador/lifecycle Windows desta
+1. Separação entre fatos, hipóteses e pendências revisada e aprovada.
+2. Recorte Tauri direto aprovado explicitamente pelo decisor técnico na PR #48
+   (26/08/2026); nenhuma opção foi adotada por silêncio.
+3. Confirmado que os gates de shell/sidecar/instalador/lifecycle Windows desta
    ADR não duplicam nem reabrem a decisão de persistência já aceita pela ADR
    0003/#54.
-4. Registrar a aprovação técnica na PR #48 e somente então alterar o status para
-   **Aceita**.
-5. Definir o destino da PR #49 (fechar sem merge, preservando só a evidência
-   sanitizada útil).
+4. Aprovação técnica registrada na PR #48; status alterado para **Aceita**
+   nesta revisão (29/08/2026).
+5. Destino da PR #49 definido: fechar sem merge, preservando só a evidência
+   sanitizada útil na issue #43.
 
-Aceitar esta ADR autoriza abrir a issue de integração desktop. Não autoriza
+O aceite desta ADR autoriza abrir a issue de integração desktop. Não autoriza
 dados reais, merge da spike, distribuição, assinatura ou mudança de backup.
 
 ## Gates posteriores de implementação e release
 
 | Responsável | Provas posteriores |
 | --- | --- |
-| #54 (já aceita pela ADR 0003) | driver e migrations SQLite portáveis, concorrência da primeira conta, autenticação, auditoria e CI SQLite |
+| #54 (decisão de persistência aceita pela ADR 0003; implementação em andamento na PR #56) | driver e migrations SQLite portáveis, concorrência da primeira conta, autenticação, auditoria e CI SQLite — conclusão obrigatória antes de qualquer instalação real |
 | Issue de integração desktop a criar | shell mínimo, bootstrap/capability por IPC, lifecycle do sidecar e build Windows; validar no runtime local a autenticação da #15 e a auditoria da #17 já integradas |
 | #21/#45 | armazenamento privado, validação e importação assistida de PDF/JPEG |
 | #44 | snapshot consistente, proteção escolhida e restauração por HD em outro PC |
