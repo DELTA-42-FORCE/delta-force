@@ -74,7 +74,10 @@ jobs:
       - name: Create local integration environment
         run: cp .env.example .env
       - run: just api-install
-      - run: just api-test-integration
+      - name: Run PostgreSQL legacy integration with an explicit database URL
+        env:
+          DATABASE_URL: postgresql+psycopg://delta_force:change-me-local@localhost:5432/delta_force
+        run: just api-test-integration
 
   web-quality:
     name: Web — format, lint, types and tests
