@@ -53,10 +53,10 @@ estão no backlog. Não as invente: registre a dependência e peça definição.
 | Infra local | Não requer Docker, PostgreSQL ou MinIO. |
 | Automação | `just` e GitHub Actions; auditoria manual de dependências. |
 
-A decisão de SQLite está aceita na ADR 0003. O código atual ainda contém a
-fundação PostgreSQL e só deve ser migrado na issue #54;
-até ela terminar, não crie funcionalidade persistente nova sobre detalhes de
-PostgreSQL. O shell e o empacotamento Windows continuam na ADR da issue #43.
+A decisão de SQLite foi implementada na issue #54, com SQLite em arquivo como
+alvo de desenvolvimento e entrega. A cobertura PostgreSQL restante é legada e
+opcional; não crie funcionalidade persistente nova sobre detalhes de PostgreSQL.
+O shell e o empacotamento Windows estão definidos na ADR 0002 da issue #43.
 Não troque bibliotecas-base, gerenciadores de dependência ou banco de dados sem
 ADR em `docs/adr/` e aprovação do time. Dependências devem ser adicionadas apenas
 quando uma issue justificar seu uso e os lockfiles correspondentes devem ser atualizados.
