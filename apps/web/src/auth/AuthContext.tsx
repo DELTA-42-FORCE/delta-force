@@ -9,6 +9,7 @@ import {
 } from 'react'
 
 import { apiFetch, ApiError } from '../lib/apiClient'
+import { initializeDesktopConnection } from '../lib/desktopConnection'
 import {
   login as loginRequest,
   logout as logoutRequest,
@@ -52,7 +53,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true
-    requiresSetup()
+    initializeDesktopConnection()
+      .then(requiresSetup)
       .then((isRequired) => {
         if (active) setStatus(isRequired ? 'setup-required' : 'signed-out')
       })

@@ -1,5 +1,6 @@
 # Ambiente e segredos
 .env
+apps/api/build/
 .env.*
 !.env.example
 

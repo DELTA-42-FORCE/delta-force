@@ -1,6 +1,7 @@
 """Ambiente Alembic para migrations assíncronas do PostgreSQL."""
 
 import asyncio
+import os
 import selectors
 import sys
 from logging.config import fileConfig
@@ -15,7 +16,10 @@ from crm_api.infrastructure.database import Base
 
 config = context.config
 
-if config.config_file_name is not None:
+if (
+    config.config_file_name is not None
+    and os.environ.get("DELTA_FORCE_SILENT_MIGRATIONS") != "1"
+):
     fileConfig(config.config_file_name)
 
 config.set_main_option("sqlalchemy.url", get_settings().database_url)

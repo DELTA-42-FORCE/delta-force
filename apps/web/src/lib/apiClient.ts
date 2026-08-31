@@ -1,4 +1,9 @@
-const API_BASE_URL: string =
+import {
+  getDesktopConnection,
+  initializeDesktopConnection,
+} from './desktopConnection'
+
+const DEVELOPMENT_API_BASE_URL: string =
   import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
 
 export class ApiError extends Error {
@@ -31,6 +36,8 @@ export async function apiFetch<T>(
   path: string,
   options: { method?: string; token?: string; body?: unknown } = {},
 ): Promise<T> {
+  await initializeDesktopConnection()
+  const desktopConnection = getDesktopConnection()
   const headers: Record<string, string> = {}
   if (options.body !== undefined) {
     headers['Content-Type'] = 'application/json'
@@ -38,12 +45,19 @@ export async function apiFetch<T>(
   if (options.token !== undefined) {
     headers.Authorization = `Bearer ${options.token}`
   }
+  if (desktopConnection !== null) {
+    headers['X-Delta-Desktop-Capability'] = desktopConnection.capability
+  }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: options.method ?? 'GET',
-    headers,
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
-  })
+  const response = await fetch(
+    `${desktopConnection?.apiBaseUrl ?? DEVELOPMENT_API_BASE_URL}${path}`,
+    {
+      method: options.method ?? 'GET',
+      headers,
+      body:
+        options.body !== undefined ? JSON.stringify(options.body) : undefined,
+    },
+  )
 
   if (!response.ok) {
     throw new ApiError(response.status, await readErrorDetail(response))

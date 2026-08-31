@@ -26,10 +26,14 @@ O cenário aprovado é um aplicativo local Windows, usado somente pelo
 proprietário e com dados/documentos no próprio dispositivo. A
 [ADR 0002](adr/0002-aplicativo-local-windows.md), com status **Aceita**,
 define a entrega: Tauri 2 como shell e supervisor mínimo, React na janela e
-FastAPI empacotada com PyInstaller `onedir`. A persistência SQLite já está
-decidida pela ADR 0003 e não faz parte do escopo da ADR 0002. A implementação
-do shell será feita em uma nova issue de integração desktop; o spike da issue
-#43 (PR #49) permanece experimento isolado e não deve ser integrado ao produto.
+FastAPI empacotada com PyInstaller `onedir`. A implementação da #57 materializa
+esse desenho em `apps/desktop`: o Rust inicia o sidecar como recurso privado,
+mantém-no em um Windows Job Object, envia o segredo de bootstrap por `stdin` e
+devolve à janela uma capability de uma única execução por IPC. A API usa porta
+dinâmica em `127.0.0.1`, recusa origem/Host/capability inválidos e não expõe
+OpenAPI no runtime desktop. A persistência SQLite já está decidida pela ADR 0003
+e não faz parte do escopo da ADR 0002. O spike da issue #43 (PR #49) permanece
+experimento isolado e não deve ser integrado ao produto.
 
 Versão/edição do Windows, proteção do disco, assinatura do instalador e método de
 recuperação do backup ainda são decisões operacionais pendentes. Elas não devem

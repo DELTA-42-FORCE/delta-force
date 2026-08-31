@@ -92,3 +92,29 @@ jobs:
       - uses: extractions/setup-just@v2
       - run: just web-install
       - run: just web-check
+
+  desktop-windows:
+    name: Desktop Windows — sidecar and installer
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: apps/api/uv.lock
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            apps/web/package-lock.json
+            apps/desktop/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - uses: extractions/setup-just@v2
+      - run: just api-install
+      - run: just web-install
+      - run: just desktop-install
+      - run: just desktop-format-check
+      - run: just desktop-build

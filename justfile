@@ -110,6 +110,26 @@ web-audit:
     @echo "Running npm audit (JavaScript dependency vulnerabilities)..."
     @set +e; npm --prefix apps/web audit; audit_status=$?; set -e; echo "Available JavaScript dependency updates (informational only):"; npm --prefix apps/web outdated || test $? -eq 1; exit "$audit_status"
 
+# --- Aplicativo Windows (Tauri + FastAPI sidecar) ---
+# Estes alvos devem ser executados no Windows. O sidecar é gerado como PyInstaller
+# `onedir` e nunca é versionado: o bundle Tauri o incorpora como recurso privado.
+desktop-install:
+    npm --prefix apps/desktop ci
+
+desktop-sidecar:
+    powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File apps/desktop/scripts/build-sidecar.ps1
+
+desktop-dev:
+    just desktop-sidecar
+    npm --prefix apps/desktop run dev
+
+desktop-build:
+    just desktop-sidecar
+    npm --prefix apps/desktop run build
+
+desktop-format-check:
+    cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --check
+
 # --- Infraestrutura local ---
 infra-up:
     docker compose --env-file .env -f infra/compose.yaml up -d
