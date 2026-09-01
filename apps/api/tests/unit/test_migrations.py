@@ -10,4 +10,4 @@ def test_alembic_has_a_single_migration_head() -> None:
     config = Config(str(API_DIRECTORY / "alembic.ini"))
     script = ScriptDirectory.from_config(config)
 
-    assert script.get_heads() == ["20260829_0005"]
+    assert script.get_heads() == ["20260830_0006"]

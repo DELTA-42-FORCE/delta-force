@@ -88,6 +88,8 @@ def test_audit_table_contract_compiles_for_postgresql_and_sqlite() -> None:
         assert "ck_audit_events_actor_identity" in normalized
         assert "ck_audit_events_action" in normalized
         assert "ck_audit_events_resource_type" in normalized
+        assert "'client_folder.created'" in normalized
+        assert "'client_folder'" in normalized
 
 
 async def test_repository_appends_with_flush_but_does_not_commit() -> None:
