@@ -45,11 +45,16 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    """Remove the new audit values before restoring the older catalog."""
-    op.execute(
+    """Recusa rollback que descartaria eventos de auditoria append-only."""
+    has_incompatible_events = op.get_bind().scalar(
         sa.text(
-            "DELETE FROM audit_events WHERE action IN "
-            "('client_folder.viewed', 'client_folder.updated')"
+            "SELECT EXISTS(SELECT 1 FROM audit_events WHERE action IN "
+            "('client_folder.viewed', 'client_folder.updated'))"
         )
     )
+    if has_incompatible_events:
+        raise RuntimeError(
+            "cannot safely downgrade 20260901_0007 while client folder audit "
+            "events exist; preserve the audit history and keep this migration"
+        )
     _replace_action_catalog(include_view_and_update=False)

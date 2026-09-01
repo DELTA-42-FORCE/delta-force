@@ -378,7 +378,21 @@ def test_client_folder_view_update_audit_migration_round_trip() -> None:
                 for action in ("client_folder.viewed", "client_folder.updated")
             ]
             for event_id in event_ids:
+                assert connection.execute(
+                    "SELECT id FROM audit_events WHERE id = ?", (event_id,)
+                ).fetchone() == (event_id,)
+
+        with pytest.raises(subprocess.CalledProcessError):
+            run_alembic("downgrade", PREVIOUS_VIEW_UPDATE_REVISION)
+
+        with connect(path) as connection:
+            for event_id in event_ids:
+                assert connection.execute(
+                    "SELECT id FROM audit_events WHERE id = ?", (event_id,)
+                ).fetchone() == (event_id,)
                 connection.execute("DELETE FROM audit_events WHERE id = ?", (event_id,))
             connection.commit()
+
+        run_alembic("downgrade", PREVIOUS_VIEW_UPDATE_REVISION)
     finally:
         run_alembic("upgrade", "head")

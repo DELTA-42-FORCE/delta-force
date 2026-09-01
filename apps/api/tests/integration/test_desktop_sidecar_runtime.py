@@ -91,7 +91,7 @@ def test_desktop_sidecar_bootstraps_and_records_owner_setup_audit_event(
         capability = bootstrap["capability"]
         assert isinstance(capability, str) and capability
 
-        setup_status, _ = _request(
+        setup_status, setup = _request(
             f"{base_url}/auth/setup",
             method="POST",
             headers={
@@ -106,6 +106,22 @@ def test_desktop_sidecar_bootstraps_and_records_owner_setup_audit_event(
             },
         )
         assert setup_status == 201
+        session_token = setup["session_token"]
+        assert isinstance(session_token, str) and session_token
+
+        create_status, client = _request(
+            f"{base_url}/clients",
+            method="POST",
+            headers={
+                **source_headers,
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {session_token}",
+                "X-Delta-Desktop-Capability": capability,
+            },
+            payload={"display_name": "Cliente Desktop Sintético"},
+        )
+        assert create_status == 201
+        assert client["display_name"] == "Cliente Desktop Sintético"
     finally:
         _stop_gracefully(process)
 
