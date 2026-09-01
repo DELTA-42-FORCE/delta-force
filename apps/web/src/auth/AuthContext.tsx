@@ -29,6 +29,10 @@ interface AuthContextValue {
   status: AuthStatus
   user: AuthenticatedUser | null
   authenticatedGet: <T>(path: string) => Promise<T>
+  authenticatedRequest: <T>(
+    path: string,
+    options: { method: string; body?: unknown },
+  ) => Promise<T>
   login: (email: string, password: string) => Promise<void>
   setup: (input: SetupOwnerInput) => Promise<void>
   logout: () => Promise<void>
@@ -124,18 +128,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [clearSession, token])
 
-  const authenticatedGet = useCallback(
-    async <T,>(path: string): Promise<T> => {
+  const authenticatedRequest = useCallback(
+    async <T,>(
+      path: string,
+      options: { method: string; body?: unknown },
+    ): Promise<T> => {
       if (token === null) throw new ApiError(401, 'session is not available')
 
       try {
-        return await apiFetch<T>(path, { token })
+        return await apiFetch<T>(path, {
+          token,
+          method: options.method,
+          body: options.body,
+        })
       } catch (error) {
         if (error instanceof ApiError && error.status === 401) clearSession()
         throw error
       }
     },
     [clearSession, token],
+  )
+
+  const authenticatedGet = useCallback(
+    <T,>(path: string): Promise<T> =>
+      authenticatedRequest<T>(path, { method: 'GET' }),
+    [authenticatedRequest],
   )
 
   const retry = useCallback(() => {
@@ -148,12 +165,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       status,
       user,
       authenticatedGet,
+      authenticatedRequest,
       login,
       setup,
       logout,
       retry,
     }),
-    [status, user, authenticatedGet, login, setup, logout, retry],
+    [
+      status,
+      user,
+      authenticatedGet,
+      authenticatedRequest,
+      login,
+      setup,
+      logout,
+      retry,
+    ],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
