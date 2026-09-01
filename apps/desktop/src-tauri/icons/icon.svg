@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Delta Force CRM">
+  <rect width="512" height="512" rx="112" fill="#123047"/>
+  <path d="M92 164c0-25 20-45 45-45h95l34 35h109c25 0 45 20 45 45v165c0 25-20 45-45 45H137c-25 0-45-20-45-45V164Z" fill="#247A8B"/>
+  <path d="M92 224h328v140c0 25-20 45-45 45H137c-25 0-45-20-45-45V224Z" fill="#40B6A7"/>
+  <rect x="170" y="270" width="172" height="24" rx="12" fill="#F5F8FA"/>
+  <rect x="170" y="320" width="126" height="24" rx="12" fill="#F5F8FA" opacity=".8"/>
+</svg>

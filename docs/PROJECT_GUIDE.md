@@ -6,6 +6,7 @@
 | --- | --- |
 | `apps/api` | API, regras de negócio, persistência, integrações e testes Python. |
 | `apps/web` | Interface interna, experiência do operador e testes TypeScript. |
+| `apps/desktop` | Shell Tauri Windows, sidecar FastAPI e build do instalador. |
 | `infra` | Recursos locais que simulam dependências externas. |
 | `docs` | Requisitos, decisões arquiteturais e material operacional. |
 | `.github` | Proteções de qualidade que rodam em pull requests. |
@@ -46,6 +47,10 @@ Use Conventional Commits: `feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore
 | `just api-makemigration "descricao"` | Gera uma migration a ser revisada antes de ser aplicada. |
 | `just api-test-integration` | Durante a transição, executa a integração legada; a issue SQLite deve substituí-la por testes em arquivo SQLite. |
 | `just web-check` | Prettier, ESLint, tipos e testes do web. |
+| `just desktop-install` | Instala a CLI e dependências do shell Tauri. |
+| `just desktop-build` | No Windows, gera o sidecar PyInstaller `onedir` e o instalador NSIS de teste. |
+| `just desktop-format-check` | Verifica a formatação Rust do shell. |
+| `just desktop-test` | Executa no Windows os testes de ciclo de vida do supervisor e do Job Object. |
 | `just infra-up` | Sobe serviços auxiliares legados/opcionais; não é pré-requisito do CRM. |
 | `just infra-down` | Para os serviços sem apagar dados. |
 | `just infra-reset` | Apaga os volumes locais; use conscientemente. |
@@ -68,6 +73,32 @@ Configure automações do Project para mover issues abertas para **Backlog**, it
 ## Dependências e vulnerabilidades
 
 Não usamos atualização automática de dependências por pull request. Em uma rotina de manutenção ou antes de atualizar uma biblioteca, execute `just audit`. Corrija vulnerabilidades prioritárias em uma issue/PR próprio; versões novas listadas pelo comando são informativas e só devem ser adotadas após o time avaliar compatibilidade, changelog e impacto.
+
+## Shell Windows
+
+O código em `apps/desktop` só pode ser alterado em branch baseada em `develop` e
+precisa de aprovação de outro integrante antes do merge. O Rust inicia a API
+empacotada como recurso `onedir`, envia um segredo por `stdin` uma única vez e
+entrega a capability efêmera à janela somente por IPC. Não exponha segredo,
+capability ou caminho privado em URL, argumentos, `.env`, logs, arquivos ou
+`localStorage`. O build/instalador real roda no job Windows do GitHub Actions;
+não versione o sidecar ou artefatos de `target/`.
+
+### Pré-requisitos que não devem ser removidos
+
+- O job **Desktop Windows — sidecar and installer** é a evidência obrigatória
+  para mudanças no shell. Ambiente Linux não substitui seu build/teste completo.
+- `beforeBuildCommand` e `beforeDevCommand` executam a partir de `apps/desktop`,
+  mas `frontendDist` e `bundle.resources` em `src-tauri/tauri.conf.json` são
+  resolvidos relativamente a `src-tauri/`. Portanto, o web deste monorepo usa
+  `../../web/dist` como `frontendDist`.
+- `src-tauri/resources/api-sidecar/.gitkeep` deve permanecer versionado. O
+  diretório permite que `cargo test` valide o manifesto antes de o PyInstaller
+  gerar o sidecar; apenas o binário gerado continua ignorado.
+- `src-tauri/icons/icon.ico` e os formatos derivados devem permanecer
+  versionados: Windows exige o ícone no `tauri-build`. Para trocar o desenho,
+  altere o SVG-fonte e execute `npm --prefix apps/desktop exec tauri icon
+  apps/desktop/src-tauri/icons/icon.svg`.
 
 ## Banco de dados e migrations
 

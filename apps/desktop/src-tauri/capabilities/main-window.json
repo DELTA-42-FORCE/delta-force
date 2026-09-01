@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-window",
+  "description": "Permite somente a janela principal obter a conexão local efêmera.",
+  "windows": ["main"],
+  "permissions": ["core:default", "allow-desktop-connection"]
+}

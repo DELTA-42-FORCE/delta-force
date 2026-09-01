@@ -22,6 +22,9 @@ build-backend = "hatchling.build"
 packages = ["src/crm_api"]
 
 [dependency-groups]
+build = [
+    "pyinstaller>=6.11,<7.0",
+]
 dev = [
   "bandit>=1.8,<2.0",
   "black>=24.10,<26.0",
