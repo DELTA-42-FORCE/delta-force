@@ -1,8 +1,9 @@
 """Portas de persistência da pasta flexível de clientes."""
 
 from typing import Mapping, Protocol
+from uuid import UUID
 
-from crm_api.domain.clients.entities import ClientFolder
+from crm_api.domain.clients.entities import ClientFolder, ClientFolderCursor
 
 
 class ClientFolderRepository(Protocol):
@@ -11,3 +12,17 @@ class ClientFolderRepository(Protocol):
     async def create(
         self, *, display_name: str, profile_data: Mapping[str, str]
     ) -> ClientFolder: ...
+
+    async def get(self, *, id: UUID) -> ClientFolder | None: ...
+
+    async def search(
+        self,
+        *,
+        query: str | None,
+        limit: int,
+        before: ClientFolderCursor | None,
+    ) -> list[ClientFolder]: ...
+
+    async def update(
+        self, *, id: UUID, display_name: str, profile_data: Mapping[str, str]
+    ) -> ClientFolder | None: ...

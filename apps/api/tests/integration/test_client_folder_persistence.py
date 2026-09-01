@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 
 from crm_api.application.audit.record_audit_event import RecordAuditEventUseCase
 from crm_api.application.clients.create_client_folder import CreateClientFolderUseCase
+from crm_api.domain.clients.entities import ClientFolderCursor
 from crm_api.infrastructure.audit.models import AuditEventModel
 from crm_api.infrastructure.audit.repositories import SqlAlchemyAuditEventRepository
 from crm_api.infrastructure.audit.transactions import SqlAlchemyTransaction
@@ -92,3 +93,91 @@ async def test_create_client_folder_records_authenticated_audit_event() -> None:
     assert event.actor_user_id == owner_id
     assert event.action == "client_folder.created"
     assert event.resource_type == "client_folder"
+
+
+async def test_get_returns_none_for_unknown_id() -> None:
+    _requires_disposable_sqlite()
+    async with get_session_factory()() as session:
+        found = await SqlAlchemyClientFolderRepository(session).get(id=uuid4())
+
+    assert found is None
+
+
+async def test_search_orders_by_name_and_supports_cursor_and_query() -> None:
+    _requires_disposable_sqlite()
+    marker = uuid4().hex[:8]
+    names = [f"Ana Souza {marker}", f"Bruno Lima {marker}", f"Carlos Alves {marker}"]
+    async with get_session_factory()() as session:
+        repository = SqlAlchemyClientFolderRepository(session)
+        for name in names:
+            await repository.create(display_name=name, profile_data={})
+        await session.commit()
+
+    async with get_session_factory()() as session:
+        repository = SqlAlchemyClientFolderRepository(session)
+        first_page = await repository.search(query=marker, limit=2, before=None)
+        assert [folder.display_name for folder in first_page] == names[:2]
+
+        cursor = ClientFolderCursor(
+            display_name=first_page[-1].display_name, id=first_page[-1].id
+        )
+        second_page = await repository.search(query=marker, limit=2, before=cursor)
+        assert [folder.display_name for folder in second_page] == names[2:]
+
+        filtered = await repository.search(
+            query=f"ana souza {marker}", limit=10, before=None
+        )
+        assert [folder.display_name for folder in filtered] == names[:1]
+
+
+async def test_update_changes_name_and_profile_data() -> None:
+    _requires_disposable_sqlite()
+    async with get_session_factory()() as session:
+        created = await SqlAlchemyClientFolderRepository(session).create(
+            display_name="Nome Antigo", profile_data={}
+        )
+        await session.commit()
+
+    async with get_session_factory()() as session:
+        repository = SqlAlchemyClientFolderRepository(session)
+        updated = await repository.update(
+            id=created.id,
+            display_name="Nome Novo",
+            profile_data={"telefone": "123"},
+        )
+        await session.commit()
+
+    assert updated is not None
+    assert updated.display_name == "Nome Novo"
+    assert updated.profile_data == {"telefone": "123"}
+
+    async with get_session_factory()() as session:
+        stored = await session.scalar(
+            select(ClientFolderModel).where(ClientFolderModel.id == created.id)
+        )
+    assert stored is not None
+    assert stored.display_name == "Nome Novo"
+
+
+async def test_update_returns_none_for_unknown_id() -> None:
+    _requires_disposable_sqlite()
+    async with get_session_factory()() as session:
+        result = await SqlAlchemyClientFolderRepository(session).update(
+            id=uuid4(), display_name="Alguém", profile_data={}
+        )
+
+    assert result is None
+
+
+async def test_update_rejects_blank_identifying_name() -> None:
+    _requires_disposable_sqlite()
+    async with get_session_factory()() as session:
+        created = await SqlAlchemyClientFolderRepository(session).create(
+            display_name="Nome Válido", profile_data={}
+        )
+        await session.commit()
+
+    async with get_session_factory()() as session:
+        repository = SqlAlchemyClientFolderRepository(session)
+        with pytest.raises(IntegrityError):
+            await repository.update(id=created.id, display_name="  ", profile_data={})

@@ -1,4 +1,4 @@
-"""Criação transacional de uma pasta digital flexível de cliente."""
+"""Edição transacional e auditada de uma pasta de cliente."""
 
 from dataclasses import dataclass
 from typing import Mapping
@@ -17,12 +17,13 @@ from crm_api.domain.audit.entities import (
     AuditResult,
 )
 from crm_api.domain.clients.entities import ClientFolder
+from crm_api.domain.clients.errors import ClientFolderNotFoundError
 from crm_api.domain.clients.repositories import ClientFolderRepository
 
 
 @dataclass(frozen=True, slots=True)
-class CreateClientFolderUseCase:
-    """Cria uma pasta exigindo apenas o nome identificador do cliente."""
+class UpdateClientFolderUseCase:
+    """Atualiza nome e dados flexíveis de uma pasta existente."""
 
     clients: ClientFolderRepository
     audit: RecordAuditEventUseCase
@@ -32,20 +33,26 @@ class CreateClientFolderUseCase:
         self,
         *,
         actor_user_id: UUID,
+        client_id: UUID,
         display_name: str,
         profile_data: Mapping[str, str] | None = None,
     ) -> ClientFolder:
         normalized_name = normalize_display_name(display_name)
         normalized_profile = normalize_profile_data(profile_data)
+
+        client = await self.clients.update(
+            id=client_id,
+            display_name=normalized_name,
+            profile_data=normalized_profile,
+        )
+        if client is None:
+            raise ClientFolderNotFoundError
+
         try:
-            client = await self.clients.create(
-                display_name=normalized_name,
-                profile_data=normalized_profile,
-            )
             await self.audit.execute(
                 actor_kind=AuditActorKind.AUTHENTICATED,
                 actor_user_id=actor_user_id,
-                action=AuditAction.CLIENT_FOLDER_CREATED,
+                action=AuditAction.CLIENT_FOLDER_UPDATED,
                 resource_type=AuditResourceType.CLIENT_FOLDER,
                 resource_id=str(client.id),
                 result=AuditResult.SUCCESS,

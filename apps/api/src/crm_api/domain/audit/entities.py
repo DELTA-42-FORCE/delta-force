@@ -33,6 +33,8 @@ class AuditAction(StrEnum):
     ACCESS_DENIED = "auth.access_denied"
     AUDIT_LOG_VIEW = "audit.log_view"
     CLIENT_FOLDER_CREATED = "client_folder.created"
+    CLIENT_FOLDER_VIEWED = "client_folder.viewed"
+    CLIENT_FOLDER_UPDATED = "client_folder.updated"
 
 
 class AuditResourceType(StrEnum):

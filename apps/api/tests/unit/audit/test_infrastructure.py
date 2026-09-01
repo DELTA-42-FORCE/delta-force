@@ -89,6 +89,8 @@ def test_audit_table_contract_compiles_for_postgresql_and_sqlite() -> None:
         assert "ck_audit_events_action" in normalized
         assert "ck_audit_events_resource_type" in normalized
         assert "'client_folder.created'" in normalized
+        assert "'client_folder.viewed'" in normalized
+        assert "'client_folder.updated'" in normalized
         assert "'client_folder'" in normalized
 
 
