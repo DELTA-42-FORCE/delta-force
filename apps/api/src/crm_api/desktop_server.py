@@ -8,6 +8,7 @@ import os
 import sqlite3
 import sys
 import threading
+from contextlib import closing
 from pathlib import Path
 from socket import AF_INET, SOCK_STREAM, socket
 
@@ -43,7 +44,7 @@ def _alembic_config(database_path: Path) -> Config:
 
 
 def _verify_sqlite_file(path: Path) -> None:
-    with sqlite3.connect(path) as connection:
+    with closing(sqlite3.connect(path)) as connection:
         integrity_result = connection.execute("PRAGMA integrity_check").fetchone()
         foreign_key_errors = connection.execute("PRAGMA foreign_key_check").fetchall()
     if integrity_result != ("ok",) or foreign_key_errors:
@@ -53,7 +54,7 @@ def _verify_sqlite_file(path: Path) -> None:
 def _at_current_revision(path: Path) -> bool:
     config = _alembic_config(path)
     expected_revision = ScriptDirectory.from_config(config).get_current_head()
-    with sqlite3.connect(path) as connection:
+    with closing(sqlite3.connect(path)) as connection:
         row = connection.execute("SELECT version_num FROM alembic_version").fetchone()
     return row == (expected_revision,)
 

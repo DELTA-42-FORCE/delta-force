@@ -131,6 +131,7 @@ desktop-format-check:
     cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --check
 
 desktop-test:
+    cd apps/api; uv run pytest tests/unit/test_desktop_runtime.py tests/unit/test_desktop_server.py tests/integration/test_desktop_sidecar_runtime.py
     cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 
 # --- Infraestrutura local ---
