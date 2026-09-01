@@ -24,6 +24,7 @@ API_DIRECTORY = Path(__file__).resolve().parents[2]
 LEGACY_SESSION_REVISION = "20260812_0002"
 PREVIOUS_AUDIT_REVISION = "20260819_0003"
 PREVIOUS_CLIENT_FOLDER_REVISION = "20260829_0005"
+PREVIOUS_VIEW_UPDATE_REVISION = "20260830_0006"
 
 
 def run_alembic(command: str, revision: str) -> None:
@@ -344,5 +345,54 @@ def test_client_folder_migration_round_trip_restores_schema_and_audit_catalog() 
             )
             connection.execute("DELETE FROM audit_events WHERE id = ?", (event_id,))
             connection.commit()
+    finally:
+        run_alembic("upgrade", "head")
+
+
+def test_client_folder_view_update_audit_migration_round_trip() -> None:
+    path = ensure_disposable_database()
+
+    run_alembic("downgrade", PREVIOUS_VIEW_UPDATE_REVISION)
+    try:
+        with connect(path) as connection:
+            for action in ("client_folder.viewed", "client_folder.updated"):
+                with pytest.raises(sqlite3.IntegrityError):
+                    insert_audit_event(
+                        connection,
+                        actor_kind="anonymous",
+                        actor_user_id=None,
+                        action=action,
+                        resource_type="client_folder",
+                    )
+
+        run_alembic("upgrade", "head")
+        with connect(path) as connection:
+            event_ids = [
+                insert_audit_event(
+                    connection,
+                    actor_kind="anonymous",
+                    actor_user_id=None,
+                    action=action,
+                    resource_type="client_folder",
+                )
+                for action in ("client_folder.viewed", "client_folder.updated")
+            ]
+            for event_id in event_ids:
+                assert connection.execute(
+                    "SELECT id FROM audit_events WHERE id = ?", (event_id,)
+                ).fetchone() == (event_id,)
+
+        with pytest.raises(subprocess.CalledProcessError):
+            run_alembic("downgrade", PREVIOUS_VIEW_UPDATE_REVISION)
+
+        with connect(path) as connection:
+            for event_id in event_ids:
+                assert connection.execute(
+                    "SELECT id FROM audit_events WHERE id = ?", (event_id,)
+                ).fetchone() == (event_id,)
+                connection.execute("DELETE FROM audit_events WHERE id = ?", (event_id,))
+            connection.commit()
+
+        run_alembic("downgrade", PREVIOUS_VIEW_UPDATE_REVISION)
     finally:
         run_alembic("upgrade", "head")

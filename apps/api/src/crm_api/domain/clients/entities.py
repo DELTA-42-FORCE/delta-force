@@ -8,6 +8,20 @@ from uuid import UUID
 
 
 @dataclass(frozen=True, slots=True)
+class ClientFolderCursor:
+    """Posição exclusiva e estável na ordenação alfabética do diretório."""
+
+    display_name: str
+    id: UUID
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.display_name, str) or not self.display_name:
+            raise ValueError("client folder cursor display_name must not be blank")
+        if not isinstance(self.id, UUID):
+            raise ValueError("client folder cursor id must be a UUID")
+
+
+@dataclass(frozen=True, slots=True)
 class ClientFolder:
     """Pasta de um cliente, sem catálogo rígido de campos ou documentos."""
 

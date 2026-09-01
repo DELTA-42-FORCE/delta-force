@@ -7,12 +7,28 @@ import { RecentActivity } from './audit/RecentActivity'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import { LoginPage } from './auth/LoginPage'
 import { SetupPage } from './auth/SetupPage'
+import {
+  createClientFolder,
+  listClientFolders,
+  updateClientFolder,
+} from './clients/clientsApi'
+import type { ClientCursor } from './clients/clientsApi'
+import { ClientsPage } from './clients/ClientsPage'
 import { Brand } from './ui/Brand'
 
 function Root() {
-  const { status, user, authenticatedGet, logout, retry } = useAuth()
+  const {
+    status,
+    user,
+    authenticatedGet,
+    authenticatedRequest,
+    logout,
+    retry,
+  } = useAuth()
   const [logoutNotice, setLogoutNotice] = useState<string | null>(null)
-  const [activeView, setActiveView] = useState<'overview' | 'audit'>('overview')
+  const [activeView, setActiveView] = useState<
+    'overview' | 'audit' | 'clients'
+  >('overview')
 
   const loadRecentActivity = useCallback(
     () => listRecentAuditEvents(authenticatedGet),
@@ -23,6 +39,26 @@ function Root() {
     (cursor: AuditCursor | null, filters: AuditFilters) =>
       listAuditEvents(authenticatedGet, { limit: 20, cursor, filters }),
     [authenticatedGet],
+  )
+
+  const loadClientsPage = useCallback(
+    (cursor: ClientCursor | null, query: string | null) =>
+      listClientFolders(authenticatedGet, { limit: 20, cursor, query }),
+    [authenticatedGet],
+  )
+
+  const createClient = useCallback(
+    (input: { display_name: string; profile_data: Record<string, string> }) =>
+      createClientFolder(authenticatedRequest, input),
+    [authenticatedRequest],
+  )
+
+  const updateClient = useCallback(
+    (
+      id: string,
+      input: { display_name: string; profile_data: Record<string, string> },
+    ) => updateClientFolder(authenticatedRequest, id, input),
+    [authenticatedRequest],
   )
 
   async function handleLogout() {
@@ -107,8 +143,16 @@ function Root() {
                 <span>Auditoria</span>
               </button>
             </li>
-            <li className="workspace-nav__item">
-              <span aria-hidden="true">◎</span> Clientes <small>em breve</small>
+            <li>
+              <button
+                className={`workspace-nav__item${activeView === 'clients' ? ' workspace-nav__item--active' : ''}`}
+                type="button"
+                aria-current={activeView === 'clients' ? 'page' : undefined}
+                onClick={() => setActiveView('clients')}
+              >
+                <span aria-hidden="true">◎</span>
+                <span>Clientes</span>
+              </button>
             </li>
             <li className="workspace-nav__item">
               <span aria-hidden="true">▤</span> Documentos{' '}
@@ -157,6 +201,12 @@ function Root() {
               loadPage={loadAuditPage}
               onBack={() => setActiveView('overview')}
             />
+          ) : activeView === 'clients' ? (
+            <ClientsPage
+              loadPage={loadClientsPage}
+              createFolder={createClient}
+              updateFolder={updateClient}
+            />
           ) : (
             <>
               <section className="welcome-panel">
@@ -199,7 +249,7 @@ function Root() {
                     <p className="eyebrow">Construção do MVP</p>
                     <h2 id="modules-title">Próximos módulos</h2>
                   </div>
-                  <span>1 de 4 disponível</span>
+                  <span>2 de 4 disponíveis</span>
                 </div>
                 <div className="module-grid">
                   {[
@@ -213,7 +263,7 @@ function Root() {
                       '02',
                       'Clientes',
                       'Cadastro, busca, consulta e edição.',
-                      'Próxima etapa',
+                      'Disponível',
                     ],
                     [
                       '03',
@@ -229,7 +279,7 @@ function Root() {
                     ],
                   ].map(([number, title, description, state], index) => (
                     <article
-                      className={`module-card${index === 0 ? ' module-card--ready' : ''}`}
+                      className={`module-card${index <= 1 ? ' module-card--ready' : ''}`}
                       key={number}
                     >
                       <span className="module-card__number">{number}</span>
