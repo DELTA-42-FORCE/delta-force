@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import secrets
-from dataclasses import dataclass, field
+from dataclasses import InitVar, dataclass, field
 
 DESKTOP_CAPABILITY_HEADER = "X-Delta-Desktop-Capability"
 DESKTOP_BOOTSTRAP_SECRET_HEADER = "X-Delta-Desktop-Secret"
@@ -18,21 +18,21 @@ def _digest(value: str) -> bytes:
 
 @dataclass(slots=True)
 class DesktopRuntime:
-    """Mantém segredo e capability somente na memória de uma execução."""
+    """Mantém somente digests e capability na memória de uma execução."""
 
-    bootstrap_secret: str
+    bootstrap_secret: InitVar[str]
     port: int
     origin: str = DESKTOP_ORIGIN
     _bootstrap_secret_digest: bytes = field(init=False, repr=False)
     _capability_digest: bytes | None = field(default=None, init=False, repr=False)
     _bootstrap_consumed: bool = field(default=False, init=False)
 
-    def __post_init__(self) -> None:
-        if not self.bootstrap_secret.isascii() or not self.bootstrap_secret:
+    def __post_init__(self, bootstrap_secret: str) -> None:
+        if not bootstrap_secret.isascii() or not bootstrap_secret:
             raise ValueError("desktop bootstrap secret must be non-empty ASCII")
         if not 1 <= self.port <= 65535:
             raise ValueError("desktop port must be between 1 and 65535")
-        self._bootstrap_secret_digest = _digest(self.bootstrap_secret)
+        self._bootstrap_secret_digest = _digest(bootstrap_secret)
 
     def accepts_source(self, *, host: str | None, origin: str | None) -> bool:
         return host == f"127.0.0.1:{self.port}" and origin == self.origin

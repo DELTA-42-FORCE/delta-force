@@ -7,6 +7,7 @@ import json
 import os
 import sqlite3
 import sys
+import threading
 from pathlib import Path
 from socket import AF_INET, SOCK_STREAM, socket
 
@@ -132,11 +133,26 @@ async def _serve(runtime: DesktopRuntime, listener: socket) -> None:
             raise RuntimeError("desktop server failed to start")
         await asyncio.sleep(0.01)
 
+    # Após ler o segredo de bootstrap, o stdin pertence ao supervisor Tauri.
+    # EOF significa fechamento normal da janela: o Uvicorn recebe oportunidade
+    # de concluir a escrita atual antes de o supervisor aplicar o fallback.
+    threading.Thread(
+        target=_stop_when_supervisor_disconnects,
+        args=(server,),
+        daemon=True,
+    ).start()
+
     # É o único stdout do sidecar; não contém segredo, capability, caminho ou
     # dados do cliente. O supervisor só tenta o bootstrap depois deste sinal.
     sys.stdout.write(json.dumps({"event": "ready", "port": runtime.port}) + "\n")
     sys.stdout.flush()
     await server_task
+
+
+def _stop_when_supervisor_disconnects(server: object) -> None:
+    """Solicita o encerramento gracioso quando o supervisor fecha o stdin."""
+    sys.stdin.buffer.read(1)
+    setattr(server, "should_exit", True)
 
 
 def main() -> None:
@@ -159,6 +175,7 @@ def main() -> None:
     origin = os.environ.get("DELTA_FORCE_DESKTOP_ORIGIN", "http://tauri.localhost")
     os.environ["CORS_ALLOWED_ORIGINS"] = origin
     runtime = DesktopRuntime(bootstrap_secret=secret, port=port, origin=origin)
+    del secret
 
     try:
         asyncio.run(_serve(runtime, listener))

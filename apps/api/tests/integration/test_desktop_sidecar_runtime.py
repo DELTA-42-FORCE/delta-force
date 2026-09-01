@@ -45,15 +45,12 @@ def _request(
         return error.code, json.loads(error.read())
 
 
-def _stop(process: subprocess.Popen[bytes]) -> None:
+def _stop_gracefully(process: subprocess.Popen[bytes]) -> None:
     if process.poll() is not None:
         return
-    process.terminate()
-    try:
-        process.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        process.kill()
-        process.wait(timeout=5)
+    assert process.stdin is not None
+    process.stdin.close()
+    assert process.wait(timeout=5) == 0
 
 
 def test_desktop_sidecar_bootstraps_and_records_owner_setup_audit_event(
@@ -110,7 +107,7 @@ def test_desktop_sidecar_bootstraps_and_records_owner_setup_audit_event(
         )
         assert setup_status == 201
     finally:
-        _stop(process)
+        _stop_gracefully(process)
 
     with sqlite3.connect(data_directory / "crm.sqlite3") as connection:
         actions = connection.execute("SELECT action FROM audit_events").fetchall()

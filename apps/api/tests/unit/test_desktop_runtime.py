@@ -1,3 +1,5 @@
+from dataclasses import fields
+
 from fastapi.testclient import TestClient
 
 from crm_api.core.desktop_runtime import (
@@ -17,7 +19,12 @@ def _headers(**extra: str) -> dict[str, str]:
 
 
 def test_runtime_bootstrap_secret_is_single_use_and_never_returned_in_error() -> None:
-    runtime = DesktopRuntime(bootstrap_secret="synthetic-bootstrap-secret", port=_PORT)
+    secret = "synthetic-bootstrap-secret"
+    runtime = DesktopRuntime(bootstrap_secret=secret, port=_PORT)
+
+    assert "bootstrap_secret" not in runtime.__slots__
+    assert secret not in repr(runtime)
+    assert all(getattr(runtime, item.name) != secret for item in fields(runtime))
 
     first_capability = runtime.issue_capability(
         supplied_secret="synthetic-bootstrap-secret",
@@ -37,6 +44,8 @@ def test_runtime_bootstrap_secret_is_single_use_and_never_returned_in_error() ->
         host=_HOST,
         origin=DESKTOP_ORIGIN,
     )
+    assert secret not in repr(runtime)
+    assert all(getattr(runtime, item.name) != secret for item in fields(runtime))
 
 
 def test_runtime_rejects_wrong_origin_host_and_capability_from_another_instance() -> (

@@ -1,9 +1,9 @@
 use std::{
     io::{BufRead, BufReader, Write},
     path::PathBuf,
-    process::{Child, Command, Stdio},
+    process::{Child, ChildStdin, Command, Stdio},
     sync::{mpsc, Mutex},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
@@ -15,6 +15,7 @@ use zeroize::Zeroizing;
 const PRODUCTION_ORIGIN: &str = "http://tauri.localhost";
 const DEVELOPMENT_ORIGIN: &str = "http://127.0.0.1:5173";
 const SIDECAR_READY_TIMEOUT: Duration = Duration::from_secs(10);
+const SIDECAR_GRACEFUL_STOP_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Error)]
 enum DesktopError {
@@ -48,16 +49,46 @@ struct DesktopConnection {
 
 struct SidecarProcess {
     child: Mutex<Option<Child>>,
+    stdin: Mutex<Option<ChildStdin>>,
     #[cfg(windows)]
     _job: WindowsProcessJob,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum SidecarStop {
+    Graceful,
+    Forced,
+    AlreadyStopped,
+}
+
 impl SidecarProcess {
-    fn stop(&self) {
-        if let Ok(mut child) = self.child.lock() {
-            if let Some(mut process) = child.take() {
-                terminate_child(&mut process);
-            }
+    fn stop(&self) -> SidecarStop {
+        // O sidecar observa EOF no stdin depois do bootstrap. Soltar o pipe
+        // pede que o Uvicorn encerre após concluir as requisições em curso.
+        if let Ok(mut stdin) = self.stdin.lock() {
+            stdin.take();
+        }
+
+        let Some(mut process) = self.child.lock().ok().and_then(|mut child| child.take()) else {
+            return SidecarStop::AlreadyStopped;
+        };
+
+        if wait_for_child_exit(&mut process, SIDECAR_GRACEFUL_STOP_TIMEOUT) {
+            SidecarStop::Graceful
+        } else {
+            terminate_child(&mut process);
+            SidecarStop::Forced
+        }
+    }
+}
+
+fn wait_for_child_exit(child: &mut Child, timeout: Duration) -> bool {
+    let deadline = Instant::now() + timeout;
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => return true,
+            Ok(None) if Instant::now() < deadline => std::thread::sleep(Duration::from_millis(25)),
+            Ok(None) | Err(_) => return false,
         }
     }
 }
@@ -123,10 +154,10 @@ impl DesktopRuntime {
                 return Err(DesktopError::SidecarNotReady);
             }
             let capability = bootstrap_capability(ready.port, origin, secret.as_str())?;
-            Ok((ready.port, capability))
+            Ok((ready.port, capability, stdin))
         })();
 
-        let (port, capability) = match startup_result {
+        let (port, capability, stdin) = match startup_result {
             Ok(result) => result,
             Err(error) => {
                 terminate_child(&mut child);
@@ -141,6 +172,7 @@ impl DesktopRuntime {
             })),
             sidecar: SidecarProcess {
                 child: Mutex::new(Some(child)),
+                stdin: Mutex::new(Some(stdin)),
                 #[cfg(windows)]
                 _job: job,
             },
@@ -251,7 +283,7 @@ pub fn run() {
         })
         .on_window_event(|window, event| {
             if matches!(event, WindowEvent::CloseRequested { .. }) {
-                window.state::<DesktopRuntime>().sidecar.stop();
+                let _ = window.state::<DesktopRuntime>().sidecar.stop();
             }
         })
         .invoke_handler(tauri::generate_handler![desktop_connection])
@@ -310,12 +342,22 @@ mod windows_lifecycle_tests {
         time::Duration,
     };
 
-    use super::{SidecarProcess, WindowsProcessJob};
+    use super::{SidecarProcess, SidecarStop, WindowsProcessJob};
 
     fn long_running_child() -> std::process::Child {
         Command::new("cmd")
             .args(["/C", "ping -n 30 127.0.0.1 > NUL"])
-            .stdin(Stdio::null())
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("the Windows test child should start")
+    }
+
+    fn stdin_bound_child() -> std::process::Child {
+        Command::new("cmd")
+            .args(["/C", "more > NUL"])
+            .stdin(Stdio::piped())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
@@ -324,15 +366,42 @@ mod windows_lifecycle_tests {
 
     #[test]
     fn normal_shutdown_reaps_the_sidecar() {
-        let child = long_running_child();
+        let mut child = stdin_bound_child();
         let job = WindowsProcessJob::attach(&child).expect("job assignment should work");
+        let stdin = child
+            .stdin
+            .take()
+            .expect("normal child stdin should be piped");
         let process = SidecarProcess {
             child: std::sync::Mutex::new(Some(child)),
+            stdin: std::sync::Mutex::new(Some(stdin)),
             _job: job,
         };
 
-        process.stop();
+        assert_eq!(process.stop(), SidecarStop::Graceful);
 
+        assert!(process
+            .child
+            .lock()
+            .expect("test mutex should not be poisoned")
+            .is_none());
+    }
+
+    #[test]
+    fn shutdown_falls_back_to_kill_when_the_sidecar_does_not_exit() {
+        let mut child = long_running_child();
+        let job = WindowsProcessJob::attach(&child).expect("job assignment should work");
+        let stdin = child
+            .stdin
+            .take()
+            .expect("fallback child stdin should be piped");
+        let process = SidecarProcess {
+            child: std::sync::Mutex::new(Some(child)),
+            stdin: std::sync::Mutex::new(Some(stdin)),
+            _job: job,
+        };
+
+        assert_eq!(process.stop(), SidecarStop::Forced);
         assert!(process
             .child
             .lock()
