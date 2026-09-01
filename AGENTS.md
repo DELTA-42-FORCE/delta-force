@@ -27,9 +27,9 @@ O produto é um CRM **interno** de gestão de clientes. Ele manipulará dados pe
 
 Não implemente item fora do MVP sem issue e decisão explícita. As decisões
 confirmadas estão em `docs/CLIENT_DECISIONS.md` e o caminho de entrega em
-`docs/MVP_PLAN.md`. Regras ainda pendentes — tamanho máximo de upload,
-arquitetura de entrega local, criptografia do backup e provedor de e-mail —
-estão no backlog. Não as invente: registre a dependência e peça definição.
+`docs/MVP_PLAN.md`. Regras ainda pendentes — criptografia/recuperação do backup
+e provedor de e-mail — estão no backlog. Não as invente: registre a dependência
+e peça definição.
 
 ## Fontes de verdade
 
@@ -48,7 +48,7 @@ estão no backlog. Não as invente: registre a dependência e peça definição.
 | Backend | Python 3.12+, FastAPI, SQLAlchemy 2, driver SQLite assíncrono, Alembic, `uv`, Black, Flake8 e pytest. |
 | Frontend | React 19, TypeScript, Vite, ESLint, Prettier e Vitest. |
 | Dados | SQLite em arquivo, no desenvolvimento e no aplicativo Windows. |
-| Documentos | Filesystem privado; o banco guarda somente metadados. |
+| Documentos | Filesystem privado gerenciado pelo aplicativo; o banco guarda somente metadados. |
 | E-mail local | Mailpit, somente quando a issue de e-mail o exigir. |
 | Infra local | Não requer Docker, PostgreSQL ou MinIO. |
 | Automação | `just` e GitHub Actions; auditoria manual de dependências. |
@@ -100,7 +100,7 @@ Na API, evolua para as fronteiras `domain`, `application`, `infrastructure` e `p
 - Todo recurso de cliente, documento ou histórico deve exigir autenticação e autorização no servidor; esconder uma ação no frontend não é controle de acesso.
 - Toda consulta, criação, alteração e download relevante precisa ser considerada para auditoria.
 - Documentos devem ficar fora do banco, em armazenamento privado; não devem ser servidos por URL pública permanente.
-- Valide tipo, tamanho, nome e conteúdo aceito no upload. Não confie em extensão enviada pelo navegador.
+- Valide formato, nome e conteúdo aceito no upload. Não confie em extensão enviada pelo navegador. Não há teto comercial fixo por arquivo: grave por streaming, confirme capacidade livre suficiente e falhe sem publicar conteúdo parcial se o disco ficar sem espaço; nunca carregue o arquivo inteiro em memória.
 - Não execute comandos destrutivos, migrações de produção, deploys, alterações de permissões externas ou envios de e-mail sem pedido explícito e confirmação do alvo.
 
 ## Forma de trabalhar

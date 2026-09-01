@@ -49,8 +49,9 @@ respondidas novamente:
 - o acervo legado tem cerca de 500 documentos, inclusive arquivos possivelmente
   corrompidos, e o volume novo estimado é de 30 a 40 documentos.
 
-O tamanho máximo de PDF/JPEG ainda não foi informado. Nenhum limite será
-escolhido por hipótese.
+Esta proposta histórica não define tamanho de arquivo. A decisão vigente está em
+`CLIENT_DECISIONS.md`: não há teto comercial fixo por PDF/JPEG; a capacidade
+livre do disco é o limite operacional e a escrita deve ser em streaming.
 
 ## 2. Fonte `gov.br` a homologar
 
@@ -308,7 +309,8 @@ sintéticos para uma rodada separada de aprovação visual.
 - [ ] regra condicional do reservista e suas exceções aprovadas;
 - [ ] tipos documentais, condições e multiplicidade aprovados;
 - [ ] extensões, MIME/conteúdo e tratamento de arquivo ilegível aprovados;
-- [ ] tamanho máximo em MiB e bytes por PDF/JPEG aprovado;
+- [x] sem teto comercial fixo por PDF/JPEG; capacidade disponível em disco e
+      escrita em streaming são a regra vigente;
 - [ ] limites de arquivos ativos e histórico de versões aprovados;
 - [ ] efeito de documento obrigatório/irregular aprovado;
 - [ ] significados dos status, criação da pendência e conferência manual após

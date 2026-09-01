@@ -25,8 +25,15 @@ cliente prevalece sobre uma hipótese anterior.
   `gov.br`, regra de reservista ou documento obrigatório no MVP.
 - Os documentos são pessoais, predominantemente PDF. O MVP aceita somente
   **PDF** e, para fotos, **JPEG** após validação de conteúdo.
-- O limite de tamanho ainda não foi informado. Até a definição, uploads e
-  importação não podem ser liberados com limite arbitrário.
+- Não há limite comercial fixo por documento. O limite operacional é a
+  capacidade livre do computador: anexos e importações devem ser gravados por
+  streaming, verificar espaço disponível e abortar com limpeza segura se ele
+  for insuficiente; nunca podem carregar o arquivo inteiro em memória.
+- Os arquivos ficam em uma árvore privada gerenciada pelo aplicativo, fora do
+  banco. O proprietário poderá abrir a pasta ou exportar uma cópia pelo CRM e,
+  por serem arquivos locais, também consegue consultá-los pelo Windows. Alterar,
+  renomear ou excluir diretamente arquivos já gerenciados não atualiza os
+  metadados nem a auditoria; essas ações devem ser feitas pelo CRM.
 - O cliente deseja importar o acervo existente: cerca de 500 documentos antigos
   e 30 a 40 novos. Existem arquivos possivelmente corrompidos; a importação
   precisa produzir relatório e preservar a origem.
@@ -49,7 +56,7 @@ cliente prevalece sobre uma hipótese anterior.
 
 ## Decisões técnicas ainda necessárias
 
-A issue #43 ainda definirá, por ADR aprovada, o shell/empacotamento Windows,
-diretório privado final, primeira execução e estratégia de atualização. A
-criptografia e a recuperação do backup, o limite máximo de upload e o provedor
-de e-mail seguem pendentes.
+A ADR 0002 e a issue #57 já definiram e implementaram o shell/empacotamento
+Windows, o diretório privado, a primeira execução e a estratégia de atualização
+manual. A criptografia e a recuperação do backup, e o provedor de e-mail seguem
+pendentes.

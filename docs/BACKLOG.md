@@ -10,7 +10,8 @@ Este arquivo é a fonte para abertura inicial de issues. Cada seção abaixo cor
 
 **Critérios de aceite:** criar cliente requer somente nome de identificação;
 demais informações e documentos são opcionais e podem ser incluídos depois.
-PDF/JPEG são os formatos aceitos, com tamanho máximo ainda pendente. Não há
+PDF/JPEG são os formatos aceitos, sem teto comercial fixo por arquivo: a
+capacidade livre do disco determina o limite operacional. Não há
 catálogo rígido de `gov.br`, regra de reservista ou documento obrigatório. No
 MVP há somente o proprietário, portanto não existe matriz de papéis.
 
@@ -69,7 +70,10 @@ justificar campos ou validações rígidas.
 **Critérios de aceite:** documentos PDF/JPEG são armazenados fora do banco em
 área privada local; acesso exige sessão válida; retenção sem prazo de descarte,
 backup em HD externo e recuperação são documentados; nenhuma credencial fica no
-repositório. Atende DOC-02, NF-03 e NF-04.
+repositório. A escrita é em streaming, verifica espaço livre e não publica
+arquivo parcial em caso de falta de disco; o CRM oferece abrir pasta e exportar
+cópia sem tratar alterações manuais externas como ações auditadas. Atende
+DOC-02, NF-03 e NF-04.
 
 ### 9. Anexar e consultar documentos de clientes por tipo
 
@@ -77,7 +81,8 @@ repositório. Atende DOC-02, NF-03 e NF-04.
 
 **Critérios de aceite:** proprietário anexa manualmente PDF/JPEG a um cliente e
 tipo documental; consulta e download autorizados funcionam; formatos/tamanhos
-inválidos têm mensagem clara. Atende DOC-01, DOC-04 e NF-05.
+inválidos ou falta de espaço têm mensagem clara. Não há teto comercial fixo;
+o limite é a capacidade operacional do disco. Atende DOC-01, DOC-04 e NF-05.
 
 ### 10. Implementar checklist e status de documentos
 

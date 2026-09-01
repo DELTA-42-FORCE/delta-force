@@ -29,8 +29,11 @@ relação ao aplicativo que será entregue.
   novas funcionalidades específicas de PostgreSQL.
 
 Esta ADR não escolhe o shell, instalador ou distribuição desktop. Essas decisões
-continuam na issue #43 e na ADR 0002, que está aceita. Também não define
-criptografia do backup, limite máximo de upload ou o remetente de e-mail.
+foram registradas na ADR 0002 e implementadas pela #57. Também não define
+criptografia do backup ou o remetente de e-mail. A decisão de produto posterior
+em `CLIENT_DECISIONS.md` estabelece que não há teto comercial fixo de upload:
+a capacidade livre do disco é o limite operacional e a gravação deve ser em
+streaming, com falha segura por falta de espaço.
 
 ## Requisitos implementados na #54
 
