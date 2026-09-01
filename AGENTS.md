@@ -61,6 +61,24 @@ Não troque bibliotecas-base, gerenciadores de dependência ou banco de dados se
 ADR em `docs/adr/` e aprovação do time. Dependências devem ser adicionadas apenas
 quando uma issue justificar seu uso e os lockfiles correspondentes devem ser atualizados.
 
+### Guardrails do shell Windows
+
+- Em mudanças de `apps/desktop`, considere o job **Desktop Windows — sidecar and
+  installer** obrigatório; não declare a entrega pronta antes de ele concluir com
+  sucesso. O ambiente Linux não substitui essa prova.
+- Em `apps/desktop/src-tauri/tauri.conf.json`, `frontendDist` e os recursos do
+  bundle são resolvidos a partir de `src-tauri/`, enquanto os comandos
+  `beforeBuildCommand`/`beforeDevCommand` partem de `apps/desktop`. Para o web
+  deste monorepo, use `frontendDist: "../../web/dist"`; não mude esse caminho sem
+  validar o bundle Windows.
+- Preserve `src-tauri/resources/api-sidecar/.gitkeep`. O sidecar PyInstaller é
+  gerado e ignorado pelo Git, mas o diretório precisa existir para `cargo test`
+  validar o manifesto Tauri antes do build.
+- Preserve o conjunto versionado em `src-tauri/icons/`, especialmente
+  `icons/icon.ico`: o `tauri-build` no Windows exige esse ícone. Se ele for
+  alterado, regenere os formatos pelo comando oficial `tauri icon`; não use
+  imagens ou dados reais.
+
 Não há atualização automática de dependências por pull request. Execute `just audit` periodicamente ou antes de uma atualização: ele falha em vulnerabilidades de código/dependências e lista versões novas apenas para decisão explícita do time.
 
 ## Organização do repositório

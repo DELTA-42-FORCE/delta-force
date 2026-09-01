@@ -84,6 +84,22 @@ capability ou caminho privado em URL, argumentos, `.env`, logs, arquivos ou
 `localStorage`. O build/instalador real roda no job Windows do GitHub Actions;
 não versione o sidecar ou artefatos de `target/`.
 
+### Pré-requisitos que não devem ser removidos
+
+- O job **Desktop Windows — sidecar and installer** é a evidência obrigatória
+  para mudanças no shell. Ambiente Linux não substitui seu build/teste completo.
+- `beforeBuildCommand` e `beforeDevCommand` executam a partir de `apps/desktop`,
+  mas `frontendDist` e `bundle.resources` em `src-tauri/tauri.conf.json` são
+  resolvidos relativamente a `src-tauri/`. Portanto, o web deste monorepo usa
+  `../../web/dist` como `frontendDist`.
+- `src-tauri/resources/api-sidecar/.gitkeep` deve permanecer versionado. O
+  diretório permite que `cargo test` valide o manifesto antes de o PyInstaller
+  gerar o sidecar; apenas o binário gerado continua ignorado.
+- `src-tauri/icons/icon.ico` e os formatos derivados devem permanecer
+  versionados: Windows exige o ícone no `tauri-build`. Para trocar o desenho,
+  altere o SVG-fonte e execute `npm --prefix apps/desktop exec tauri icon
+  apps/desktop/src-tauri/icons/icon.svg`.
+
 ## Banco de dados e migrations
 
 Copie `.env.example` para `.env` antes de executar comandos de banco. A ADR 0003
