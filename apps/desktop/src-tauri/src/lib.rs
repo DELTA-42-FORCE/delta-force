@@ -56,11 +56,15 @@ impl SidecarProcess {
     fn stop(&self) {
         if let Ok(mut child) = self.child.lock() {
             if let Some(mut process) = child.take() {
-                let _ = process.kill();
-                let _ = process.wait();
+                terminate_child(&mut process);
             }
         }
     }
+}
+
+fn terminate_child(child: &mut Child) {
+    let _ = child.kill();
+    let _ = child.wait();
 }
 
 impl Drop for SidecarProcess {
@@ -94,7 +98,16 @@ impl DesktopRuntime {
             .map_err(|_| DesktopError::SidecarStart)?;
 
         #[cfg(windows)]
-        let job = WindowsProcessJob::attach(&child)?;
+        let job = match WindowsProcessJob::attach(&child) {
+            Ok(job) => job,
+            Err(error) => {
+                // `Child` não encerra o processo ao ser descartado. Se o Job
+                // Object não puder protegê-lo, a inicialização falha fechando
+                // explicitamente o sidecar já criado.
+                terminate_child(&mut child);
+                return Err(error);
+            }
+        };
 
         let startup_result = (|| {
             let mut stdin = child.stdin.take().ok_or(DesktopError::SidecarStart)?;
@@ -116,8 +129,7 @@ impl DesktopRuntime {
         let (port, capability) = match startup_result {
             Ok(result) => result,
             Err(error) => {
-                let _ = child.kill();
-                let _ = child.wait();
+                terminate_child(&mut child);
                 return Err(error);
             }
         };
@@ -287,5 +299,66 @@ impl WindowsProcessJob {
         }
         let owned = unsafe { std::os::windows::io::OwnedHandle::from_raw_handle(job as _) };
         Ok(Self(owned))
+    }
+}
+
+#[cfg(all(test, windows))]
+mod windows_lifecycle_tests {
+    use std::{
+        process::{Command, Stdio},
+        thread,
+        time::Duration,
+    };
+
+    use super::{SidecarProcess, WindowsProcessJob};
+
+    fn long_running_child() -> std::process::Child {
+        Command::new("cmd")
+            .args(["/C", "ping -n 30 127.0.0.1 > NUL"])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("the Windows test child should start")
+    }
+
+    #[test]
+    fn normal_shutdown_reaps_the_sidecar() {
+        let child = long_running_child();
+        let job = WindowsProcessJob::attach(&child).expect("job assignment should work");
+        let process = SidecarProcess {
+            child: std::sync::Mutex::new(Some(child)),
+            _job: job,
+        };
+
+        process.stop();
+
+        assert!(process
+            .child
+            .lock()
+            .expect("test mutex should not be poisoned")
+            .is_none());
+    }
+
+    #[test]
+    fn job_object_reaps_the_sidecar_after_forced_shell_termination() {
+        let mut child = long_running_child();
+        let job = WindowsProcessJob::attach(&child).expect("job assignment should work");
+
+        drop(job);
+
+        for _ in 0..20 {
+            if child
+                .try_wait()
+                .expect("child status should be readable")
+                .is_some()
+            {
+                return;
+            }
+            thread::sleep(Duration::from_millis(100));
+        }
+        let _ = child.kill();
+        let _ = child.wait();
+        panic!("dropping the Job Object must terminate the sidecar");
     }
 }

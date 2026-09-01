@@ -50,6 +50,7 @@ Use Conventional Commits: `feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore
 | `just desktop-install` | Instala a CLI e dependências do shell Tauri. |
 | `just desktop-build` | No Windows, gera o sidecar PyInstaller `onedir` e o instalador NSIS de teste. |
 | `just desktop-format-check` | Verifica a formatação Rust do shell. |
+| `just desktop-test` | Executa no Windows os testes de ciclo de vida do supervisor e do Job Object. |
 | `just infra-up` | Sobe serviços auxiliares legados/opcionais; não é pré-requisito do CRM. |
 | `just infra-down` | Para os serviços sem apagar dados. |
 | `just infra-reset` | Apaga os volumes locais; use conscientemente. |

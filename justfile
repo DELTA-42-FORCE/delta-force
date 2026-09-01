@@ -130,6 +130,9 @@ desktop-build:
 desktop-format-check:
     cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --check
 
+desktop-test:
+    cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
+
 # --- Infraestrutura local ---
 infra-up:
     docker compose --env-file .env -f infra/compose.yaml up -d

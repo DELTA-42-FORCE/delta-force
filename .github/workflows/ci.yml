@@ -117,4 +117,5 @@ jobs:
       - run: just web-install
       - run: just desktop-install
       - run: just desktop-format-check
+      - run: just desktop-test
       - run: just desktop-build
