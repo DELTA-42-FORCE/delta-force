@@ -35,6 +35,7 @@ class AuditAction(StrEnum):
     CLIENT_FOLDER_CREATED = "client_folder.created"
     CLIENT_FOLDER_VIEWED = "client_folder.viewed"
     CLIENT_FOLDER_UPDATED = "client_folder.updated"
+    DOCUMENT_STORED = "document.stored"
 
 
 class AuditResourceType(StrEnum):
@@ -45,6 +46,7 @@ class AuditResourceType(StrEnum):
     ROUTE = "route"
     AUDIT_LOG = "audit_log"
     CLIENT_FOLDER = "client_folder"
+    DOCUMENT = "document"
 
 
 @dataclass(frozen=True, slots=True)

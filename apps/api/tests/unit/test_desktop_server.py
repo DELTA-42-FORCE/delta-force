@@ -2,10 +2,15 @@ from pathlib import Path
 
 import pytest
 
+from crm_api.core.config import DOCUMENTS_DIRECTORY_NAME, get_settings
 from crm_api.desktop_server import (
     _database_url,
     _read_bootstrap_secret,
     provision_desktop_database,
+)
+from crm_api.infrastructure.documents.storage import (
+    INCOMING_DIRECTORY_NAME,
+    provision_document_storage,
 )
 
 
@@ -43,3 +48,22 @@ def test_first_desktop_execution_publishes_only_a_migrated_sqlite_file(
     assert not (tmp_path / "crm.sqlite3.candidate").exists()
     assert provision_desktop_database(tmp_path) == active_path
     assert capsys.readouterr().out == ""
+
+
+def test_desktop_data_directory_keeps_database_and_documents_together(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """O backup da #44 depende de banco e documentos na mesma árvore de dados."""
+    database_path = provision_desktop_database(tmp_path)
+    documents_root = provision_document_storage(tmp_path / DOCUMENTS_DIRECTORY_NAME)
+
+    assert documents_root.parent == database_path.parent
+    assert (documents_root / INCOMING_DIRECTORY_NAME).is_dir()
+
+    monkeypatch.delenv("DOCUMENTS_ROOT", raising=False)
+    monkeypatch.setenv("DATABASE_URL", _database_url(database_path))
+    get_settings.cache_clear()
+    try:
+        assert get_settings().documents_root_path == documents_root.resolve()
+    finally:
+        get_settings.cache_clear()
