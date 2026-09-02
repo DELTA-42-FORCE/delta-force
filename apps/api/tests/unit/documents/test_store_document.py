@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -38,8 +39,11 @@ async def _stream() -> AsyncIterator[bytes]:
 @dataclass
 class FakeAuditEventRepository:
     events: list[AuditEvent] = field(default_factory=list)
+    failure: BaseException | None = None
 
     async def append(self, event: AuditEvent) -> None:
+        if self.failure is not None:
+            raise self.failure
         self.events.append(event)
 
     async def list_recent(
@@ -85,7 +89,7 @@ class FakeClientFolderRepository:
 class FakeDocumentStorage:
     stored: list[tuple[UUID, str]] = field(default_factory=list)
     discarded: list[str] = field(default_factory=list)
-    failure: Exception | None = None
+    failure: BaseException | None = None
 
     async def store(
         self,
@@ -113,7 +117,7 @@ class FakeDocumentStorage:
 @dataclass
 class FakeDocumentMetadataRepository:
     added: list[StoredDocument] = field(default_factory=list)
-    failure: Exception | None = None
+    failure: BaseException | None = None
 
     async def add(
         self,
@@ -272,6 +276,48 @@ async def test_does_not_touch_the_database_when_the_content_is_rejected() -> Non
     assert harness.events.events == []
     assert harness.transaction.commit_calls == 0
     assert harness.transaction.rollback_calls == 0
+
+
+async def test_discards_the_published_file_when_the_request_is_cancelled() -> None:
+    """Regressão: CancelledError não herda de Exception e escaparia da limpeza.
+
+    O arquivo já está publicado quando o cancelamento chega: sem rollback e
+    descarte ele ficaria órfão, sem metadados nem auditoria.
+    """
+    harness = _build_harness()
+    harness.documents.failure = asyncio.CancelledError()
+
+    with pytest.raises(asyncio.CancelledError):
+        await harness.use_case.execute(
+            actor_user_id=uuid4(),
+            client_folder_id=harness.client_folder_id,
+            original_filename="contrato.pdf",
+            chunks=_stream(),
+        )
+
+    assert harness.transaction.rollback_calls == 1
+    assert harness.transaction.commit_calls == 0
+    assert harness.storage.discarded == [STORAGE_KEY]
+    assert harness.documents.added == []
+    assert harness.events.events == []
+
+
+async def test_discards_the_published_file_when_the_audit_is_cancelled() -> None:
+    """O cancelamento também pode chegar depois dos metadados, na auditoria."""
+    harness = _build_harness()
+    harness.events.failure = asyncio.CancelledError()
+
+    with pytest.raises(asyncio.CancelledError):
+        await harness.use_case.execute(
+            actor_user_id=uuid4(),
+            client_folder_id=harness.client_folder_id,
+            original_filename="contrato.pdf",
+            chunks=_stream(),
+        )
+
+    assert harness.transaction.rollback_calls == 1
+    assert harness.transaction.commit_calls == 0
+    assert harness.storage.discarded == [STORAGE_KEY]
 
 
 async def test_discards_the_published_file_when_the_metadata_cannot_persist() -> None:

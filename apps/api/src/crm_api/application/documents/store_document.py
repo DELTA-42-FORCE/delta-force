@@ -72,9 +72,12 @@ class StoreDocumentUseCase:
                 result=AuditResult.SUCCESS,
             )
             await self.transaction.commit()
-        except Exception:
-            # Sem metadados o arquivo publicado seria inalcançável pelo CRM e
-            # invisível para o backup da #44: ele é removido junto do rollback.
+        except BaseException:
+            # BaseException, e não Exception: `asyncio.CancelledError` não herda
+            # de Exception, e um cancelamento entre a publicação e o commit
+            # deixaria o arquivo órfão. Sem metadados ele seria inalcançável
+            # pelo CRM e invisível para o backup da #44, então é removido junto
+            # do rollback — a mesma garantia aplicada na camada de storage.
             await self.transaction.rollback()
             await self.storage.discard(storage_key=content.storage_key)
             raise
