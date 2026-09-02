@@ -1187,6 +1187,15 @@ button.workspace-nav__item--active:hover {
   white-space: pre-wrap;
 }
 
+.documents-list__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem 1rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

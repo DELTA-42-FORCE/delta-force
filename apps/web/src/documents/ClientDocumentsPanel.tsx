@@ -2,10 +2,12 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 
 import type { ClientFolder } from '../clients/clientsApi'
 import type { DownloadedFile } from '../lib/apiClient'
+import type { DocumentOpenLocation } from '../lib/desktopShell'
 import {
   describeAttachFailure,
   describeExportFailure,
   describeMediaType,
+  describeOpenFailure,
   formatByteSize,
 } from './documentMessages'
 import type {
@@ -23,6 +25,7 @@ interface ClientDocumentsPanelProps {
     annotations: DocumentAnnotations
   }) => Promise<ClientDocument>
   exportDocument: (document: ClientDocument) => Promise<DownloadedFile>
+  openDocument: (document: ClientDocument) => Promise<DocumentOpenLocation>
   onBack: () => void
 }
 
@@ -45,6 +48,7 @@ export function ClientDocumentsPanel({
   loadPage,
   attachDocument,
   exportDocument,
+  openDocument,
   onBack,
 }: ClientDocumentsPanelProps) {
   const [documents, setDocuments] = useState<ClientDocument[]>([])
@@ -59,6 +63,9 @@ export function ClientDocumentsPanel({
   const [attachNotice, setAttachNotice] = useState<string | null>(null)
   const [exportError, setExportError] = useState<string | null>(null)
   const [exportingId, setExportingId] = useState<string | null>(null)
+  const [openError, setOpenError] = useState<string | null>(null)
+  const [openNotice, setOpenNotice] = useState<string | null>(null)
+  const [openingId, setOpeningId] = useState<string | null>(null)
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState('')
   const [notes, setNotes] = useState('')
@@ -153,6 +160,24 @@ export function ClientDocumentsPanel({
       setExportError(describeExportFailure(error))
     } finally {
       setExportingId(null)
+    }
+  }
+
+  async function handleOpen(item: ClientDocument) {
+    setOpenError(null)
+    setOpenNotice(null)
+    setOpeningId(item.id)
+    try {
+      const location = await openDocument(item)
+      setOpenNotice(
+        location === 'desktop-app'
+          ? 'Abrindo o documento no aplicativo padrão do Windows.'
+          : 'O documento foi aberto em uma nova aba para consulta.',
+      )
+    } catch (error) {
+      setOpenError(describeOpenFailure(error))
+    } finally {
+      setOpeningId(null)
     }
   }
 
@@ -276,6 +301,16 @@ export function ClientDocumentsPanel({
 
         {state === 'ready' && documents.length > 0 && (
           <>
+            {openNotice !== null && (
+              <p className="feedback feedback--success" role="status">
+                {openNotice}
+              </p>
+            )}
+            {openError !== null && (
+              <p className="feedback feedback--error" role="alert">
+                {openError}
+              </p>
+            )}
             {exportError !== null && (
               <p className="feedback feedback--error" role="alert">
                 {exportError}
@@ -297,14 +332,26 @@ export function ClientDocumentsPanel({
                       </small>
                     )}
                   </div>
-                  <button
-                    className="text-button"
-                    type="button"
-                    disabled={exportingId === item.id}
-                    onClick={() => void handleExport(item)}
-                  >
-                    {exportingId === item.id ? 'Exportando…' : 'Exportar cópia'}
-                  </button>
+                  <div className="documents-list__actions">
+                    <button
+                      className="text-button"
+                      type="button"
+                      disabled={openingId === item.id}
+                      onClick={() => void handleOpen(item)}
+                    >
+                      {openingId === item.id ? 'Abrindo…' : 'Abrir'}
+                    </button>
+                    <button
+                      className="text-button"
+                      type="button"
+                      disabled={exportingId === item.id}
+                      onClick={() => void handleExport(item)}
+                    >
+                      {exportingId === item.id
+                        ? 'Exportando…'
+                        : 'Exportar cópia'}
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>

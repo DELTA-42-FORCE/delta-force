@@ -3,5 +3,9 @@
   "identifier": "main-window",
   "description": "Permite somente a janela principal obter a conexão local efêmera.",
   "windows": ["main"],
-  "permissions": ["core:default", "allow-desktop-connection"]
+  "permissions": [
+    "core:default",
+    "allow-desktop-connection",
+    "allow-open-document"
+  ]
 }

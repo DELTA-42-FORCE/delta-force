@@ -1,12 +1,16 @@
 use std::{
+    fs,
     io::{BufRead, BufReader, Write},
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{Child, ChildStdin, Command, Stdio},
     sync::{mpsc, Mutex},
     time::{Duration, Instant},
 };
 
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+use base64::{
+    engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD},
+    Engine as _,
+};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, State, WindowEvent};
 use thiserror::Error;
@@ -27,6 +31,8 @@ enum DesktopError {
     BootstrapDenied,
     #[error("desktop resources could not be resolved")]
     ResourcesUnavailable,
+    #[error("desktop document could not be opened")]
+    DocumentOpenFailed,
 }
 
 #[derive(Debug, Deserialize)]
@@ -46,6 +52,16 @@ struct DesktopConnection {
     api_base_url: String,
     capability: String,
 }
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct OpenDocumentRequest {
+    filename: String,
+    content_base64: String,
+}
+
+const OPEN_CACHE_DIRECTORY: &str = "open-cache";
+const ALLOWED_OPEN_EXTENSIONS: [&str; 3] = ["pdf", "jpg", "jpeg"];
 
 struct SidecarProcess {
     child: Mutex<Option<Child>>,
@@ -261,6 +277,76 @@ fn desktop_connection(state: State<'_, DesktopRuntime>) -> Result<DesktopConnect
         .map_err(|_| "desktop connection is unavailable".to_owned())
 }
 
+#[tauri::command]
+fn open_document(app: AppHandle, request: OpenDocumentRequest) -> Result<(), String> {
+    open_downloaded_document(&app, &request)
+        .map_err(|_| "the document could not be opened".to_owned())
+}
+
+fn open_downloaded_document(
+    app: &AppHandle,
+    request: &OpenDocumentRequest,
+) -> Result<(), DesktopError> {
+    // O shell recebe apenas os bytes já baixados nesta sessão autenticada; a
+    // árvore privada do CRM nunca é exposta. A cópia é gravada em um cache
+    // local e aberta no programa padrão do Windows para consulta.
+    let bytes = STANDARD
+        .decode(request.content_base64.as_bytes())
+        .map_err(|_| DesktopError::DocumentOpenFailed)?;
+    let filename = safe_open_filename(&request.filename)?;
+
+    let cache_directory = app
+        .path()
+        .app_local_data_dir()
+        .map_err(|_| DesktopError::ResourcesUnavailable)?
+        .join(OPEN_CACHE_DIRECTORY);
+    fs::create_dir_all(&cache_directory).map_err(|_| DesktopError::DocumentOpenFailed)?;
+
+    let destination = cache_directory.join(filename);
+    fs::write(&destination, &bytes).map_err(|_| DesktopError::DocumentOpenFailed)?;
+    launch_with_default_application(&destination)
+}
+
+fn safe_open_filename(filename: &str) -> Result<String, DesktopError> {
+    // Só o nome do arquivo é aceito: qualquer componente de diretório é
+    // descartado para que a cópia nunca escape do cache de abertura, e apenas
+    // os formatos previstos pela #22 podem ser gravados.
+    let name = Path::new(filename)
+        .file_name()
+        .and_then(|value| value.to_str())
+        .ok_or(DesktopError::DocumentOpenFailed)?;
+    let extension = Path::new(name)
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(str::to_ascii_lowercase)
+        .unwrap_or_default();
+    if !ALLOWED_OPEN_EXTENSIONS.contains(&extension.as_str()) {
+        return Err(DesktopError::DocumentOpenFailed);
+    }
+    Ok(name.to_owned())
+}
+
+#[cfg(windows)]
+fn launch_with_default_application(path: &Path) -> Result<(), DesktopError> {
+    // `rundll32 ShellExec_RunDLL` abre o arquivo no programa associado do
+    // Windows sem passar por um shell que reinterprete o caminho.
+    Command::new("rundll32.exe")
+        .arg("shell32.dll,ShellExec_RunDLL")
+        .arg(path)
+        .spawn()
+        .map(|_| ())
+        .map_err(|_| DesktopError::DocumentOpenFailed)
+}
+
+#[cfg(not(windows))]
+fn launch_with_default_application(path: &Path) -> Result<(), DesktopError> {
+    Command::new("xdg-open")
+        .arg(path)
+        .spawn()
+        .map(|_| ())
+        .map_err(|_| DesktopError::DocumentOpenFailed)
+}
+
 pub fn run() {
     let mut builder = tauri::Builder::default();
     #[cfg(windows)]
@@ -286,7 +372,7 @@ pub fn run() {
                 let _ = window.state::<DesktopRuntime>().sidecar.stop();
             }
         })
-        .invoke_handler(tauri::generate_handler![desktop_connection])
+        .invoke_handler(tauri::generate_handler![desktop_connection, open_document])
         .run(tauri::generate_context!())
         .expect("failed to run Delta Force CRM desktop shell");
 }

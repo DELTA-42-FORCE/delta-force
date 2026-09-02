@@ -48,6 +48,16 @@ export function describeExportFailure(error: unknown): string {
   }
 }
 
+export function describeOpenFailure(error: unknown): string {
+  // A abertura primeiro baixa a cópia autorizada (mesmas causas do export) e
+  // depois a entrega ao sistema; qualquer etapa preserva a orientação de que
+  // a exportação continua disponível como alternativa.
+  if (error instanceof ApiError) {
+    return describeExportFailure(error)
+  }
+  return 'Não foi possível abrir o documento neste computador. Ele pode ter sido movido ou removido fora do CRM — você ainda pode usar “Exportar cópia”.'
+}
+
 const UNITS = ['B', 'KB', 'MB', 'GB', 'TB'] as const
 
 export function formatByteSize(bytes: number): string {

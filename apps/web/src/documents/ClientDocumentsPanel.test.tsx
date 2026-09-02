@@ -76,6 +76,7 @@ function renderPanel(
     loadPage?: (cursor: DocumentCursor | null) => Promise<ClientDocumentPage>
     attachDocument?: ReturnType<typeof vi.fn>
     exportDocument?: ReturnType<typeof vi.fn>
+    openDocument?: ReturnType<typeof vi.fn>
   } = {},
 ) {
   const loadPage =
@@ -90,6 +91,8 @@ function renderPanel(
       blob: new Blob(['%PDF-']),
       filename: 'contrato.pdf',
     } satisfies DownloadedFile)
+  const openDocument =
+    overrides.openDocument ?? vi.fn().mockResolvedValue('desktop-app')
 
   render(
     <ClientDocumentsPanel
@@ -97,10 +100,11 @@ function renderPanel(
       loadPage={loadPage}
       attachDocument={attachDocument}
       exportDocument={exportDocument}
+      openDocument={openDocument}
       onBack={vi.fn()}
     />,
   )
-  return { loadPage, attachDocument, exportDocument }
+  return { loadPage, attachDocument, exportDocument, openDocument }
 }
 
 describe('ClientDocumentsPanel', () => {
@@ -223,6 +227,58 @@ describe('ClientDocumentsPanel', () => {
     await waitFor(() => expect(exportDocument).toHaveBeenCalledTimes(1))
     expect(URL.createObjectURL).toHaveBeenCalled()
     expect(URL.revokeObjectURL).toHaveBeenCalled()
+  })
+
+  it('opens a document in the default Windows app through the desktop shell', async () => {
+    const openDocument = vi.fn().mockResolvedValue('desktop-app')
+    const user = userEvent.setup()
+    renderPanel({
+      loadPage: vi.fn().mockResolvedValue(pageOf(documentItem(FIRST_ID), null)),
+      openDocument,
+    })
+
+    await screen.findByText('contrato.pdf')
+    await user.click(screen.getByRole('button', { name: 'Abrir' }))
+
+    await waitFor(() => expect(openDocument).toHaveBeenCalledTimes(1))
+    expect(openDocument.mock.calls[0][0].id).toBe(FIRST_ID)
+    expect(
+      await screen.findByText(
+        'Abrindo o documento no aplicativo padrão do Windows.',
+      ),
+    ).toBeVisible()
+  })
+
+  it('falls back to a browser tab when there is no desktop shell', async () => {
+    const user = userEvent.setup()
+    renderPanel({
+      loadPage: vi.fn().mockResolvedValue(pageOf(documentItem(FIRST_ID), null)),
+      openDocument: vi.fn().mockResolvedValue('browser-tab'),
+    })
+
+    await screen.findByText('contrato.pdf')
+    await user.click(screen.getByRole('button', { name: 'Abrir' }))
+
+    expect(
+      await screen.findByText(
+        'O documento foi aberto em uma nova aba para consulta.',
+      ),
+    ).toBeVisible()
+  })
+
+  it('explains an unreadable file when opening it', async () => {
+    const user = userEvent.setup()
+    renderPanel({
+      loadPage: vi.fn().mockResolvedValue(pageOf(documentItem(FIRST_ID), null)),
+      openDocument: vi.fn().mockRejectedValue(new ApiError(500, 'unreadable')),
+    })
+
+    await screen.findByText('contrato.pdf')
+    await user.click(screen.getByRole('button', { name: 'Abrir' }))
+
+    expect(
+      await screen.findByText(/não pôde ser lido no armazenamento local/),
+    ).toBeVisible()
   })
 
   it('explains an unreadable file on export', async () => {
