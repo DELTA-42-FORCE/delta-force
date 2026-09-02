@@ -65,6 +65,23 @@ metadados, portanto a alteração de documentos gerenciados deve ocorrer pelo
 CRM. Backup e restauração devem contemplar banco, documentos e metadados como
 uma unidade.
 
+## Armazenamento de documentos
+
+A fundação entregue pela #21 vive em
+`apps/api/src/crm_api/infrastructure/documents/`. A árvore privada fica ao lado
+do arquivo SQLite — `DOCUMENTS_ROOT` só é necessário quando o banco não é um
+arquivo local — para que o snapshot da #44 trate banco, documentos e metadados
+como uma unidade. A tabela `documents` guarda nome declarado, formato, tamanho,
+checksum e a chave interna do arquivo; o binário nunca entra no banco e a chave
+deriva apenas do identificador do documento, nunca do nome enviado.
+
+A gravação é sempre por streaming: o formato vem da assinatura lida no início do
+fluxo — a extensão declarada só é aceita se concordar com ele —, a capacidade
+livre é verificada antes e durante a escrita, e o arquivo só aparece no destino
+final por `os.replace` depois de íntegro e sincronizado. Qualquer falha remove o
+arquivo parcial, e um documento cujos metadados não persistirem é descartado
+junto do rollback da transação.
+
 ## Auditoria
 
 A trilha de auditoria é append-only na aplicação. Casos de uso registram ações

@@ -13,6 +13,12 @@ SUPPORTED_DATABASE_URL_PREFIXES = (
     "postgresql+psycopg://",
 )
 
+SQLITE_FILE_URL_PREFIX = "sqlite+aiosqlite:///"
+
+# A árvore de documentos acompanha o arquivo do banco para que o backup da #44
+# capture banco, documentos e metadados como uma unidade.
+DOCUMENTS_DIRECTORY_NAME = "documents"
+
 
 class Settings(BaseSettings):
     """Configurações necessárias para adaptadores de infraestrutura."""
@@ -26,6 +32,7 @@ class Settings(BaseSettings):
     database_url: str
     session_ttl_minutes: int = 12 * 60
     cors_allowed_origins: str = "http://localhost:5173"
+    documents_root: str | None = None
 
     @field_validator("database_url")
     @classmethod
@@ -42,6 +49,23 @@ class Settings(BaseSettings):
     @property
     def cors_allowed_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_allowed_origins.split(",")]
+
+    @property
+    def documents_root_path(self) -> Path:
+        """Raiz privada dos documentos, derivada do banco quando não configurada."""
+        if self.documents_root:
+            return Path(self.documents_root).expanduser().resolve()
+        if not self.database_url.startswith(SQLITE_FILE_URL_PREFIX):
+            raise ValueError(
+                "DOCUMENTS_ROOT is required when DATABASE_URL is not a SQLite file"
+            )
+        database_path = self.database_url.removeprefix(SQLITE_FILE_URL_PREFIX)
+        if not database_path or database_path.startswith(":memory:"):
+            raise ValueError(
+                "DOCUMENTS_ROOT is required when the database is not a local file"
+            )
+        parent = Path(database_path).expanduser().resolve().parent
+        return parent / DOCUMENTS_DIRECTORY_NAME
 
 
 @lru_cache

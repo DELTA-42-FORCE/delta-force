@@ -25,6 +25,7 @@ LEGACY_SESSION_REVISION = "20260812_0002"
 PREVIOUS_AUDIT_REVISION = "20260819_0003"
 PREVIOUS_CLIENT_FOLDER_REVISION = "20260829_0005"
 PREVIOUS_VIEW_UPDATE_REVISION = "20260830_0006"
+PREVIOUS_DOCUMENT_REVISION = "20260901_0007"
 
 
 def run_alembic(command: str, revision: str) -> None:
@@ -396,3 +397,124 @@ def test_client_folder_view_update_audit_migration_round_trip() -> None:
         run_alembic("downgrade", PREVIOUS_VIEW_UPDATE_REVISION)
     finally:
         run_alembic("upgrade", "head")
+
+
+def _table_names(connection: sqlite3.Connection) -> set[str]:
+    return {
+        row[0]
+        for row in connection.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        )
+    }
+
+
+def _insert_document(
+    connection: sqlite3.Connection, *, client_folder_id: str, storage_key: str
+) -> str:
+    document_id = uuid.uuid4().hex
+    connection.execute(
+        """
+        INSERT INTO documents (
+            id, client_folder_id, original_filename, storage_key,
+            media_type, byte_size, checksum_sha256
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            document_id,
+            client_folder_id,
+            "contrato sintetico.pdf",
+            storage_key,
+            "application/pdf",
+            1024,
+            "c" * 64,
+        ),
+    )
+    connection.commit()
+    return document_id
+
+
+def test_document_migration_round_trip_restores_schema_and_audit_catalog() -> None:
+    path = ensure_disposable_database()
+    folder_id = uuid.uuid4().hex
+
+    run_alembic("downgrade", PREVIOUS_DOCUMENT_REVISION)
+    try:
+        with connect(path) as connection:
+            assert "documents" not in _table_names(connection)
+            with pytest.raises(sqlite3.IntegrityError):
+                insert_audit_event(
+                    connection,
+                    actor_kind="anonymous",
+                    actor_user_id=None,
+                    action="document.stored",
+                    resource_type="document",
+                )
+
+        run_alembic("upgrade", "head")
+        with connect(path) as connection:
+            assert "documents" in _table_names(connection)
+            assert table_columns(connection, "documents") == {
+                "id",
+                "client_folder_id",
+                "original_filename",
+                "storage_key",
+                "media_type",
+                "byte_size",
+                "checksum_sha256",
+                "stored_at",
+            }
+            connection.execute(
+                "INSERT INTO client_folders (id, display_name, profile_data) "
+                "VALUES (?, ?, ?)",
+                (folder_id, "Cliente Sintético de Migration", "{}"),
+            )
+            connection.commit()
+
+            # A FK só é efetiva com PRAGMA foreign_keys=ON em toda conexão.
+            with pytest.raises(sqlite3.IntegrityError):
+                _insert_document(
+                    connection,
+                    client_folder_id=uuid.uuid4().hex,
+                    storage_key=f"aa/bb/{uuid.uuid4().hex}.pdf",
+                )
+
+            document_id = _insert_document(
+                connection,
+                client_folder_id=folder_id,
+                storage_key=f"cc/dd/{uuid.uuid4().hex}.pdf",
+            )
+            # Uma pasta com documento não pode ser apagada por baixo dele.
+            with pytest.raises(sqlite3.IntegrityError):
+                connection.execute(
+                    "DELETE FROM client_folders WHERE id = ?", (folder_id,)
+                )
+
+        # O rollback é recusado enquanto houver documento ou auditoria de documento.
+        with pytest.raises(subprocess.CalledProcessError):
+            run_alembic("downgrade", PREVIOUS_DOCUMENT_REVISION)
+
+        with connect(path) as connection:
+            connection.execute("DELETE FROM documents WHERE id = ?", (document_id,))
+            connection.commit()
+            event_id = insert_audit_event(
+                connection,
+                actor_kind="anonymous",
+                actor_user_id=None,
+                action="document.stored",
+                resource_type="document",
+            )
+
+        with pytest.raises(subprocess.CalledProcessError):
+            run_alembic("downgrade", PREVIOUS_DOCUMENT_REVISION)
+
+        with connect(path) as connection:
+            connection.execute("DELETE FROM audit_events WHERE id = ?", (event_id,))
+            connection.commit()
+
+        run_alembic("downgrade", PREVIOUS_DOCUMENT_REVISION)
+    finally:
+        run_alembic("upgrade", "head")
+        with connect(path) as connection:
+            connection.execute("DELETE FROM client_folders WHERE id = ?", (folder_id,))
+            connection.commit()

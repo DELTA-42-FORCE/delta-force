@@ -16,8 +16,9 @@ from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 
-from crm_api.core.config import get_settings
+from crm_api.core.config import DOCUMENTS_DIRECTORY_NAME, get_settings
 from crm_api.core.desktop_runtime import DesktopRuntime
+from crm_api.infrastructure.documents.storage import provision_document_storage
 
 _DATABASE_FILENAME = "crm.sqlite3"
 _CANDIDATE_FILENAME = "crm.sqlite3.candidate"
@@ -163,7 +164,11 @@ def main() -> None:
         raise RuntimeError("desktop data directory is missing")
 
     secret = _read_bootstrap_secret()
-    database_path = provision_desktop_database(Path(data_directory_value))
+    data_directory = Path(data_directory_value)
+    database_path = provision_desktop_database(data_directory)
+    # Documentos ficam ao lado do banco, na mesma árvore privada, para que o
+    # backup em HD externo (#44) trate banco e arquivos como uma unidade.
+    provision_document_storage(data_directory / DOCUMENTS_DIRECTORY_NAME)
     os.environ["DATABASE_URL"] = _database_url(database_path)
     os.environ["CORS_ALLOWED_ORIGINS"] = "http://tauri.localhost"
     get_settings.cache_clear()

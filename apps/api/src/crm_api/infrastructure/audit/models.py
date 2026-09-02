@@ -36,12 +36,12 @@ class AuditEventModel(Base):
             "'auth.owner_profile_view', 'auth.logout', "
             "'auth.access_denied', 'audit.log_view', "
             "'client_folder.created', 'client_folder.viewed', "
-            "'client_folder.updated')",
+            "'client_folder.updated', 'document.stored')",
             name="ck_audit_events_action",
         ),
         CheckConstraint(
             "resource_type IN ('owner_account', 'session', 'route', "
-            "'audit_log', 'client_folder')",
+            "'audit_log', 'client_folder', 'document')",
             name="ck_audit_events_resource_type",
         ),
         CheckConstraint(
