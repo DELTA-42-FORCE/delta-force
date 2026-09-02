@@ -21,6 +21,7 @@ from uuid import UUID
 
 from crm_api.domain.documents.entities import DocumentMediaType, StoredContent
 from crm_api.domain.documents.errors import (
+    DocumentContentUnavailableError,
     DocumentStorageError,
     InsufficientStorageError,
 )
@@ -38,6 +39,7 @@ INCOMING_DIRECTORY_NAME = "_incoming"
 # quando o disco do proprietário está no limite.
 FREE_SPACE_MARGIN_BYTES = 64 * 1024 * 1024
 _SPACE_CHECK_INTERVAL_BYTES = 8 * 1024 * 1024
+_READ_CHUNK_BYTES = 1024 * 1024
 _DIRECTORY_MODE = 0o700
 _FILE_MODE = 0o600
 
@@ -108,6 +110,24 @@ class PrivateFilesystemDocumentStorage:
             byte_size=byte_size,
             checksum_sha256=digest.hexdigest(),
         )
+
+    async def open_stream(self, *, storage_key: str) -> AsyncIterator[bytes]:
+        """Lê um documento publicado em blocos, sem carregá-lo inteiro em memória."""
+        path = self.resolve_path(storage_key)
+        try:
+            handle = await asyncio.to_thread(path.open, "rb")
+        except OSError as error:
+            raise DocumentContentUnavailableError(
+                "the stored document could not be opened"
+            ) from error
+        try:
+            while True:
+                chunk = await asyncio.to_thread(handle.read, _READ_CHUNK_BYTES)
+                if not chunk:
+                    return
+                yield chunk
+        finally:
+            await asyncio.to_thread(handle.close)
 
     async def discard(self, *, storage_key: str) -> None:
         """Remove um arquivo já publicado, usado quando os metadados não persistem."""

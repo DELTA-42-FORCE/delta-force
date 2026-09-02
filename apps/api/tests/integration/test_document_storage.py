@@ -7,10 +7,23 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 
 from crm_api.application.audit.record_audit_event import RecordAuditEventUseCase
+from crm_api.application.documents.export_client_document import (
+    ExportClientDocumentUseCase,
+)
+from crm_api.application.documents.get_client_document import (
+    GetClientDocumentUseCase,
+)
 from crm_api.application.documents.store_document import StoreDocumentUseCase
 from crm_api.domain.audit.entities import AuditAction, AuditResourceType
-from crm_api.domain.documents.entities import DocumentMediaType, StoredContent
-from crm_api.domain.documents.errors import UnsupportedDocumentMediaTypeError
+from crm_api.domain.documents.entities import (
+    DocumentCursor,
+    DocumentMediaType,
+    StoredContent,
+)
+from crm_api.domain.documents.errors import (
+    DocumentNotFoundError,
+    UnsupportedDocumentMediaTypeError,
+)
 from crm_api.infrastructure.audit.models import AuditEventModel
 from crm_api.infrastructure.audit.repositories import SqlAlchemyAuditEventRepository
 from crm_api.infrastructure.audit.transactions import SqlAlchemyTransaction
@@ -57,7 +70,7 @@ async def clear_document_rows() -> AsyncIterator[None]:
         await session.execute(delete(DocumentModel))
         await session.execute(
             delete(AuditEventModel).where(
-                AuditEventModel.action == AuditAction.DOCUMENT_STORED.value
+                AuditEventModel.resource_type == AuditResourceType.DOCUMENT.value
             )
         )
         await session.commit()
@@ -100,6 +113,9 @@ async def test_document_metadata_persists_without_the_binary() -> None:
             id=document_id,
             client_folder_id=folder.id,
             original_filename="contrato assinado.pdf",
+            title="Contrato de locação",
+            category="contratos",
+            notes="via assinada",
             content=_synthetic_content(storage_key),
         )
         await session.commit()
@@ -115,6 +131,9 @@ async def test_document_metadata_persists_without_the_binary() -> None:
     assert stored.media_type == "application/pdf"
     assert stored.byte_size == len(PDF_BYTES)
     assert stored.checksum_sha256 == CHECKSUM
+    assert stored.title == "Contrato de locação"
+    assert stored.category == "contratos"
+    assert stored.notes == "via assinada"
     # O conteúdo não pertence ao banco: apenas a chave que o localiza.
     assert not hasattr(stored, "content")
 
@@ -171,6 +190,9 @@ async def test_document_storage_key_is_unique() -> None:
             id=uuid4(),
             client_folder_id=folder.id,
             original_filename="primeiro.pdf",
+            title=None,
+            category=None,
+            notes=None,
             content=_synthetic_content(shared_key),
         )
         await session.commit()
@@ -296,3 +318,151 @@ async def test_rejected_content_leaves_no_file_and_no_metadata(
         ).all()
 
     assert documents == []
+
+
+async def test_listing_returns_newest_first_and_paginates_by_cursor() -> None:
+    _requires_disposable_sqlite()
+    folder = await _create_client_folder()
+
+    async with get_session_factory()() as session:
+        repository = SqlAlchemyDocumentMetadataRepository(session)
+        for index in range(3):
+            await repository.add(
+                id=uuid4(),
+                client_folder_id=folder.id,
+                original_filename=f"anexo-{index}.pdf",
+                title=None,
+                category=None,
+                notes=None,
+                content=_synthetic_content(f"{index:02d}/aa/{uuid4().hex}.pdf"),
+            )
+        await session.commit()
+
+    async with get_session_factory()() as session:
+        repository = SqlAlchemyDocumentMetadataRepository(session)
+        first_page = await repository.list_for_client(
+            client_folder_id=folder.id, limit=2, before=None
+        )
+        cursor = DocumentCursor(
+            stored_at=first_page[-1].stored_at, id=first_page[-1].id
+        )
+        second_page = await repository.list_for_client(
+            client_folder_id=folder.id, limit=2, before=cursor
+        )
+
+    assert len(first_page) == 2
+    assert len(second_page) == 1
+    ordered = [document.stored_at for document in first_page]
+    assert ordered == sorted(ordered, reverse=True)
+    assert {document.id for document in first_page}.isdisjoint(
+        {document.id for document in second_page}
+    )
+
+
+async def test_exported_copy_matches_the_stored_bytes_and_is_audited(
+    tmp_path: Path,
+) -> None:
+    _requires_disposable_sqlite()
+    folder = await _create_client_folder()
+    owner_id = uuid4()
+    storage = PrivateFilesystemDocumentStorage(root=tmp_path / "documents")
+
+    async with get_session_factory()() as session:
+        session.add(
+            UserModel(
+                id=owner_id,
+                email=f"owner-{owner_id}@deltaforce.internal",
+                full_name="Proprietário Sintético",
+                password_hash="synthetic-password-hash",
+                is_active=True,
+            )
+        )
+        await session.flush()
+        audit = RecordAuditEventUseCase(events=SqlAlchemyAuditEventRepository(session))
+        transaction = SqlAlchemyTransaction(session)
+        documents = SqlAlchemyDocumentMetadataRepository(session)
+
+        document = await StoreDocumentUseCase(
+            clients=SqlAlchemyClientFolderRepository(session),
+            documents=documents,
+            storage=storage,
+            audit=audit,
+            transaction=transaction,
+        ).execute(
+            actor_user_id=owner_id,
+            client_folder_id=folder.id,
+            original_filename="contrato assinado.pdf",
+            chunks=_stream(PDF_BYTES),
+            title="Contrato",
+        )
+
+        export = await ExportClientDocumentUseCase(
+            documents=documents,
+            storage=storage,
+            audit=audit,
+            transaction=transaction,
+        ).execute(
+            actor_user_id=owner_id,
+            client_folder_id=folder.id,
+            document_id=document.id,
+        )
+        exported = b"".join([chunk async for chunk in export.chunks])
+
+    assert exported == PDF_BYTES
+    assert export.document.title == "Contrato"
+
+    async with get_session_factory()() as session:
+        actions = (
+            await session.scalars(
+                select(AuditEventModel.action).where(
+                    AuditEventModel.resource_id == str(document.id)
+                )
+            )
+        ).all()
+
+    assert AuditAction.DOCUMENT_STORED.value in actions
+    assert AuditAction.DOCUMENT_EXPORTED.value in actions
+
+
+async def test_a_document_cannot_be_reached_through_another_client_folder() -> None:
+    _requires_disposable_sqlite()
+    folder = await _create_client_folder()
+    other_folder = await _create_client_folder()
+    owner_id = uuid4()
+
+    async with get_session_factory()() as session:
+        session.add(
+            UserModel(
+                id=owner_id,
+                email=f"owner-{owner_id}@deltaforce.internal",
+                full_name="Proprietário Sintético",
+                password_hash="synthetic-password-hash",
+                is_active=True,
+            )
+        )
+        documents = SqlAlchemyDocumentMetadataRepository(session)
+        document = await documents.add(
+            id=uuid4(),
+            client_folder_id=folder.id,
+            original_filename="contrato.pdf",
+            title=None,
+            category=None,
+            notes=None,
+            content=_synthetic_content(f"ab/cd/{uuid4().hex}.pdf"),
+        )
+        await session.commit()
+
+        use_case = GetClientDocumentUseCase(
+            documents=documents,
+            audit=RecordAuditEventUseCase(
+                events=SqlAlchemyAuditEventRepository(session)
+            ),
+            transaction=SqlAlchemyTransaction(session),
+        )
+
+        with pytest.raises(DocumentNotFoundError):
+            await use_case.execute(
+                actor_user_id=owner_id,
+                client_folder_id=other_folder.id,
+                document_id=document.id,
+            )

@@ -11,6 +11,7 @@ import pytest
 
 from crm_api.domain.documents.entities import DocumentMediaType
 from crm_api.domain.documents.errors import (
+    DocumentContentUnavailableError,
     DocumentStorageError,
     InsufficientStorageError,
     InvalidDocumentNameError,
@@ -274,6 +275,42 @@ async def test_discard_removes_a_published_document(
     assert not document_storage.resolve_path(content.storage_key).exists()
     # A remoção repetida é tolerada porque o rollback pode competir com o retry.
     await document_storage.discard(storage_key=content.storage_key)
+
+
+async def test_open_stream_reads_back_exactly_what_was_stored(
+    document_storage: PrivateFilesystemDocumentStorage,
+) -> None:
+    content = await document_storage.store(
+        document_id=DOCUMENT_ID,
+        original_filename="contrato.pdf",
+        chunks=_stream(PDF_BYTES),
+    )
+
+    read_back = b"".join(
+        [
+            chunk
+            async for chunk in document_storage.open_stream(
+                storage_key=content.storage_key
+            )
+        ]
+    )
+
+    assert read_back == PDF_BYTES
+
+
+async def test_open_stream_reports_a_missing_file_instead_of_yielding_nothing(
+    document_storage: PrivateFilesystemDocumentStorage,
+) -> None:
+    content = await document_storage.store(
+        document_id=DOCUMENT_ID,
+        original_filename="contrato.pdf",
+        chunks=_stream(PDF_BYTES),
+    )
+    document_storage.resolve_path(content.storage_key).unlink()
+
+    with pytest.raises(DocumentContentUnavailableError):
+        async for _ in document_storage.open_stream(storage_key=content.storage_key):
+            pass
 
 
 @pytest.mark.parametrize(
