@@ -15,6 +15,7 @@ from crm_api.domain.audit.entities import (
 from crm_api.domain.clients.errors import ClientFolderNotFoundError
 from crm_api.domain.clients.repositories import ClientFolderRepository
 from crm_api.domain.documents.entities import StoredDocument
+from crm_api.domain.documents.naming import normalize_document_filename
 from crm_api.domain.documents.repositories import (
     DocumentMetadataRepository,
     DocumentStorage,
@@ -39,6 +40,11 @@ class StoreDocumentUseCase:
         original_filename: str,
         chunks: AsyncIterator[bytes],
     ) -> StoredDocument:
+        # O nome é normalizado uma única vez na borda: o arquivo e os metadados
+        # precisam guardar exatamente o mesmo valor, senão a validação de nome
+        # não valeria para o texto que será exibido e consultado.
+        filename = normalize_document_filename(original_filename)
+
         # A pasta é confirmada antes da gravação para que um destino inexistente
         # não chegue a consumir espaço em disco.
         if await self.clients.get(id=client_folder_id) is None:
@@ -47,14 +53,14 @@ class StoreDocumentUseCase:
         document_id = uuid4()
         content = await self.storage.store(
             document_id=document_id,
-            original_filename=original_filename,
+            original_filename=filename,
             chunks=chunks,
         )
         try:
             document = await self.documents.add(
                 id=document_id,
                 client_folder_id=client_folder_id,
-                original_filename=original_filename,
+                original_filename=filename,
                 content=content,
             )
             await self.audit.execute(

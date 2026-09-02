@@ -212,6 +212,36 @@ async def test_translates_a_full_disk_error_and_removes_the_partial_file(
     assert _incoming_files(document_storage.root) == []
 
 
+async def test_removes_the_published_file_when_publishing_fails_after_the_replace(
+    document_storage: PrivateFilesystemDocumentStorage,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regressão: falha depois do `os.replace` não pode deixar arquivo órfão.
+
+    O arquivo já está no destino final, mas sem metadados nem auditoria ele
+    seria invisível para o CRM e para o backup da #44.
+    """
+
+    def explode_after_replace(directory: Path) -> None:
+        raise OSError("directory sync failed")
+
+    monkeypatch.setattr(
+        PrivateFilesystemDocumentStorage,
+        "_sync_directory",
+        staticmethod(explode_after_replace),
+    )
+
+    with pytest.raises(OSError, match="directory sync failed"):
+        await document_storage.store(
+            document_id=DOCUMENT_ID,
+            original_filename="contrato.pdf",
+            chunks=_stream(PDF_BYTES),
+        )
+
+    assert _published_files(document_storage.root) == []
+    assert _incoming_files(document_storage.root) == []
+
+
 async def test_removes_the_partial_file_when_the_upload_is_cancelled(
     document_storage: PrivateFilesystemDocumentStorage,
 ) -> None:

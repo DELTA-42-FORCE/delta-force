@@ -79,8 +79,13 @@ A gravação é sempre por streaming: o formato vem da assinatura lida no iníci
 fluxo — a extensão declarada só é aceita se concordar com ele —, a capacidade
 livre é verificada antes e durante a escrita, e o arquivo só aparece no destino
 final por `os.replace` depois de íntegro e sincronizado. Qualquer falha remove o
-arquivo parcial, e um documento cujos metadados não persistirem é descartado
-junto do rollback da transação.
+arquivo parcial e também o que já tenha sido publicado, inclusive quando a falha
+ocorre depois do `os.replace`; um documento cujos metadados não persistirem é
+descartado junto do rollback da transação.
+
+As regras de nome ficam em `domain/documents/naming.py` porque valem tanto para
+o arquivo quanto para os metadados: o caso de uso normaliza uma única vez na
+borda e passa exatamente o mesmo nome ao armazenamento e ao repositório.
 
 ## Auditoria
 

@@ -22,7 +22,10 @@ from crm_api.domain.documents.entities import (
     StoredContent,
     StoredDocument,
 )
-from crm_api.domain.documents.errors import UnsupportedDocumentMediaTypeError
+from crm_api.domain.documents.errors import (
+    InvalidDocumentNameError,
+    UnsupportedDocumentMediaTypeError,
+)
 
 CHECKSUM = "a" * 64
 STORAGE_KEY = "01/23/0123456789abcdef0123456789abcdef.pdf"
@@ -204,6 +207,36 @@ async def test_stores_the_document_and_audits_the_authenticated_action() -> None
     assert event.resource_type is AuditResourceType.DOCUMENT
     assert event.resource_id == str(document.id)
     assert event.result is AuditResult.SUCCESS
+
+
+async def test_the_same_normalized_name_reaches_storage_and_metadata() -> None:
+    """Regressão: o nome gravado nos metadados é o mesmo validado para o arquivo."""
+    harness = _build_harness()
+
+    document = await harness.use_case.execute(
+        actor_user_id=uuid4(),
+        client_folder_id=harness.client_folder_id,
+        original_filename="  contrato assinado.pdf  ",
+        chunks=_stream(),
+    )
+
+    assert document.original_filename == "contrato assinado.pdf"
+    assert harness.storage.stored == [(document.id, "contrato assinado.pdf")]
+
+
+async def test_rejects_an_unsafe_name_before_touching_the_storage() -> None:
+    harness = _build_harness()
+
+    with pytest.raises(InvalidDocumentNameError):
+        await harness.use_case.execute(
+            actor_user_id=uuid4(),
+            client_folder_id=harness.client_folder_id,
+            original_filename="../escapando.pdf",
+            chunks=_stream(),
+        )
+
+    assert harness.storage.stored == []
+    assert harness.documents.added == []
 
 
 async def test_refuses_an_unknown_client_folder_before_writing_anything() -> None:

@@ -24,11 +24,11 @@ from crm_api.domain.documents.errors import (
     DocumentStorageError,
     InsufficientStorageError,
 )
-from crm_api.infrastructure.documents.content import (
-    DocumentContentInspector,
+from crm_api.domain.documents.naming import (
     assert_extension_matches,
     normalize_document_filename,
 )
+from crm_api.infrastructure.documents.content import DocumentContentInspector
 
 # Diretório de trabalho da gravação em andamento. Fica dentro da árvore privada
 # para que `os.replace` continue atômico, e nada nele é considerado publicado.
@@ -73,6 +73,12 @@ class PrivateFilesystemDocumentStorage:
         temporary_path = self._incoming_path(document_id)
         inspector = DocumentContentInspector()
         digest = hashlib.sha256()
+        # A chave é registrada antes de a publicação começar. Se `os.replace`
+        # concluir e a etapa seguinte falhar — ou um cancelamento chegar entre
+        # elas —, a limpeza ainda alcança o arquivo já publicado. Como a chave
+        # deriva de um identificador novo, remover o destino nunca atinge outro
+        # documento.
+        publishing_key: str | None = None
 
         try:
             await asyncio.to_thread(provision_document_storage, self.root)
@@ -84,11 +90,16 @@ class PrivateFilesystemDocumentStorage:
             )
             assert_extension_matches(filename=filename, media_type=media_type)
             storage_key = self._storage_key(document_id, media_type)
+            publishing_key = storage_key
             await asyncio.to_thread(self._publish, temporary_path, storage_key)
         except BaseException:
             # Qualquer falha — formato, disco cheio, cancelamento — não pode
-            # deixar conteúdo parcial visível na árvore publicada.
+            # deixar conteúdo parcial nem publicado sem metadados na árvore.
             await asyncio.to_thread(self._remove_quietly, temporary_path)
+            if publishing_key is not None:
+                await asyncio.to_thread(
+                    self._remove_quietly, self.resolve_path(publishing_key)
+                )
             raise
 
         return StoredContent(
