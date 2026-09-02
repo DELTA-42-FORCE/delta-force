@@ -15,6 +15,10 @@ class ClientFolderRepository(Protocol):
 
     async def get(self, *, id: UUID) -> ClientFolder | None: ...
 
+    async def find_by_display_name(
+        self, *, display_name: str
+    ) -> list[ClientFolder]: ...
+
     async def search(
         self,
         *,
