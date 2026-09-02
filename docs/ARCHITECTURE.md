@@ -105,6 +105,19 @@ de armazenamento —, porque a mensagem técnica da API não orienta o propriet�
 A cópia é baixada pela rota autenticada de conteúdo: a chave interna do arquivo
 não aparece no contrato HTTP nem na interface.
 
+## Ficha cadastral em PDF
+
+A ficha da #34 é gerada localmente, sob demanda, a partir dos campos que
+existirem na pasta flexível: o caso de uso projeta a pasta em
+`domain/clients/reporting.py` (nome de identificação e apenas os campos
+preenchidos) e delega a uma porta de renderização. O adaptador em
+`infrastructure/reporting/` monta o PDF à mão, com as fontes padrão do formato
+(Helvetica) e `WinAnsiEncoding` para os acentos do português, **sem embutir
+fontes nem acrescentar dependências** — coerente com a operação local e com o
+`uv.lock` estável. A ficha não é persistida: cada exportação é auditada e a
+resposta entrega os bytes com `Content-Disposition: attachment`. A ausência de
+qualquer campo nunca impede a geração.
+
 ## Auditoria
 
 A trilha de auditoria é append-only na aplicação. Casos de uso registram ações

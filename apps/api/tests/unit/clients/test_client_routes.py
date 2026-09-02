@@ -13,6 +13,9 @@ from crm_api.application.audit.record_audit_event import RecordAuditEventUseCase
 from crm_api.application.clients.create_client_folder import (
     CreateClientFolderUseCase,
 )
+from crm_api.application.clients.export_client_profile import (
+    ExportClientProfileUseCase,
+)
 from crm_api.application.clients.get_client_folder import GetClientFolderUseCase
 from crm_api.application.clients.list_client_folders import (
     ListClientFoldersUseCase,
@@ -23,6 +26,9 @@ from crm_api.application.clients.update_client_folder import (
 from crm_api.domain.audit.entities import AuditEvent
 from crm_api.domain.auth.entities import User
 from crm_api.domain.clients.entities import ClientFolder, ClientFolderCursor
+from crm_api.infrastructure.reporting.client_profile_pdf import (
+    MinimalClientProfilePdfRenderer,
+)
 from crm_api.main import app
 from crm_api.presentation.auth import dependencies as auth_dependencies
 from crm_api.presentation.clients import dependencies as client_dependencies
@@ -151,6 +157,14 @@ def client_fixture() -> (
     app.dependency_overrides[client_dependencies.get_update_client_folder_use_case] = (
         lambda: UpdateClientFolderUseCase(
             clients=repository, audit=audit, transaction=transaction
+        )
+    )
+    app.dependency_overrides[client_dependencies.get_export_client_profile_use_case] = (
+        lambda: ExportClientProfileUseCase(
+            clients=repository,
+            renderer=MinimalClientProfilePdfRenderer(),
+            audit=audit,
+            transaction=transaction,
         )
     )
 
@@ -307,6 +321,70 @@ def test_update_unknown_folder_returns_404(
     response = client.put(f"/clients/{uuid4()}", json={"display_name": "Alguém"})
 
     assert response.status_code == 404
+    assert events == []
+    assert transaction.commit_calls == 0
+
+
+def test_owner_exports_the_client_profile_as_pdf(
+    client_fixture: tuple[
+        TestClient, MemoryClientFolderRepository, list[AuditEvent], SpyTransaction
+    ],
+) -> None:
+    client, _, events, transaction = client_fixture
+    created = client.post(
+        "/clients",
+        json={
+            "display_name": "Ana Souza",
+            "profile_data": {"telefone": "11 99999-0000", "cidade": "São Paulo"},
+        },
+    ).json()
+    events.clear()
+    transaction.commit_calls = 0
+
+    response = client.get(f"/clients/{created['id']}/profile.pdf")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/pdf"
+    assert response.content.startswith(b"%PDF-")
+    assert response.content.rstrip().endswith(b"%%EOF")
+    disposition = response.headers["content-disposition"]
+    assert disposition.startswith("attachment;")
+    assert "ficha-cadastral-ana-souza.pdf" in disposition
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert events[-1].action == "client_folder.profile_exported"
+    assert events[-1].resource_id == created["id"]
+    assert events[-1].result == "success"
+    assert transaction.commit_calls == 1
+
+
+def test_profile_pdf_is_generated_even_without_optional_fields(
+    client_fixture: tuple[
+        TestClient, MemoryClientFolderRepository, list[AuditEvent], SpyTransaction
+    ],
+) -> None:
+    client, _, _, _ = client_fixture
+    created = client.post(
+        "/clients", json={"display_name": "Cliente Sem Campos"}
+    ).json()
+
+    response = client.get(f"/clients/{created['id']}/profile.pdf")
+
+    # A ausência de qualquer campo opcional nunca impede a geração da ficha.
+    assert response.status_code == 200
+    assert response.content.startswith(b"%PDF-")
+
+
+def test_export_profile_of_unknown_folder_returns_404(
+    client_fixture: tuple[
+        TestClient, MemoryClientFolderRepository, list[AuditEvent], SpyTransaction
+    ],
+) -> None:
+    client, _, events, transaction = client_fixture
+
+    response = client.get(f"/clients/{uuid4()}/profile.pdf")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "client folder not found"
     assert events == []
     assert transaction.commit_calls == 0
 
