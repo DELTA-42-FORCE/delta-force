@@ -128,8 +128,16 @@ conteúdo real, reutilizando o mesmo reconhecimento da gravação de documentos.
 associação casa o nome da pasta com um cliente já cadastrado (`find_by_display_name`);
 o que não casa de forma única fica de fora, para o proprietário revisar antes de
 confirmar. A varredura não segue symlinks, tem teto de arquivos e nunca escreve
-na origem. A execução da cópia (streaming, verificação de espaço, deduplicação por
-checksum e auditoria) e o web vêm nas fatias seguintes.
+na origem.
+
+A segunda fatia é a **execução** (`ImportLegacyArchiveUseCase`): cada arquivo
+elegível é copiado por streaming para a área privada reutilizando o mesmo
+armazenamento, metadados e auditoria (`document.stored`) da gravação normal —
+importar um arquivo legado é gravar um documento, então não há ação nem migração
+novas. O conteúdo já anexado ao cliente é deduplicado por checksum e descartado
+sem criar metadados; falta de espaço, formato inválido ou erro de leitura são
+registrados por arquivo sem interromper os demais, e a origem permanece intacta.
+O web (seleção de pasta, revisão da prévia e confirmação) vem na fatia seguinte.
 
 ## Auditoria
 

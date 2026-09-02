@@ -27,3 +27,26 @@ class LegacyImportPreviewResponse(BaseModel):
     source_path: str
     summary: dict[str, int]
     items: list[LegacyImportItemResponse]
+
+
+class LegacyImportRequest(BaseModel):
+    """Pasta de origem cujos arquivos elegíveis serão importados."""
+
+    source_path: str = Field(min_length=1)
+
+
+class LegacyImportResultItemResponse(BaseModel):
+    """Desfecho de um arquivo e o documento criado, quando houver."""
+
+    relative_path: str
+    client_folder_name: str | None
+    outcome: str
+    document_id: UUID | None
+
+
+class LegacyImportResultResponse(BaseModel):
+    """Relatório da execução: contagem por desfecho e a lista de arquivos."""
+
+    source_path: str
+    summary: dict[str, int]
+    items: list[LegacyImportResultItemResponse]

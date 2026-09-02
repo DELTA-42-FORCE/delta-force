@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -33,6 +34,31 @@ class FilesystemLegacyArchiveScanner:
 
     async def scan(self, *, source_path: str) -> list[LegacyScanEntry]:
         return await asyncio.to_thread(self._scan, source_path)
+
+    async def stream_file(
+        self, *, source_path: str, relative_path: str
+    ) -> AsyncIterator[bytes]:
+        """Lê um arquivo da origem em blocos, para a cópia por streaming (#45)."""
+        absolute = self._safe_absolute(source_path, relative_path)
+        handle = await asyncio.to_thread(absolute.open, "rb")
+        try:
+            while True:
+                chunk = await asyncio.to_thread(handle.read, _READ_CHUNK_BYTES)
+                if not chunk:
+                    return
+                yield chunk
+        finally:
+            await asyncio.to_thread(handle.close)
+
+    @staticmethod
+    def _safe_absolute(source_path: str, relative_path: str) -> Path:
+        # O caminho relativo vem da varredura, mas ainda assim é resolvido e
+        # confinado à raiz: nenhuma leitura pode escapar da pasta de origem.
+        root = Path(source_path).resolve()
+        absolute = (root / relative_path).resolve()
+        if root != absolute and root not in absolute.parents:
+            raise LegacyImportSourceError("the file path escapes the source folder")
+        return absolute
 
     def _scan(self, source_path: str) -> list[LegacyScanEntry]:
         root = Path(source_path)

@@ -104,3 +104,18 @@ class SqlAlchemyDocumentMetadataRepository:
         ).limit(limit)
         models = (await self.session.scalars(statement)).all()
         return [_to_stored_document(model) for model in models]
+
+    async def checksum_exists(
+        self, *, client_folder_id: UUID, checksum_sha256: str
+    ) -> bool:
+        # Deduplicação da importação (#45): o mesmo conteúdo já anexado à pasta
+        # do cliente não é importado de novo.
+        statement = (
+            select(DocumentModel.id)
+            .where(
+                DocumentModel.client_folder_id == client_folder_id,
+                DocumentModel.checksum_sha256 == checksum_sha256,
+            )
+            .limit(1)
+        )
+        return await self.session.scalar(statement) is not None

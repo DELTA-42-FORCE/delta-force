@@ -64,3 +64,42 @@ class LegacyImportPreview:
             counts[item.status.value] += 1
         counts["total"] = len(self.items)
         return counts
+
+
+class LegacyImportOutcome(StrEnum):
+    """Desfecho de um arquivo após a execução da importação."""
+
+    IMPORTED = "imported"
+    DUPLICATE = "duplicate"
+    SKIPPED = "skipped"
+    UNSUPPORTED_FORMAT = "unsupported_format"
+    UNREADABLE = "unreadable"
+    INSUFFICIENT_SPACE = "insufficient_space"
+    FAILED = "failed"
+
+
+@dataclass(frozen=True, slots=True)
+class LegacyImportResultItem:
+    """Desfecho de um arquivo importado e o documento criado, quando houver."""
+
+    relative_path: str
+    client_folder_name: str | None
+    outcome: LegacyImportOutcome
+    document_id: UUID | None
+
+
+@dataclass(frozen=True, slots=True)
+class LegacyImportResult:
+    """Resultado da execução, com os itens e a contagem por desfecho."""
+
+    source_path: str
+    items: tuple[LegacyImportResultItem, ...]
+
+    @property
+    def summary(self) -> dict[str, int]:
+        """Contagem por desfecho, incluindo o total, para o relatório da operação."""
+        counts = {outcome.value: 0 for outcome in LegacyImportOutcome}
+        for item in self.items:
+            counts[item.outcome.value] += 1
+        counts["total"] = len(self.items)
+        return counts
