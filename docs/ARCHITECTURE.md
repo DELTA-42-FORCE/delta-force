@@ -98,6 +98,13 @@ com `X-Content-Type-Options: nosniff`, e as ações `document.stored`,
 `stored_at` é definido pela aplicação, como na auditoria: o `CURRENT_TIMESTAMP`
 do SQLite tem resolução de segundo e desalinharia o cursor.
 
+Na interface, os documentos abrem a partir da pasta do cliente, em
+`apps/web/src/documents/`. A tela traduz a falha do servidor em uma frase por
+causa — formato recusado, nome inválido, disco sem espaço, acesso negado e falha
+de armazenamento —, porque a mensagem técnica da API não orienta o proprietário.
+A cópia é baixada pela rota autenticada de conteúdo: a chave interna do arquivo
+não aparece no contrato HTTP nem na interface.
+
 ## Auditoria
 
 A trilha de auditoria é append-only na aplicação. Casos de uso registram ações

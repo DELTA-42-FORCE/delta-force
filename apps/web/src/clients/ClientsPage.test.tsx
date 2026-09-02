@@ -51,6 +51,7 @@ describe('ClientsPage', () => {
 
     render(
       <ClientsPage
+        onOpenDocuments={vi.fn()}
         loadPage={loadPage}
         createFolder={vi.fn()}
         updateFolder={vi.fn()}
@@ -69,6 +70,7 @@ describe('ClientsPage', () => {
   it('shows an explicit empty state', async () => {
     render(
       <ClientsPage
+        onOpenDocuments={vi.fn()}
         loadPage={() => Promise.resolve({ items: [], nextCursor: null })}
         createFolder={vi.fn()}
         updateFolder={vi.fn()}
@@ -93,6 +95,7 @@ describe('ClientsPage', () => {
     const user = userEvent.setup()
     render(
       <ClientsPage
+        onOpenDocuments={vi.fn()}
         loadPage={loadPage}
         createFolder={vi.fn()}
         updateFolder={vi.fn()}
@@ -122,6 +125,7 @@ describe('ClientsPage', () => {
     const user = userEvent.setup()
     render(
       <ClientsPage
+        onOpenDocuments={vi.fn()}
         loadPage={loadPage}
         createFolder={vi.fn()}
         updateFolder={vi.fn()}
@@ -149,6 +153,7 @@ describe('ClientsPage', () => {
     const user = userEvent.setup()
     render(
       <ClientsPage
+        onOpenDocuments={vi.fn()}
         loadPage={loadPage}
         createFolder={createFolder}
         updateFolder={vi.fn()}
@@ -187,6 +192,7 @@ describe('ClientsPage', () => {
     const user = userEvent.setup()
     render(
       <ClientsPage
+        onOpenDocuments={vi.fn()}
         loadPage={loadPage}
         createFolder={vi.fn()}
         updateFolder={updateFolder}
@@ -206,5 +212,32 @@ describe('ClientsPage', () => {
         profile_data: {},
       }),
     )
+  })
+
+  it('opens the documents of the chosen folder', async () => {
+    const loadPage = vi
+      .fn<
+        (
+          cursor: ClientCursor | null,
+          query: string | null,
+        ) => Promise<ClientFolderPage>
+      >()
+      .mockResolvedValue(page(ANA_ID, 'Ana Souza', null))
+    const onOpenDocuments = vi.fn()
+    const user = userEvent.setup()
+
+    render(
+      <ClientsPage
+        onOpenDocuments={onOpenDocuments}
+        loadPage={loadPage}
+        createFolder={vi.fn()}
+        updateFolder={vi.fn()}
+      />,
+    )
+    expect(await screen.findByText('Ana Souza')).toBeVisible()
+
+    await user.click(screen.getByRole('button', { name: 'Documentos' }))
+
+    expect(onOpenDocuments).toHaveBeenCalledWith(folder(ANA_ID, 'Ana Souza'))
   })
 })

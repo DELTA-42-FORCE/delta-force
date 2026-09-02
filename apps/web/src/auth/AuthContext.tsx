@@ -8,7 +8,8 @@ import {
   type ReactNode,
 } from 'react'
 
-import { apiFetch, ApiError } from '../lib/apiClient'
+import { apiDownload, apiFetch, apiUpload, ApiError } from '../lib/apiClient'
+import type { DownloadedFile } from '../lib/apiClient'
 import { initializeDesktopConnection } from '../lib/desktopConnection'
 import {
   login as loginRequest,
@@ -33,6 +34,8 @@ interface AuthContextValue {
     path: string,
     options: { method: string; body?: unknown },
   ) => Promise<T>
+  authenticatedUpload: <T>(path: string, formData: FormData) => Promise<T>
+  authenticatedDownload: (path: string) => Promise<DownloadedFile>
   login: (email: string, password: string) => Promise<void>
   setup: (input: SetupOwnerInput) => Promise<void>
   logout: () => Promise<void>
@@ -155,6 +158,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [authenticatedRequest],
   )
 
+  const authenticatedUpload = useCallback(
+    async <T,>(path: string, formData: FormData): Promise<T> => {
+      if (token === null) throw new ApiError(401, 'session is not available')
+
+      try {
+        return await apiUpload<T>(path, { token, formData })
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) clearSession()
+        throw error
+      }
+    },
+    [clearSession, token],
+  )
+
+  const authenticatedDownload = useCallback(
+    async (path: string): Promise<DownloadedFile> => {
+      if (token === null) throw new ApiError(401, 'session is not available')
+
+      try {
+        return await apiDownload(path, { token })
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) clearSession()
+        throw error
+      }
+    },
+    [clearSession, token],
+  )
+
   const retry = useCallback(() => {
     setStatus('checking-setup')
     setCheckSequence((current) => current + 1)
@@ -166,6 +197,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       authenticatedGet,
       authenticatedRequest,
+      authenticatedUpload,
+      authenticatedDownload,
       login,
       setup,
       logout,
@@ -176,6 +209,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       authenticatedGet,
       authenticatedRequest,
+      authenticatedUpload,
+      authenticatedDownload,
       login,
       setup,
       logout,
