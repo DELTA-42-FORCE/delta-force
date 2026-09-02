@@ -68,17 +68,49 @@ class ExportClientDocumentUseCase:
             await self.transaction.commit()
             raise
 
-        await self._record(
-            actor_user_id=actor_user_id,
-            document=document,
-            result=AuditResult.SUCCESS,
-            reason_code=None,
-        )
-        await self.transaction.commit()
+        # O sucesso só é auditado quando o fluxo termina inteiro: se a leitura
+        # falhar depois deste primeiro bloco, a resposta já começou, mas a
+        # auditoria registra a falha em vez de um sucesso enganoso.
         return DocumentExport(
             document=document,
-            chunks=_prepend(first_chunk, stream),
+            chunks=self._audited_stream(
+                actor_user_id=actor_user_id,
+                document=document,
+                first_chunk=first_chunk,
+                rest=stream,
+            ),
         )
+
+    async def _audited_stream(
+        self,
+        *,
+        actor_user_id: UUID,
+        document: StoredDocument,
+        first_chunk: bytes,
+        rest: AsyncIterator[bytes],
+    ) -> AsyncIterator[bytes]:
+        try:
+            if first_chunk:
+                yield first_chunk
+            async for chunk in rest:
+                yield chunk
+        except DocumentContentUnavailableError:
+            await self._record(
+                actor_user_id=actor_user_id,
+                document=document,
+                result=AuditResult.FAILURE,
+                reason_code="document_content_unavailable",
+            )
+            await self.transaction.commit()
+            raise
+        else:
+            await self._record(
+                actor_user_id=actor_user_id,
+                document=document,
+                result=AuditResult.SUCCESS,
+                reason_code=None,
+            )
+            await self.transaction.commit()
 
     async def _record(
         self,
@@ -97,12 +129,3 @@ class ExportClientDocumentUseCase:
             result=result,
             context={} if reason_code is None else {"reason_code": reason_code},
         )
-
-
-async def _prepend(
-    first_chunk: bytes, rest: AsyncIterator[bytes]
-) -> AsyncIterator[bytes]:
-    if first_chunk:
-        yield first_chunk
-    async for chunk in rest:
-        yield chunk

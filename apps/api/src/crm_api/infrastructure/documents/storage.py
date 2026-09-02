@@ -122,7 +122,15 @@ class PrivateFilesystemDocumentStorage:
             ) from error
         try:
             while True:
-                chunk = await asyncio.to_thread(handle.read, _READ_CHUNK_BYTES)
+                try:
+                    chunk = await asyncio.to_thread(handle.read, _READ_CHUNK_BYTES)
+                except OSError as error:
+                    # Uma falha de leitura no meio do arquivo (setor ilegível,
+                    # disco removido) precisa virar o mesmo erro de domínio da
+                    # abertura, para que a exportação a audite como falha.
+                    raise DocumentContentUnavailableError(
+                        "the stored document could not be fully read"
+                    ) from error
                 if not chunk:
                     return
                 yield chunk
