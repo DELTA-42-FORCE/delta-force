@@ -58,8 +58,12 @@ e teste correspondente. A fundação persistente SQLite já foi portada pela #54
 as próximas entidades devem usar esse adaptador, sem acoplamento ao PostgreSQL.
 
 Na instalação do cliente, documentos continuarão fora do banco e em área privada
-da aplicação; somente metadados podem ser persistidos no banco. Backup e
-restauração devem contemplar banco, documentos e metadados como uma unidade.
+gerenciada pela aplicação; somente metadados podem ser persistidos no banco. O
+CRM oferece ao proprietário abrir a pasta local e exportar cópias. Arquivos
+alterados diretamente pelo Windows não são ações auditadas nem atualizam os
+metadados, portanto a alteração de documentos gerenciados deve ocorrer pelo
+CRM. Backup e restauração devem contemplar banco, documentos e metadados como
+uma unidade.
 
 ## Auditoria
 

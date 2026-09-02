@@ -197,19 +197,10 @@ todas as linhas necessárias para que a lista fique completa.
 
 ### Tamanho máximo de cada arquivo
 
-O cliente ainda não informou limites e o time não escolherá números arbitrários.
-Para preparar uma proposta segura, consulte a propriedade **Tamanho** de um dos
-maiores arquivos existentes no Windows, sem enviar o arquivo:
-
-- **maior PDF conhecido:** ______ bytes; tamanho mostrado: ______; / não sei
-- **maior JPEG conhecido:** ______ bytes; tamanho mostrado: ______; / não sei
-- Há expectativa de arquivo maior no futuro? **não / sim / não sei** — tamanho
-  aproximado: ______________________________________________________________
-- Algum tipo precisa de limite próprio? **não / sim / não sei** — qual: ______
-
-Com esses números, o time deverá apresentar um limite exato em **MiB e bytes**
-para aprovação. Um arquivo acima do limite aprovado será recusado com mensagem
-clara e, na importação do acervo antigo, aparecerá no relatório.
+**Decisão posterior registrada:** não há teto comercial fixo por PDF/JPEG. O
+limite operacional é a capacidade livre do computador; o CRM grava por streaming
+e recusa com mensagem clara a operação que não puder ser concluída sem conteúdo
+parcial. Esta seção é mantida apenas como histórico do questionário.
 
 ### Quantidade e versões
 

@@ -14,22 +14,19 @@ PR continua curto, nasce de `develop`, referencia uma issue e volta para
    privados, primeira execução e atualização manual. A escolha de persistência
    já não está pendente nessa issue.
 3. **#14 — pasta digital flexível:** formalizar que nome é o único dado exigido
-   para criar cliente; demais dados e documentos são opcionais. O limite de
-   tamanho de PDF/JPEG permanece pendente.
+   para criar cliente; demais dados e documentos são opcionais. Não há limite
+   comercial fixo de PDF/JPEG: o aplicativo usa a capacidade livre do disco e
+   escrita em streaming com falha segura.
 4. **#46 — remetente:** aguardar a conta/provedor informado pelo cliente e
    documentar sua configuração segura.
 
 ### Próximos passos da entrega Windows
 
-A ADR 0002 já é a decisão de produção. Sua implementação deve seguir esta
-ordem:
+A ADR 0002 já é a decisão de produção. A integração essencial foi entregue pela
+#57; os próximos passos específicos da entrega Windows são:
 
-1. abrir uma issue pequena de integração desktop baseada em `develop`, sem
-   reutilizar a PR #49, para shell/sidecar, bootstrap/capability por IPC e
-   lifecycle do processo, validando no runtime local a autenticação (#15) e a
-   auditoria (#17) já integradas;
-2. decidir na #44 a proteção e a recuperação do backup em HD externo;
-3. validar instalação, atualização manual, desinstalação e restauração na #27.
+1. decidir na #44 a proteção e a recuperação do backup em HD externo;
+2. validar instalação, atualização manual, desinstalação e restauração na #27.
 
 Versão/edição do Windows, proteção do disco, assinatura/custódia e recuperação do
 backup permanecem pendentes. O plano não antecipa essas escolhas como aprovadas.
@@ -51,7 +48,9 @@ backup permanecem pendentes. O plano não antecipa essas escolhas como aprovadas
 1. **#18 e #19:** modelo, API e telas da pasta digital flexível: nome
    obrigatório para criação, demais dados opcionais. A issue #20 sai do MVP.
 2. **#21 e #22:** armazenamento privado local, anexo/consulta/download de PDF e
-   JPEG, validação de conteúdo/tamanho, autorização e auditoria.
+   JPEG, validação de formato/conteúdo/nome, capacidade disponível em disco,
+   autorização e auditoria. Não há teto comercial fixo por arquivo; a gravação
+   é em streaming e deve falhar sem conteúdo parcial quando faltar espaço.
 3. **#23:** checklist e status documental, sem vencimento operacional.
 4. **#45:** importação assistida do acervo legado, com prévia, confirmação e
    relatório de itens importados, ignorados ou corrompidos.
