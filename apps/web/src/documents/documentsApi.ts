@@ -1,4 +1,5 @@
 import type { DownloadedFile } from '../lib/apiClient'
+import type { DocumentOpenLocation } from '../lib/desktopShell'
 
 export interface ClientDocument {
   id: string
@@ -40,6 +41,12 @@ export type AuthenticatedUpload = <T>(
   formData: FormData,
 ) => Promise<T>
 export type AuthenticatedDownload = (path: string) => Promise<DownloadedFile>
+export type AuthenticatedOpenDocument = (options: {
+  path: string
+  clientId: string
+  documentId: string
+  filename: string
+}) => Promise<DocumentOpenLocation>
 
 export async function listClientDocuments(
   authenticatedGet: AuthenticatedGet,
@@ -92,4 +99,14 @@ export async function exportClientDocument(
   return authenticatedDownload(
     `/clients/${options.clientId}/documents/${options.documentId}/content`,
   )
+}
+
+export async function openClientDocument(
+  authenticatedOpenDocument: AuthenticatedOpenDocument,
+  options: { clientId: string; documentId: string; filename: string },
+): Promise<DocumentOpenLocation> {
+  return authenticatedOpenDocument({
+    path: `/clients/${options.clientId}/documents/${options.documentId}/content`,
+    ...options,
+  })
 }

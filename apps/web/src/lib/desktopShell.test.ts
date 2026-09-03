@@ -15,7 +15,7 @@ afterEach(() => {
 })
 
 describe('desktop shell open', () => {
-  it('hands the copy to the desktop shell inside the Tauri runtime', async () => {
+  it('asks the desktop shell to stream the authorized copy inside Tauri', async () => {
     ;(
       window as Window & { __TAURI_INTERNALS__?: unknown }
     ).__TAURI_INTERNALS__ = {}
@@ -23,31 +23,23 @@ describe('desktop shell open', () => {
     vi.doMock('@tauri-apps/api/core', () => ({ invoke }))
     const shell = await import('./desktopShell')
 
-    const location = await shell.openDownloadedDocument(
-      file([0x25, 0x50, 0x44, 0x46], 'contrato.pdf'),
-      'fallback.pdf',
-    )
+    const location = await shell.openDesktopDocument({
+      clientId: '00000000-0000-0000-0000-0000000000aa',
+      documentId: '00000000-0000-0000-0000-000000000001',
+      filename: 'contrato.pdf',
+      sessionToken: 'session-only-in-memory',
+    })
 
     expect(location).toBe('desktop-app')
     expect(invoke).toHaveBeenCalledTimes(1)
     const [command, payload] = invoke.mock.calls[0]
     expect(command).toBe('open_document')
     expect(payload.request.filename).toBe('contrato.pdf')
-    // "%PDF" em base64: o shell recebe os bytes já baixados, não um caminho.
-    expect(payload.request.contentBase64).toBe('JVBERg==')
-  })
-
-  it('uses the server filename and falls back to the given name when absent', async () => {
-    ;(
-      window as Window & { __TAURI_INTERNALS__?: unknown }
-    ).__TAURI_INTERNALS__ = {}
-    const invoke = vi.fn().mockResolvedValue(undefined)
-    vi.doMock('@tauri-apps/api/core', () => ({ invoke }))
-    const shell = await import('./desktopShell')
-
-    await shell.openDownloadedDocument(file([0x25], null), 'fallback.pdf')
-
-    expect(invoke.mock.calls[0][1].request.filename).toBe('fallback.pdf')
+    expect(payload.request.documentId).toBe(
+      '00000000-0000-0000-0000-000000000001',
+    )
+    // Não há Blob nem Base64 no IPC: o Tauri baixa por streaming.
+    expect(payload.request).not.toHaveProperty('contentBase64')
   })
 
   it('opens the copy in a new tab outside the desktop runtime', async () => {
@@ -60,9 +52,8 @@ describe('desktop shell open', () => {
       .mockReturnValue({} as ReturnType<typeof window.open>)
     const shell = await import('./desktopShell')
 
-    const location = await shell.openDownloadedDocument(
+    const location = shell.openDownloadedDocument(
       file([0x25, 0x50], 'contrato.pdf'),
-      'fallback.pdf',
     )
 
     expect(location).toBe('browser-tab')
@@ -81,12 +72,9 @@ describe('desktop shell open', () => {
     vi.spyOn(window, 'open').mockReturnValue(null)
     const shell = await import('./desktopShell')
 
-    await expect(
-      shell.openDownloadedDocument(
-        file([0x25], 'contrato.pdf'),
-        'fallback.pdf',
-      ),
-    ).rejects.toThrow(/blocked/)
+    await expect(() =>
+      shell.openDownloadedDocument(file([0x25], 'contrato.pdf')),
+    ).toThrow(/blocked/)
     // Uma aba bloqueada não pode deixar o object URL vazando.
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock')
   })

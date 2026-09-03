@@ -19,13 +19,13 @@ import {
   attachClientDocument,
   exportClientDocument,
   listClientDocuments,
+  openClientDocument,
 } from './documents/documentsApi'
 import type {
   ClientDocument,
   DocumentAnnotations,
   DocumentCursor,
 } from './documents/documentsApi'
-import { openDownloadedDocument } from './lib/desktopShell'
 import { Brand } from './ui/Brand'
 
 function Root() {
@@ -36,6 +36,7 @@ function Root() {
     authenticatedRequest,
     authenticatedUpload,
     authenticatedDownload,
+    authenticatedOpenDocument,
     logout,
     retry,
   } = useAuth()
@@ -126,15 +127,13 @@ function Root() {
       if (documentsFolderId === null) {
         throw new Error('no client folder is open')
       }
-      // Abrir reaproveita a mesma cópia autorizada do export e a entrega ao
-      // sistema para consulta imediata, sem expor a área privada do CRM.
-      const file = await exportClientDocument(authenticatedDownload, {
+      return openClientDocument(authenticatedOpenDocument, {
         clientId: documentsFolderId,
         documentId: item.id,
+        filename: item.original_filename,
       })
-      return openDownloadedDocument(file, item.original_filename)
     },
-    [authenticatedDownload, documentsFolderId],
+    [authenticatedOpenDocument, documentsFolderId],
   )
 
   const goTo = useCallback((view: 'overview' | 'audit' | 'clients') => {

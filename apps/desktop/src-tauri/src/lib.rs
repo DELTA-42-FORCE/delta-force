@@ -7,10 +7,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use base64::{
-    engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD},
-    Engine as _,
-};
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, State, WindowEvent};
 use thiserror::Error;
@@ -46,7 +43,7 @@ struct BootstrapResponse {
     capability: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct DesktopConnection {
     api_base_url: String,
@@ -56,8 +53,10 @@ struct DesktopConnection {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct OpenDocumentRequest {
+    client_id: String,
+    document_id: String,
     filename: String,
-    content_base64: String,
+    session_token: String,
 }
 
 const OPEN_CACHE_DIRECTORY: &str = "open-cache";
@@ -121,7 +120,9 @@ impl Drop for SidecarProcess {
 }
 
 struct DesktopRuntime {
-    connection: Mutex<Option<DesktopConnection>>,
+    connection: DesktopConnection,
+    connection_delivered: Mutex<bool>,
+    open_cache_directory: PathBuf,
     sidecar: SidecarProcess,
 }
 
@@ -132,6 +133,7 @@ impl DesktopRuntime {
             .path()
             .app_local_data_dir()
             .map_err(|_| DesktopError::ResourcesUnavailable)?;
+        let open_cache_directory = prepare_open_cache_directory(&data_directory)?;
         let sidecar_path = sidecar_path(app)?;
         let secret = Zeroizing::new(generate_secret()?);
 
@@ -182,10 +184,12 @@ impl DesktopRuntime {
         };
 
         Ok(Self {
-            connection: Mutex::new(Some(DesktopConnection {
+            connection: DesktopConnection {
                 api_base_url: format!("http://127.0.0.1:{port}"),
                 capability,
-            })),
+            },
+            connection_delivered: Mutex::new(false),
+            open_cache_directory,
             sidecar: SidecarProcess {
                 child: Mutex::new(Some(child)),
                 stdin: Mutex::new(Some(stdin)),
@@ -196,12 +200,33 @@ impl DesktopRuntime {
     }
 
     fn take_connection(&self) -> Result<DesktopConnection, DesktopError> {
-        self.connection
+        let mut delivered = self
+            .connection_delivered
             .lock()
-            .map_err(|_| DesktopError::BootstrapDenied)?
-            .take()
-            .ok_or(DesktopError::BootstrapDenied)
+            .map_err(|_| DesktopError::BootstrapDenied)?;
+        if *delivered {
+            return Err(DesktopError::BootstrapDenied);
+        }
+        *delivered = true;
+        Ok(self.connection.clone())
     }
+}
+
+fn prepare_open_cache_directory(data_directory: &Path) -> Result<PathBuf, DesktopError> {
+    let cache_root = data_directory.join(OPEN_CACHE_DIRECTORY);
+    // Cada execução começa com uma área nova. Arquivos de consultas encerradas
+    // ou de uma execução interrompida são removidos na próxima abertura, sem
+    // tocar no armazenamento privado dos documentos do CRM.
+    if cache_root.exists() {
+        fs::remove_dir_all(&cache_root).map_err(|_| DesktopError::DocumentOpenFailed)?;
+    }
+    fs::create_dir_all(&cache_root).map_err(|_| DesktopError::DocumentOpenFailed)?;
+
+    let mut nonce = [0_u8; 16];
+    getrandom::fill(&mut nonce).map_err(|_| DesktopError::DocumentOpenFailed)?;
+    let run_directory = cache_root.join(URL_SAFE_NO_PAD.encode(nonce));
+    fs::create_dir(&run_directory).map_err(|_| DesktopError::DocumentOpenFailed)?;
+    Ok(run_directory)
 }
 
 fn desktop_origin() -> &'static str {
@@ -278,33 +303,94 @@ fn desktop_connection(state: State<'_, DesktopRuntime>) -> Result<DesktopConnect
 }
 
 #[tauri::command]
-fn open_document(app: AppHandle, request: OpenDocumentRequest) -> Result<(), String> {
-    open_downloaded_document(&app, &request)
-        .map_err(|_| "the document could not be opened".to_owned())
+fn open_document(
+    state: State<'_, DesktopRuntime>,
+    request: OpenDocumentRequest,
+) -> Result<(), String> {
+    open_remote_document(&state, request).map_err(|_| "the document could not be opened".to_owned())
 }
 
-fn open_downloaded_document(
-    app: &AppHandle,
-    request: &OpenDocumentRequest,
+fn open_remote_document(
+    runtime: &DesktopRuntime,
+    request: OpenDocumentRequest,
 ) -> Result<(), DesktopError> {
-    // O shell recebe apenas os bytes já baixados nesta sessão autenticada; a
-    // árvore privada do CRM nunca é exposta. A cópia é gravada em um cache
-    // local e aberta no programa padrão do Windows para consulta.
-    let bytes = STANDARD
-        .decode(request.content_base64.as_bytes())
+    // Não transportamos o arquivo pelo WebView: Base64/Blob duplicariam o uso
+    // de memória e inviabilizariam documentos grandes. A sessão só é recebida
+    // nesta chamada IPC, não é persistida nem registrada em logs; o shell a
+    // usa para buscar a cópia autorizada e gravá-la por streaming.
+    let OpenDocumentRequest {
+        client_id,
+        document_id,
+        filename,
+        session_token,
+    } = request;
+    let client_id = safe_identifier(&client_id)?;
+    let document_id = safe_identifier(&document_id)?;
+    let filename = safe_open_filename(&filename)?;
+    let session_token = Zeroizing::new(session_token);
+    if session_token.is_empty() || !session_token.is_ascii() {
+        return Err(DesktopError::DocumentOpenFailed);
+    }
+
+    let endpoint = format!(
+        "{}/clients/{client_id}/documents/{document_id}/content",
+        runtime.connection.api_base_url
+    );
+    let mut response = reqwest::blocking::Client::builder()
+        .no_proxy()
+        .build()
+        .map_err(|_| DesktopError::DocumentOpenFailed)?
+        .get(endpoint)
+        .header("Origin", desktop_origin())
+        .header("X-Delta-Desktop-Capability", &runtime.connection.capability)
+        .bearer_auth(session_token.as_str())
+        .send()
         .map_err(|_| DesktopError::DocumentOpenFailed)?;
-    let filename = safe_open_filename(&request.filename)?;
+    if !response.status().is_success() {
+        return Err(DesktopError::DocumentOpenFailed);
+    }
 
-    let cache_directory = app
-        .path()
-        .app_local_data_dir()
-        .map_err(|_| DesktopError::ResourcesUnavailable)?
-        .join(OPEN_CACHE_DIRECTORY);
-    fs::create_dir_all(&cache_directory).map_err(|_| DesktopError::DocumentOpenFailed)?;
-
-    let destination = cache_directory.join(filename);
-    fs::write(&destination, &bytes).map_err(|_| DesktopError::DocumentOpenFailed)?;
+    let destination = unique_open_destination(&runtime.open_cache_directory, &filename)?;
+    let temporary = destination.with_extension("partial");
+    let mut output = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temporary)
+        .map_err(|_| DesktopError::DocumentOpenFailed)?;
+    if std::io::copy(&mut response, &mut output).is_err() || output.flush().is_err() {
+        let _ = fs::remove_file(&temporary);
+        return Err(DesktopError::DocumentOpenFailed);
+    }
+    drop(output);
+    if fs::rename(&temporary, &destination).is_err() {
+        let _ = fs::remove_file(&temporary);
+        return Err(DesktopError::DocumentOpenFailed);
+    }
     launch_with_default_application(&destination)
+}
+
+fn safe_identifier(identifier: &str) -> Result<&str, DesktopError> {
+    if identifier.len() != 36
+        || !identifier
+            .bytes()
+            .enumerate()
+            .all(|(index, byte)| match index {
+                8 | 13 | 18 | 23 => byte == b'-',
+                _ => byte.is_ascii_hexdigit(),
+            })
+    {
+        return Err(DesktopError::DocumentOpenFailed);
+    }
+    Ok(identifier)
+}
+
+fn unique_open_destination(
+    cache_directory: &Path,
+    filename: &str,
+) -> Result<PathBuf, DesktopError> {
+    let mut nonce = [0_u8; 16];
+    getrandom::fill(&mut nonce).map_err(|_| DesktopError::DocumentOpenFailed)?;
+    Ok(cache_directory.join(format!("{}-{filename}", URL_SAFE_NO_PAD.encode(nonce))))
 }
 
 fn safe_open_filename(filename: &str) -> Result<String, DesktopError> {
@@ -345,6 +431,34 @@ fn launch_with_default_application(path: &Path) -> Result<(), DesktopError> {
         .spawn()
         .map(|_| ())
         .map_err(|_| DesktopError::DocumentOpenFailed)
+}
+
+#[cfg(test)]
+mod document_open_tests {
+    use super::{safe_identifier, unique_open_destination};
+    use std::path::Path;
+
+    #[test]
+    fn only_accepts_canonical_identifiers_for_the_local_api_path() {
+        assert!(safe_identifier("00000000-0000-0000-0000-000000000001").is_ok());
+        assert!(safe_identifier("../../documents").is_err());
+        assert!(safe_identifier("000000000000-0000-0000-000000000001").is_err());
+    }
+
+    #[test]
+    fn creates_distinct_cache_paths_for_documents_with_the_same_name() {
+        let cache = Path::new("C:/synthetic-open-cache");
+        let first = unique_open_destination(cache, "RG.pdf").expect("random path");
+        let second = unique_open_destination(cache, "RG.pdf").expect("random path");
+
+        assert_ne!(first, second);
+        assert_eq!(first.parent(), Some(cache));
+        assert_eq!(second.parent(), Some(cache));
+        assert!(first
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.ends_with("-RG.pdf")));
+    }
 }
 
 pub fn run() {

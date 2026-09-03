@@ -4,6 +4,7 @@ import {
   attachClientDocument,
   exportClientDocument,
   listClientDocuments,
+  openClientDocument,
 } from './documentsApi'
 
 const CLIENT_ID = '00000000-0000-0000-0000-0000000000aa'
@@ -100,5 +101,24 @@ describe('exportClientDocument', () => {
     expect(authenticatedDownload).toHaveBeenCalledWith(
       `/clients/${CLIENT_ID}/documents/${DOCUMENT_ID}/content`,
     )
+  })
+})
+
+describe('openClientDocument', () => {
+  it('delegates the document identity without materializing a download', async () => {
+    const authenticatedOpenDocument = vi.fn().mockResolvedValue('desktop-app')
+
+    await openClientDocument(authenticatedOpenDocument, {
+      clientId: CLIENT_ID,
+      documentId: DOCUMENT_ID,
+      filename: 'contrato.pdf',
+    })
+
+    expect(authenticatedOpenDocument).toHaveBeenCalledWith({
+      path: `/clients/${CLIENT_ID}/documents/${DOCUMENT_ID}/content`,
+      clientId: CLIENT_ID,
+      documentId: DOCUMENT_ID,
+      filename: 'contrato.pdf',
+    })
   })
 })
