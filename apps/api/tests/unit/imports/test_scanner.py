@@ -1,5 +1,6 @@
 """A varredura classifica os arquivos da origem sem escrever nela (#45)."""
 
+import os
 from pathlib import Path
 
 import pytest
@@ -75,6 +76,24 @@ async def test_a_jpeg_renamed_as_pdf_is_reported_as_unsupported(tmp_path: Path) 
 
     assert entry.media_type is None
     assert entry.reason == "unsupported_format"
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Windows CI may not permit symlinks")
+async def test_a_symbolic_link_is_reported_without_reading_its_target(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "acervo"
+    target = tmp_path / "outside.pdf"
+    target.write_bytes(PDF_BYTES)
+    link = root / "Ana Souza" / "link.pdf"
+    link.parent.mkdir(parents=True)
+    link.symlink_to(target)
+
+    (entry,) = await SCANNER.scan(source_path=str(root))
+
+    assert entry.relative_path == "Ana Souza/link.pdf"
+    assert entry.media_type is None
+    assert entry.reason == "unreadable"
 
 
 async def test_scanning_never_writes_to_the_source(tmp_path: Path) -> None:

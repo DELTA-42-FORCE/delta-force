@@ -63,6 +63,18 @@ class FilesystemLegacyArchiveScanner:
         client_folder_name = parts[0] if len(parts) > 1 else None
         relative_path = relative.as_posix()
 
+        # `os.walk(..., followlinks=False)` não desce em diretórios simbólicos,
+        # mas ainda lista links simbólicos para arquivos. Eles não pertencem
+        # necessariamente ao acervo escolhido e nunca podem ser lidos ou
+        # importados pelo CRM.
+        if absolute.is_symlink():
+            return LegacyScanEntry(
+                client_folder_name=client_folder_name,
+                relative_path=relative_path,
+                media_type=None,
+                reason="unreadable",
+            )
+
         if Path(filename).suffix.lower() not in _ACCEPTED_SUFFIXES:
             return LegacyScanEntry(
                 client_folder_name=client_folder_name,
