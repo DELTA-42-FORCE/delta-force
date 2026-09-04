@@ -9,6 +9,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from crm_api.domain.documents.entities import DocumentStatus
+
 
 class DocumentResponse(BaseModel):
     id: UUID
@@ -21,6 +23,11 @@ class DocumentResponse(BaseModel):
     title: str | None
     category: str | None
     notes: str | None
+    status: DocumentStatus
+
+
+class UpdateDocumentStatusRequest(BaseModel):
+    status: DocumentStatus
 
 
 class DocumentCursorResponse(BaseModel):

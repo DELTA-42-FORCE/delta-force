@@ -15,7 +15,15 @@ from crm_api.domain.audit.entities import (
 )
 from crm_api.domain.audit.repositories import AuditEventRepository
 
-_ALLOWED_CONTEXT_KEYS = frozenset({"route_template", "http_method", "reason_code"})
+_ALLOWED_CONTEXT_KEYS = frozenset(
+    {
+        "route_template",
+        "http_method",
+        "reason_code",
+        "previous_status",
+        "new_status",
+    }
+)
 _ALLOWED_HTTP_METHODS = frozenset(
     {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}
 )
@@ -28,6 +36,9 @@ _ALLOWED_REASON_CODES = frozenset(
     }
 )
 _ROUTE_TEMPLATE_PATTERN = re.compile(r"^/[A-Za-z0-9_./{}-]{0,127}$")
+_ALLOWED_DOCUMENT_STATUSES = frozenset(
+    {"pending", "received_regular", "incorrect_incomplete"}
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,6 +121,14 @@ class RecordAuditEventUseCase:
         reason_code = context.get("reason_code")
         if reason_code is not None and reason_code not in _ALLOWED_REASON_CODES:
             raise ValueError("context contains an invalid reason_code")
+
+        for key in ("previous_status", "new_status"):
+            document_status = context.get(key)
+            if (
+                document_status is not None
+                and document_status not in _ALLOWED_DOCUMENT_STATUSES
+            ):
+                raise ValueError(f"context contains an invalid {key}")
 
         route_template = context.get("route_template")
         if route_template is not None and not _ROUTE_TEMPLATE_PATTERN.fullmatch(

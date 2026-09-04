@@ -98,6 +98,15 @@ com `X-Content-Type-Options: nosniff`, e as ações `document.stored`,
 `stored_at` é definido pela aplicação, como na auditoria: o `CURRENT_TIMESTAMP`
 do SQLite tem resolução de segundo e desalinharia o cursor.
 
+A fatia de API da #23 acrescenta acompanhamento opcional aos metadados do
+documento. Todo anexo começa como `pending` e pode mudar para
+`received_regular` ou `incorrect_incomplete`; nenhum estado cria catálogo
+obrigatório, vencimento ou bloqueio sobre cliente e outros anexos. A listagem
+aceita filtro por estado, e a alteração usa a mesma transação do evento
+`document.status_updated`, cujo contexto fechado registra apenas os estados
+anterior e novo. A interface desse fluxo será entregue depois da definição de
+design.
+
 Na interface, os documentos abrem a partir da pasta do cliente, em
 `apps/web/src/documents/`. A tela traduz a falha do servidor em uma frase por
 causa — formato recusado, nome inválido, disco sem espaço, acesso negado e falha
