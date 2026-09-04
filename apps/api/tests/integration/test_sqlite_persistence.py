@@ -28,6 +28,7 @@ PREVIOUS_VIEW_UPDATE_REVISION = "20260830_0006"
 PREVIOUS_DOCUMENT_REVISION = "20260901_0007"
 PREVIOUS_ANNOTATION_REVISION = "20260902_0008"
 PREVIOUS_DOCUMENT_STATUS_REVISION = "20260903_0010"
+PREVIOUS_MESSAGE_TEMPLATE_REVISION = "20260904_0011"
 
 
 def run_alembic(command: str, revision: str) -> None:
@@ -669,3 +670,60 @@ def test_document_status_migration_backfills_and_protects_history() -> None:
                 connection.execute("DELETE FROM documents WHERE id = ?", (document_id,))
             connection.execute("DELETE FROM client_folders WHERE id = ?", (folder_id,))
             connection.commit()
+
+
+def test_message_template_migration_round_trip_protects_data_and_audit() -> None:
+    path = ensure_disposable_database()
+    template_id = uuid.uuid4().hex
+
+    run_alembic("downgrade", PREVIOUS_MESSAGE_TEMPLATE_REVISION)
+    try:
+        with connect(path) as connection:
+            assert "message_templates" not in _table_names(connection)
+            with pytest.raises(sqlite3.IntegrityError):
+                insert_audit_event(
+                    connection,
+                    actor_kind="anonymous",
+                    actor_user_id=None,
+                    action="message_template.created",
+                    resource_type="message_template",
+                )
+
+        run_alembic("upgrade", "head")
+        with connect(path) as connection:
+            assert "message_templates" in _table_names(connection)
+            connection.execute(
+                "INSERT INTO message_templates (id, name, subject, body) "
+                "VALUES (?, ?, ?, ?)",
+                (template_id, "Modelo sintético", "Assunto", "Corpo"),
+            )
+            connection.commit()
+
+        with pytest.raises(subprocess.CalledProcessError):
+            run_alembic("downgrade", PREVIOUS_MESSAGE_TEMPLATE_REVISION)
+
+        with connect(path) as connection:
+            connection.execute(
+                "DELETE FROM message_templates WHERE id = ?", (template_id,)
+            )
+            connection.commit()
+            event_id = insert_audit_event(
+                connection,
+                actor_kind="anonymous",
+                actor_user_id=None,
+                action="message_template.deleted",
+                resource_type="message_template",
+            )
+
+        with pytest.raises(subprocess.CalledProcessError):
+            run_alembic("downgrade", PREVIOUS_MESSAGE_TEMPLATE_REVISION)
+
+        with connect(path) as connection:
+            connection.execute("DELETE FROM audit_events WHERE id = ?", (event_id,))
+            connection.commit()
+
+        run_alembic("downgrade", PREVIOUS_MESSAGE_TEMPLATE_REVISION)
+        with connect(path) as connection:
+            assert "message_templates" not in _table_names(connection)
+    finally:
+        run_alembic("upgrade", "head")

@@ -38,12 +38,13 @@ class AuditEventModel(Base):
             "'client_folder.created', 'client_folder.viewed', "
             "'client_folder.updated', 'client_folder.profile_exported', "
             "'document.stored', 'document.viewed', 'document.exported', "
-            "'document.status_updated')",
+            "'document.status_updated', 'message_template.created', "
+            "'message_template.updated', 'message_template.deleted')",
             name="ck_audit_events_action",
         ),
         CheckConstraint(
             "resource_type IN ('owner_account', 'session', 'route', "
-            "'audit_log', 'client_folder', 'document')",
+            "'audit_log', 'client_folder', 'document', 'message_template')",
             name="ck_audit_events_resource_type",
         ),
         CheckConstraint(
