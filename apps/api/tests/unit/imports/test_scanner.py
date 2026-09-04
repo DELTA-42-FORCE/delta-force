@@ -107,6 +107,33 @@ async def test_scanning_never_writes_to_the_source(tmp_path: Path) -> None:
     assert before == after
 
 
+async def test_stream_file_reads_back_the_source_in_chunks(tmp_path: Path) -> None:
+    root = tmp_path / "acervo"
+    _write(root / "Ana Souza" / "contrato.pdf", PDF_BYTES)
+
+    read_back = b"".join(
+        [
+            chunk
+            async for chunk in SCANNER.stream_file(
+                source_path=str(root), relative_path="Ana Souza/contrato.pdf"
+            )
+        ]
+    )
+
+    assert read_back == PDF_BYTES
+
+
+async def test_stream_file_refuses_a_path_escaping_the_source(tmp_path: Path) -> None:
+    root = tmp_path / "acervo"
+    _write(root / "Ana Souza" / "contrato.pdf", PDF_BYTES)
+
+    with pytest.raises(LegacyImportSourceError):
+        async for _ in SCANNER.stream_file(
+            source_path=str(root), relative_path="../fora.pdf"
+        ):
+            pass
+
+
 async def test_a_missing_source_is_rejected(tmp_path: Path) -> None:
     with pytest.raises(LegacyImportSourceError):
         await SCANNER.scan(source_path=str(tmp_path / "nao-existe"))
@@ -131,3 +158,19 @@ async def test_a_symbolic_link_to_a_source_directory_is_rejected(
 
     with pytest.raises(LegacyImportSourceError):
         await SCANNER.scan(source_path=str(link))
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Windows CI may not permit symlinks")
+async def test_streaming_rejects_a_link_added_after_the_preview(tmp_path: Path) -> None:
+    root = tmp_path / "acervo"
+    target = tmp_path / "outside.pdf"
+    target.write_bytes(PDF_BYTES)
+    link = root / "Ana Souza" / "contrato.pdf"
+    link.parent.mkdir(parents=True)
+    link.symlink_to(target)
+
+    stream = SCANNER.stream_file(
+        source_path=str(root), relative_path="Ana Souza/contrato.pdf"
+    )
+    with pytest.raises(LegacyImportSourceError):
+        await anext(stream)

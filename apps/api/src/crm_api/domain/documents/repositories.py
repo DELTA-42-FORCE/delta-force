@@ -36,6 +36,10 @@ class DocumentMetadataRepository(Protocol):
         before: DocumentCursor | None,
     ) -> list[StoredDocument]: ...
 
+    async def checksum_exists(
+        self, *, client_folder_id: UUID, checksum_sha256: str
+    ) -> bool: ...
+
 
 class DocumentStorage(Protocol):
     """Grava, lê e descarta arquivos sem expor caminho absoluto nem URL pública."""
