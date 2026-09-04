@@ -36,9 +36,9 @@ class FilesystemLegacyArchiveScanner:
 
     def _scan(self, source_path: str) -> list[LegacyScanEntry]:
         root = Path(source_path)
-        if not root.is_dir():
+        if root.is_symlink() or not root.is_dir():
             raise LegacyImportSourceError(
-                "the source path does not exist or is not a directory"
+                "the source path must be a real directory, not a symbolic link"
             )
 
         entries: list[LegacyScanEntry] = []

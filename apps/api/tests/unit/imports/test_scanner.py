@@ -118,3 +118,16 @@ async def test_a_file_path_as_source_is_rejected(tmp_path: Path) -> None:
 
     with pytest.raises(LegacyImportSourceError):
         await SCANNER.scan(source_path=str(file_path))
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Windows CI may not permit symlinks")
+async def test_a_symbolic_link_to_a_source_directory_is_rejected(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "real-acervo"
+    _write(source / "Ana Souza" / "contrato.pdf", PDF_BYTES)
+    link = tmp_path / "linked-acervo"
+    link.symlink_to(source, target_is_directory=True)
+
+    with pytest.raises(LegacyImportSourceError):
+        await SCANNER.scan(source_path=str(link))
