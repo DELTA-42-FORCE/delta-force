@@ -1,12 +1,17 @@
 """Rotas HTTP autenticadas da pasta digital flexível de clientes."""
 
+import unicodedata
 from typing import Annotated
+from urllib.parse import quote
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from crm_api.application.clients.create_client_folder import (
     CreateClientFolderUseCase,
+)
+from crm_api.application.clients.export_client_profile import (
+    ExportClientProfileUseCase,
 )
 from crm_api.application.clients.get_client_folder import GetClientFolderUseCase
 from crm_api.application.clients.list_client_folders import (
@@ -20,6 +25,7 @@ from crm_api.domain.clients.errors import ClientFolderNotFoundError
 from crm_api.presentation.auth.dependencies import CurrentUser
 from crm_api.presentation.clients.dependencies import (
     get_create_client_folder_use_case,
+    get_export_client_profile_use_case,
     get_get_client_folder_use_case,
     get_list_client_folders_use_case,
     get_update_client_folder_use_case,
@@ -35,6 +41,27 @@ from crm_api.presentation.clients.schemas import (
 router = APIRouter(prefix="/clients", tags=["clients"])
 
 _NOT_FOUND_DETAIL = "client folder not found"
+
+
+def _profile_filename(display_name: str) -> str:
+    """Nome de arquivo legível e seguro derivado do nome de identificação."""
+    normalized = unicodedata.normalize("NFKD", display_name)
+    ascii_name = normalized.encode("ascii", "ignore").decode("ascii")
+    slug = "".join(
+        character if character.isalnum() else "-" for character in ascii_name
+    ).strip("-")
+    while "--" in slug:
+        slug = slug.replace("--", "-")
+    return f"ficha-cadastral-{slug.lower() or 'cliente'}.pdf"
+
+
+def _content_disposition(filename: str) -> str:
+    """Força download da ficha e mantém o nome legível em qualquer navegador."""
+    ascii_fallback = filename.encode("ascii", "replace").decode("ascii")
+    return (
+        f'attachment; filename="{ascii_fallback}"; '
+        f"filename*=UTF-8''{quote(filename, safe='')}"
+    )
 
 
 def _to_response(client: ClientFolder) -> ClientFolderResponse:
@@ -136,6 +163,35 @@ async def get_client_folder(
             status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_FOUND_DETAIL
         ) from None
     return _to_response(client)
+
+
+@router.get("/{client_id}/profile.pdf", response_class=Response)
+async def export_client_profile(
+    client_id: UUID,
+    current_user: CurrentUser,
+    use_case: Annotated[
+        ExportClientProfileUseCase, Depends(get_export_client_profile_use_case)
+    ],
+) -> Response:
+    """Gera a ficha cadastral em PDF a partir dos campos disponíveis na pasta."""
+    try:
+        export = await use_case.execute(
+            actor_user_id=current_user.id, client_id=client_id
+        )
+    except ClientFolderNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_FOUND_DETAIL
+        ) from None
+    return Response(
+        content=export.pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": _content_disposition(
+                _profile_filename(export.display_name)
+            ),
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 @router.put("/{client_id}", response_model=ClientFolderResponse)

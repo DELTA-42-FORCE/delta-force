@@ -35,6 +35,7 @@ class AuditAction(StrEnum):
     CLIENT_FOLDER_CREATED = "client_folder.created"
     CLIENT_FOLDER_VIEWED = "client_folder.viewed"
     CLIENT_FOLDER_UPDATED = "client_folder.updated"
+    CLIENT_FOLDER_PROFILE_EXPORTED = "client_folder.profile_exported"
     DOCUMENT_STORED = "document.stored"
     DOCUMENT_VIEWED = "document.viewed"
     DOCUMENT_EXPORTED = "document.exported"
