@@ -58,7 +58,9 @@ backup permanecem pendentes. O plano não antecipa essas escolhas como aprovadas
 
 ## Marco 3 — comunicação e aceite
 
-1. **#24:** modelos de e-mail e seleção de destinatários por pendência.
+1. **#24:** modelos de e-mail e seleção de candidatos por pendência. O backend
+   pode avançar sem provedor e sem expor endereços; renderização aguarda a
+   homologação dos modelos, das variáveis e do campo opcional de e-mail.
 2. **#25:** envio, histórico e tratamento de falhas usando o remetente definido
    em #46; Mailpit é exclusivamente local de desenvolvimento.
 3. **#26:** consolidar operação local, LGPD, retenção, procedimento de incidente
