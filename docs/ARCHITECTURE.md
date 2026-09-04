@@ -118,6 +118,19 @@ fontes nem acrescentar dependências** — coerente com a operação local e com
 resposta entrega os bytes com `Content-Disposition: attachment`. A ausência de
 qualquer campo nunca impede a geração.
 
+## Importação do acervo legado
+
+A importação da #45 é entregue em fatias. A primeira é a **prévia** em
+`domain/imports/`, `application/imports/` e `infrastructure/imports/`: um ensaio
+**somente leitura** que varre a pasta de origem — convenção confirmada de uma
+pasta por cliente, cujo nome é o nome do cliente — e classifica cada arquivo pelo
+conteúdo real, reutilizando o mesmo reconhecimento da gravação de documentos. A
+associação casa o nome da pasta com um cliente já cadastrado (`find_by_display_name`);
+o que não casa de forma única fica de fora, para o proprietário revisar antes de
+confirmar. A varredura não segue symlinks, tem teto de arquivos e nunca escreve
+na origem. A execução da cópia (streaming, verificação de espaço, deduplicação por
+checksum e auditoria) e o web vêm nas fatias seguintes.
+
 ## Auditoria
 
 A trilha de auditoria é append-only na aplicação. Casos de uso registram ações

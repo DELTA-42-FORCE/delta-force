@@ -44,6 +44,18 @@ class SqlAlchemyClientFolderRepository:
         model = await self.session.get(ClientFolderModel, id)
         return _to_client_folder(model) if model is not None else None
 
+    async def find_by_display_name(self, *, display_name: str) -> list[ClientFolder]:
+        # Casa nome sem diferença de caixa nem de espaços nas bordas, para
+        # associar a pasta de origem ao cliente já cadastrado (#45).
+        normalized = display_name.strip().lower()
+        statement = (
+            select(ClientFolderModel)
+            .where(func.lower(func.trim(ClientFolderModel.display_name)) == normalized)
+            .order_by(ClientFolderModel.display_name.asc(), ClientFolderModel.id.asc())
+        )
+        models = (await self.session.scalars(statement)).all()
+        return [_to_client_folder(model) for model in models]
+
     async def search(
         self,
         *,
