@@ -14,10 +14,14 @@ from crm_api.application.documents.get_client_document import (
     GetClientDocumentUseCase,
 )
 from crm_api.application.documents.store_document import StoreDocumentUseCase
+from crm_api.application.documents.update_document_status import (
+    UpdateDocumentStatusUseCase,
+)
 from crm_api.domain.audit.entities import AuditAction, AuditResourceType
 from crm_api.domain.documents.entities import (
     DocumentCursor,
     DocumentMediaType,
+    DocumentStatus,
     StoredContent,
 )
 from crm_api.domain.documents.errors import (
@@ -134,6 +138,7 @@ async def test_document_metadata_persists_without_the_binary() -> None:
     assert stored.title == "Contrato de locação"
     assert stored.category == "contratos"
     assert stored.notes == "via assinada"
+    assert stored.status == DocumentStatus.PENDING.value
     # O conteúdo não pertence ao banco: apenas a chave que o localiza.
     assert not hasattr(stored, "content")
 
@@ -357,6 +362,93 @@ async def test_listing_returns_newest_first_and_paginates_by_cursor() -> None:
     assert {document.id for document in first_page}.isdisjoint(
         {document.id for document in second_page}
     )
+
+
+async def test_status_update_persists_filters_and_records_audit_history() -> None:
+    _requires_disposable_sqlite()
+    folder = await _create_client_folder()
+    owner_id = uuid4()
+
+    async with get_session_factory()() as session:
+        session.add(
+            UserModel(
+                id=owner_id,
+                email=f"owner-{owner_id}@deltaforce.internal",
+                full_name="Proprietário Sintético",
+                password_hash="synthetic-password-hash",
+                is_active=True,
+            )
+        )
+        documents = SqlAlchemyDocumentMetadataRepository(session)
+        document = await documents.add(
+            id=uuid4(),
+            client_folder_id=folder.id,
+            original_filename="identidade.pdf",
+            title=None,
+            category=None,
+            notes=None,
+            content=_synthetic_content(f"ab/cd/{uuid4().hex}.pdf"),
+        )
+        await session.commit()
+
+        updated = await UpdateDocumentStatusUseCase(
+            documents=documents,
+            audit=RecordAuditEventUseCase(
+                events=SqlAlchemyAuditEventRepository(session)
+            ),
+            transaction=SqlAlchemyTransaction(session),
+        ).execute(
+            actor_user_id=owner_id,
+            client_folder_id=folder.id,
+            document_id=document.id,
+            status=DocumentStatus.INCORRECT_INCOMPLETE,
+        )
+
+    assert updated.status is DocumentStatus.INCORRECT_INCOMPLETE
+
+    async with get_session_factory()() as session:
+        documents = SqlAlchemyDocumentMetadataRepository(session)
+        filtered = await documents.list_for_client(
+            client_folder_id=folder.id,
+            limit=10,
+            before=None,
+            document_status=DocumentStatus.INCORRECT_INCOMPLETE,
+        )
+        event = await session.scalar(
+            select(AuditEventModel).where(
+                AuditEventModel.resource_id == str(document.id),
+                AuditEventModel.action == AuditAction.DOCUMENT_STATUS_UPDATED.value,
+            )
+        )
+
+    assert [item.id for item in filtered] == [document.id]
+    assert event is not None
+    assert event.context == {
+        "previous_status": "pending",
+        "new_status": "incorrect_incomplete",
+    }
+
+
+async def test_document_rejects_an_unknown_tracking_status() -> None:
+    _requires_disposable_sqlite()
+    folder = await _create_client_folder()
+    document_id = uuid4()
+
+    async with get_session_factory()() as session:
+        session.add(
+            DocumentModel(
+                id=document_id,
+                client_folder_id=folder.id,
+                original_filename="identidade.pdf",
+                storage_key=f"ab/cd/{document_id.hex}.pdf",
+                media_type="application/pdf",
+                byte_size=10,
+                checksum_sha256=CHECKSUM,
+                status="expired",
+            )
+        )
+        with pytest.raises(IntegrityError):
+            await session.commit()
 
 
 async def test_exported_copy_matches_the_stored_bytes_and_is_audited(

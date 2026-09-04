@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from crm_api.domain.documents.entities import (
     DocumentCursor,
     DocumentMediaType,
+    DocumentStatus,
     StoredContent,
     StoredDocument,
 )
@@ -30,6 +31,7 @@ def _to_stored_document(model: DocumentModel) -> StoredDocument:
         title=model.title,
         category=model.category,
         notes=model.notes,
+        status=DocumentStatus(model.status),
     )
 
 
@@ -81,6 +83,7 @@ class SqlAlchemyDocumentMetadataRepository:
         client_folder_id: UUID,
         limit: int,
         before: DocumentCursor | None,
+        document_status: DocumentStatus | None = None,
     ) -> list[StoredDocument]:
         statement = select(DocumentModel).where(
             DocumentModel.client_folder_id == client_folder_id
@@ -97,6 +100,8 @@ class SqlAlchemyDocumentMetadataRepository:
                     ),
                 )
             )
+        if document_status is not None:
+            statement = statement.where(DocumentModel.status == document_status.value)
 
         statement = statement.order_by(
             DocumentModel.stored_at.desc(),
@@ -104,6 +109,17 @@ class SqlAlchemyDocumentMetadataRepository:
         ).limit(limit)
         models = (await self.session.scalars(statement)).all()
         return [_to_stored_document(model) for model in models]
+
+    async def update_status(
+        self, *, id: UUID, status: DocumentStatus
+    ) -> StoredDocument | None:
+        model = await self.session.get(DocumentModel, id)
+        if model is None:
+            return None
+        model.status = status.value
+        await self.session.flush()
+        await self.session.refresh(model)
+        return _to_stored_document(model)
 
     async def checksum_exists(
         self, *, client_folder_id: UUID, checksum_sha256: str

@@ -39,6 +39,7 @@ class AuditAction(StrEnum):
     DOCUMENT_STORED = "document.stored"
     DOCUMENT_VIEWED = "document.viewed"
     DOCUMENT_EXPORTED = "document.exported"
+    DOCUMENT_STATUS_UPDATED = "document.status_updated"
 
 
 class AuditResourceType(StrEnum):

@@ -13,7 +13,11 @@ from crm_api.domain.audit.entities import (
 )
 from crm_api.domain.clients.errors import ClientFolderNotFoundError
 from crm_api.domain.clients.repositories import ClientFolderRepository
-from crm_api.domain.documents.entities import DocumentCursor, StoredDocument
+from crm_api.domain.documents.entities import (
+    DocumentCursor,
+    DocumentStatus,
+    StoredDocument,
+)
 from crm_api.domain.documents.repositories import DocumentMetadataRepository
 
 
@@ -39,6 +43,7 @@ class ListClientDocumentsUseCase:
         client_folder_id: UUID,
         limit: int,
         before: DocumentCursor | None,
+        document_status: DocumentStatus | None = None,
     ) -> ClientDocumentPage:
         if not 1 <= limit <= 100:
             raise ValueError("limit must be between 1 and 100")
@@ -50,6 +55,7 @@ class ListClientDocumentsUseCase:
                 client_folder_id=client_folder_id,
                 limit=limit + 1,
                 before=before,
+                document_status=document_status,
             )
             page_items = tuple(documents[:limit])
             next_cursor = (
