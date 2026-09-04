@@ -158,3 +158,19 @@ async def test_a_symbolic_link_to_a_source_directory_is_rejected(
 
     with pytest.raises(LegacyImportSourceError):
         await SCANNER.scan(source_path=str(link))
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Windows CI may not permit symlinks")
+async def test_streaming_rejects_a_link_added_after_the_preview(tmp_path: Path) -> None:
+    root = tmp_path / "acervo"
+    target = tmp_path / "outside.pdf"
+    target.write_bytes(PDF_BYTES)
+    link = root / "Ana Souza" / "contrato.pdf"
+    link.parent.mkdir(parents=True)
+    link.symlink_to(target)
+
+    stream = SCANNER.stream_file(
+        source_path=str(root), relative_path="Ana Souza/contrato.pdf"
+    )
+    with pytest.raises(LegacyImportSourceError):
+        await anext(stream)

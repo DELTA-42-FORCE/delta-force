@@ -22,10 +22,12 @@ from crm_api.domain.audit.entities import (
 from crm_api.domain.clients.entities import ClientFolder
 from crm_api.domain.clients.repositories import ClientFolderRepository
 from crm_api.domain.documents.errors import (
+    DocumentStorageError,
     InsufficientStorageError,
     InvalidDocumentNameError,
     UnsupportedDocumentMediaTypeError,
 )
+from crm_api.domain.documents.entities import StoredContent
 from crm_api.domain.documents.naming import normalize_document_filename
 from crm_api.domain.documents.repositories import (
     DocumentMetadataRepository,
@@ -38,6 +40,7 @@ from crm_api.domain.imports.entities import (
     LegacyScanEntry,
 )
 from crm_api.domain.imports.repositories import LegacyArchiveScanner
+from crm_api.domain.imports.errors import LegacyImportSourceError
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,8 +98,19 @@ class ImportLegacyArchiveUseCase:
             return self._result(entry, LegacyImportOutcome.UNSUPPORTED_FORMAT, None)
         except InvalidDocumentNameError:
             return self._result(entry, LegacyImportOutcome.FAILED, None)
+        except LegacyImportSourceError:
+            # O arquivo pode ter sido trocado por um link ou removido depois da
+            # prévia; isso não deve interromper os demais itens do acervo.
+            return self._result(entry, LegacyImportOutcome.UNREADABLE, None)
         except OSError:
             return self._result(entry, LegacyImportOutcome.UNREADABLE, None)
+        except DocumentStorageError:
+            return self._result(entry, LegacyImportOutcome.FAILED, None)
+        except Exception:
+            # A execução é resiliente por arquivo. Cancelamentos não entram
+            # aqui (`CancelledError` herda BaseException) e continuam a parar a
+            # operação com a limpeza feita em `_store`.
+            return self._result(entry, LegacyImportOutcome.FAILED, None)
         return self._result(entry, outcome, document_id)
 
     async def _store(
@@ -108,21 +122,21 @@ class ImportLegacyArchiveUseCase:
     ) -> tuple[LegacyImportOutcome, UUID | None]:
         document_id = uuid4()
         filename = normalize_document_filename(PurePosixPath(entry.relative_path).name)
-        content = await self.storage.store(
-            document_id=document_id,
-            original_filename=filename,
-            chunks=self.scanner.stream_file(
-                source_path=source_path, relative_path=entry.relative_path
-            ),
-        )
-
-        if await self.documents.checksum_exists(
-            client_folder_id=client.id, checksum_sha256=content.checksum_sha256
-        ):
-            await self.storage.discard(storage_key=content.storage_key)
-            return LegacyImportOutcome.DUPLICATE, None
-
+        content: StoredContent | None = None
         try:
+            content = await self.storage.store(
+                document_id=document_id,
+                original_filename=filename,
+                chunks=self.scanner.stream_file(
+                    source_path=source_path, relative_path=entry.relative_path
+                ),
+            )
+            if await self.documents.checksum_exists(
+                client_folder_id=client.id, checksum_sha256=content.checksum_sha256
+            ):
+                await self.storage.discard(storage_key=content.storage_key)
+                return LegacyImportOutcome.DUPLICATE, None
+
             document = await self.documents.add(
                 id=document_id,
                 client_folder_id=client.id,
@@ -139,10 +153,11 @@ class ImportLegacyArchiveUseCase:
             )
             await self.transaction.commit()
         except BaseException:
-            # Um cancelamento entre a publicação e o commit deixaria o arquivo
-            # órfão; ele é removido junto do rollback, como na gravação normal.
+            # Um cancelamento ou falha depois da publicação não pode deixar o
+            # arquivo órfão, inclusive durante a checagem de deduplicação.
             await self.transaction.rollback()
-            await self.storage.discard(storage_key=content.storage_key)
+            if content is not None:
+                await self.storage.discard(storage_key=content.storage_key)
             raise
         return LegacyImportOutcome.IMPORTED, document.id
 

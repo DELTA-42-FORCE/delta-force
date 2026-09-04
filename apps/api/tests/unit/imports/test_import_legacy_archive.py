@@ -1,5 +1,6 @@
 """A execução copia, deduplica e audita a importação do acervo legado (#45)."""
 
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -12,7 +13,10 @@ from crm_api.application.imports.import_legacy_archive import (
 from crm_api.domain.audit.entities import AuditEvent
 from crm_api.domain.clients.entities import ClientFolder
 from crm_api.domain.documents.entities import StoredContent, StoredDocument
-from crm_api.domain.documents.errors import InsufficientStorageError
+from crm_api.domain.documents.errors import (
+    DocumentStorageError,
+    InsufficientStorageError,
+)
 from crm_api.domain.imports.entities import LegacyImportOutcome
 from crm_api.infrastructure.documents.storage import (
     INCOMING_DIRECTORY_NAME,
@@ -133,6 +137,33 @@ class _StubStorage:
         return None
 
 
+@dataclass
+class _FirstStoreFails:
+    """Falha uma vez para provar que o lote continua no arquivo seguinte."""
+
+    delegate: PrivateFilesystemDocumentStorage
+    calls: int = 0
+
+    async def store(
+        self,
+        *,
+        document_id: UUID,
+        original_filename: str,
+        chunks: AsyncIterator[bytes],
+    ) -> StoredContent:
+        self.calls += 1
+        if self.calls == 1:
+            raise DocumentStorageError("synthetic storage fault")
+        return await self.delegate.store(
+            document_id=document_id,
+            original_filename=original_filename,
+            chunks=chunks,
+        )
+
+    async def discard(self, *, storage_key: str) -> None:
+        await self.delegate.discard(storage_key=storage_key)
+
+
 def _use_case(
     *, clients: _MemoryClientRepository, storage, documents=None, audit=None, txn=None
 ):
@@ -217,3 +248,28 @@ async def test_a_read_error_is_reported_as_unreadable(tmp_path: Path) -> None:
     result = await use_case.execute(actor_user_id=ACTOR_ID, source_path=str(root))
 
     assert result.items[0].outcome is LegacyImportOutcome.UNREADABLE
+
+
+async def test_an_unexpected_storage_failure_is_reported_and_does_not_stop_the_batch(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "acervo"
+    _write(root / "Ana Souza" / "a.pdf", PDF_BYTES)
+    _write(root / "Ana Souza" / "b.pdf", PDF_BYTES + b"\n")
+    clients = _MemoryClientRepository()
+    clients.add("Ana Souza")
+    private_storage = PrivateFilesystemDocumentStorage(root=tmp_path / "private")
+    storage = _FirstStoreFails(delegate=private_storage)
+    use_case, documents, audit, transaction = _use_case(
+        clients=clients, storage=storage
+    )
+
+    result = await use_case.execute(actor_user_id=ACTOR_ID, source_path=str(root))
+
+    assert [item.outcome for item in result.items] == [
+        LegacyImportOutcome.FAILED,
+        LegacyImportOutcome.IMPORTED,
+    ]
+    assert len(documents.documents) == 1
+    assert len(audit.events) == 1
+    assert transaction.commit_calls == 1

@@ -53,10 +53,30 @@ class FilesystemLegacyArchiveScanner:
     @staticmethod
     def _safe_absolute(source_path: str, relative_path: str) -> Path:
         # O caminho relativo vem da varredura, mas ainda assim é resolvido e
-        # confinado à raiz: nenhuma leitura pode escapar da pasta de origem.
-        root = Path(source_path).resolve()
-        absolute = (root / relative_path).resolve()
-        if root != absolute and root not in absolute.parents:
+        # confinado à raiz: nenhuma leitura pode escapar da pasta de origem ou
+        # seguir um link introduzido entre a prévia e a cópia.
+        root = Path(source_path)
+        relative = Path(relative_path)
+        if (
+            root.is_symlink()
+            or not root.is_dir()
+            or relative.is_absolute()
+            or any(part in {"", ".", ".."} for part in relative.parts)
+        ):
+            raise LegacyImportSourceError("the file path is not a real source entry")
+
+        candidate = root.joinpath(relative)
+        current = root
+        for part in relative.parts:
+            current = current / part
+            if current.is_symlink():
+                raise LegacyImportSourceError(
+                    "the file path must not be a symbolic link"
+                )
+
+        resolved_root = root.resolve()
+        absolute = candidate.resolve()
+        if resolved_root != absolute and resolved_root not in absolute.parents:
             raise LegacyImportSourceError("the file path escapes the source folder")
         return absolute
 
