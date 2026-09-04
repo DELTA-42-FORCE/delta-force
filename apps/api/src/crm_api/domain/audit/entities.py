@@ -40,6 +40,9 @@ class AuditAction(StrEnum):
     DOCUMENT_VIEWED = "document.viewed"
     DOCUMENT_EXPORTED = "document.exported"
     DOCUMENT_STATUS_UPDATED = "document.status_updated"
+    MESSAGE_TEMPLATE_CREATED = "message_template.created"
+    MESSAGE_TEMPLATE_UPDATED = "message_template.updated"
+    MESSAGE_TEMPLATE_DELETED = "message_template.deleted"
 
 
 class AuditResourceType(StrEnum):
@@ -51,6 +54,7 @@ class AuditResourceType(StrEnum):
     AUDIT_LOG = "audit_log"
     CLIENT_FOLDER = "client_folder"
     DOCUMENT = "document"
+    MESSAGE_TEMPLATE = "message_template"
 
 
 @dataclass(frozen=True, slots=True)

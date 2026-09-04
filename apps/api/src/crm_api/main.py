@@ -9,6 +9,7 @@ from crm_api.infrastructure.database import check_database_connection
 from crm_api.presentation.audit.routes import router as audit_router
 from crm_api.presentation.auth.routes import router as auth_router
 from crm_api.presentation.clients.routes import router as clients_router
+from crm_api.presentation.communications.routes import router as communications_router
 from crm_api.presentation.desktop.routes import router as desktop_router
 from crm_api.presentation.documents.routes import router as documents_router
 from crm_api.presentation.imports.routes import router as imports_router
@@ -41,6 +42,7 @@ def create_app(desktop_runtime: DesktopRuntime | None = None) -> FastAPI:
     app.include_router(audit_router)
     app.include_router(clients_router)
     app.include_router(documents_router)
+    app.include_router(communications_router)
     app.include_router(imports_router)
 
     @app.get("/health", tags=["health"])
