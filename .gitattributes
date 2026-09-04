@@ -1,0 +1,52 @@
+# Normaliza fim de linha em todo o repositório.
+#
+# Sem isto, com core.autocrlf=true o Windows faz checkout dos arquivos de texto
+# com CRLF, e o `prettier --check` (e a comparação de conteúdo em geral) acusa
+# diferença mesmo sem alteração real. Aqui os arquivos de texto ficam LF no
+# repositório e no working tree de qualquer plataforma; binários nunca são tocados.
+
+# Detecção automática de texto, sempre com LF no working tree.
+* text=auto eol=lf
+
+# Código e configuração (explícito para não depender da heurística do git).
+*.py    text eol=lf
+*.pyi   text eol=lf
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.js    text eol=lf
+*.jsx   text eol=lf
+*.mjs   text eol=lf
+*.cjs   text eol=lf
+*.json  text eol=lf
+*.css   text eol=lf
+*.scss  text eol=lf
+*.html  text eol=lf
+*.md    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.toml  text eol=lf
+*.rs    text eol=lf
+*.sh    text eol=lf
+*.cfg   text eol=lf
+*.ini   text eol=lf
+*.txt   text eol=lf
+*.svg   text eol=lf
+*.lock  text eol=lf
+
+# Scripts nativos do Windows: mantêm CRLF, como o shell espera.
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+
+# Binários: nunca normalizados nem diferenciados como texto.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.icns  binary
+*.pdf   binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.otf   binary
+*.eot   binary
