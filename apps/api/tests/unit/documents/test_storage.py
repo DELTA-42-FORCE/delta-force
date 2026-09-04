@@ -11,6 +11,7 @@ import pytest
 
 from crm_api.domain.documents.entities import DocumentMediaType
 from crm_api.domain.documents.errors import (
+    DocumentContentUnavailableError,
     DocumentStorageError,
     InsufficientStorageError,
     InvalidDocumentNameError,
@@ -276,6 +277,69 @@ async def test_discard_removes_a_published_document(
     await document_storage.discard(storage_key=content.storage_key)
 
 
+async def test_open_stream_reads_back_exactly_what_was_stored(
+    document_storage: PrivateFilesystemDocumentStorage,
+) -> None:
+    content = await document_storage.store(
+        document_id=DOCUMENT_ID,
+        original_filename="contrato.pdf",
+        chunks=_stream(PDF_BYTES),
+    )
+
+    read_back = b"".join(
+        [
+            chunk
+            async for chunk in document_storage.open_stream(
+                storage_key=content.storage_key
+            )
+        ]
+    )
+
+    assert read_back == PDF_BYTES
+
+
+async def test_open_stream_reports_a_missing_file_instead_of_yielding_nothing(
+    document_storage: PrivateFilesystemDocumentStorage,
+) -> None:
+    content = await document_storage.store(
+        document_id=DOCUMENT_ID,
+        original_filename="contrato.pdf",
+        chunks=_stream(PDF_BYTES),
+    )
+    document_storage.resolve_path(content.storage_key).unlink()
+
+    with pytest.raises(DocumentContentUnavailableError):
+        async for _ in document_storage.open_stream(storage_key=content.storage_key):
+            pass
+
+
+async def test_open_stream_translates_a_read_failure_after_the_first_block(
+    document_storage: PrivateFilesystemDocumentStorage,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Uma leitura que falha no meio do arquivo vira erro de domínio, não OSError."""
+    content = await document_storage.store(
+        document_id=DOCUMENT_ID,
+        original_filename="contrato.pdf",
+        chunks=_stream(PDF_BYTES),
+    )
+
+    real_open = Path.open
+
+    def open_failing_after_first_read(self: Path, *args: object, **kwargs: object):
+        handle = real_open(self, *args, **kwargs)
+        return _ReadOnceThenFailHandle(handle)
+
+    monkeypatch.setattr(Path, "open", open_failing_after_first_read)
+
+    read_chunks = 0
+    with pytest.raises(DocumentContentUnavailableError):
+        async for _ in document_storage.open_stream(storage_key=content.storage_key):
+            read_chunks += 1
+
+    assert read_chunks == 1  # o primeiro bloco saiu antes da falha
+
+
 @pytest.mark.parametrize(
     "storage_key",
     [
@@ -321,6 +385,23 @@ class _Usage:
 
 def _usage(*, free: int) -> _Usage:
     return _Usage(free=free)
+
+
+class _ReadOnceThenFailHandle:
+    """Entrega o primeiro bloco e depois falha, como um setor ilegível no meio."""
+
+    def __init__(self, wrapped: BinaryIO) -> None:
+        self._wrapped = wrapped
+        self._reads = 0
+
+    def read(self, size: int = -1) -> bytes:
+        self._reads += 1
+        if self._reads == 1:
+            return self._wrapped.read(size)
+        raise OSError(errno.EIO, "Input/output error")
+
+    def close(self) -> None:
+        self._wrapped.close()
 
 
 class _FullDiskHandle:

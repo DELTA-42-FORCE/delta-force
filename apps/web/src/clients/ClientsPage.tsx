@@ -16,6 +16,7 @@ interface ClientsPageProps {
     id: string,
     input: { display_name: string; profile_data: Record<string, string> },
   ) => Promise<ClientFolder>
+  onOpenDocuments: (folder: ClientFolder) => void
 }
 
 type View =
@@ -25,6 +26,7 @@ export function ClientsPage({
   loadPage,
   createFolder,
   updateFolder,
+  onOpenDocuments,
 }: ClientsPageProps) {
   const [folders, setFolders] = useState<ClientFolder[]>([])
   const [nextCursor, setNextCursor] = useState<ClientCursor | null>(null)
@@ -214,13 +216,22 @@ export function ClientsPage({
               {folders.map((folder) => (
                 <li className="clients-list__item" key={folder.id}>
                   <span>{folder.display_name}</span>
-                  <button
-                    className="text-button"
-                    type="button"
-                    onClick={() => setView({ mode: 'edit', folder })}
-                  >
-                    Editar
-                  </button>
+                  <span className="clients-list__actions">
+                    <button
+                      className="text-button"
+                      type="button"
+                      onClick={() => onOpenDocuments(folder)}
+                    >
+                      Documentos
+                    </button>
+                    <button
+                      className="text-button"
+                      type="button"
+                      onClick={() => setView({ mode: 'edit', folder })}
+                    >
+                      Editar
+                    </button>
+                  </span>
                 </li>
               ))}
             </ul>

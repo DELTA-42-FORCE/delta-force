@@ -87,6 +87,24 @@ As regras de nome ficam em `domain/documents/naming.py` porque valem tanto para
 o arquivo quanto para os metadados: o caso de uso normaliza uma única vez na
 borda e passa exatamente o mesmo nome ao armazenamento e ao repositório.
 
+A #22 expõe essa fundação em `/clients/{client_id}/documents`: anexo por
+multipart, listagem paginada por cursor `(stored_at, id)`, consulta de metadados
+e exportação de cópia. Título, categoria e observação são anotações livres e
+opcionais — não existe tipo documental obrigatório. Um documento só é alcançável
+pela pasta a que pertence, e o acesso por outra pasta responde como inexistente
+para não revelar anexos de outro cliente. A cópia sai sempre como `attachment`,
+com `X-Content-Type-Options: nosniff`, e as ações `document.stored`,
+`document.viewed` e `document.exported` entram na trilha de auditoria. O
+`stored_at` é definido pela aplicação, como na auditoria: o `CURRENT_TIMESTAMP`
+do SQLite tem resolução de segundo e desalinharia o cursor.
+
+Na interface, os documentos abrem a partir da pasta do cliente, em
+`apps/web/src/documents/`. A tela traduz a falha do servidor em uma frase por
+causa — formato recusado, nome inválido, disco sem espaço, acesso negado e falha
+de armazenamento —, porque a mensagem técnica da API não orienta o proprietário.
+A cópia é baixada pela rota autenticada de conteúdo: a chave interna do arquivo
+não aparece no contrato HTTP nem na interface.
+
 ## Auditoria
 
 A trilha de auditoria é append-only na aplicação. Casos de uso registram ações

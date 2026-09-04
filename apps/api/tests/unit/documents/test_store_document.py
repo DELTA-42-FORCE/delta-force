@@ -110,6 +110,10 @@ class FakeDocumentStorage:
             checksum_sha256=CHECKSUM,
         )
 
+    async def open_stream(self, *, storage_key: str) -> AsyncIterator[bytes]:
+        del storage_key
+        yield b"%PDF-1.7 conteudo sintetico %%EOF"
+
     async def discard(self, *, storage_key: str) -> None:
         self.discarded.append(storage_key)
 
@@ -125,6 +129,9 @@ class FakeDocumentMetadataRepository:
         id: UUID,
         client_folder_id: UUID,
         original_filename: str,
+        title: str | None,
+        category: str | None,
+        notes: str | None,
         content: StoredContent,
     ) -> StoredDocument:
         if self.failure is not None:
@@ -138,12 +145,30 @@ class FakeDocumentMetadataRepository:
             byte_size=content.byte_size,
             checksum_sha256=content.checksum_sha256,
             stored_at=datetime.now(UTC),
+            title=title,
+            category=category,
+            notes=notes,
         )
         self.added.append(document)
         return document
 
     async def get(self, *, id: UUID) -> StoredDocument | None:
         return next((document for document in self.added if document.id == id), None)
+
+    async def list_for_client(
+        self,
+        *,
+        client_folder_id: UUID,
+        limit: int,
+        before: object | None,
+    ) -> list[StoredDocument]:
+        del before
+        matching = [
+            document
+            for document in self.added
+            if document.client_folder_id == client_folder_id
+        ]
+        return matching[:limit]
 
 
 @dataclass
@@ -239,6 +264,56 @@ async def test_rejects_an_unsafe_name_before_touching_the_storage() -> None:
             chunks=_stream(),
         )
 
+    assert harness.storage.stored == []
+    assert harness.documents.added == []
+
+
+async def test_annotations_are_optional_and_normalized() -> None:
+    harness = _build_harness()
+
+    document = await harness.use_case.execute(
+        actor_user_id=uuid4(),
+        client_folder_id=harness.client_folder_id,
+        original_filename="contrato.pdf",
+        chunks=_stream(),
+        title="  Contrato   de   locação ",
+        category="   ",
+        notes="linha 1\nlinha 2  ",
+    )
+
+    assert document.title == "Contrato de locação"
+    # Categoria em branco vira ausência de anotação, não string vazia.
+    assert document.category is None
+    # A observação preserva a quebra de linha; só as bordas são aparadas.
+    assert document.notes == "linha 1\nlinha 2"
+
+
+async def test_document_without_any_annotation_is_accepted() -> None:
+    harness = _build_harness()
+
+    document = await harness.use_case.execute(
+        actor_user_id=uuid4(),
+        client_folder_id=harness.client_folder_id,
+        original_filename="contrato.pdf",
+        chunks=_stream(),
+    )
+
+    assert (document.title, document.category, document.notes) == (None, None, None)
+
+
+async def test_rejects_an_annotation_longer_than_the_limit() -> None:
+    harness = _build_harness()
+
+    with pytest.raises(ValueError, match="title must not exceed"):
+        await harness.use_case.execute(
+            actor_user_id=uuid4(),
+            client_folder_id=harness.client_folder_id,
+            original_filename="contrato.pdf",
+            chunks=_stream(),
+            title="t" * 201,
+        )
+
+    # A anotação é validada antes de qualquer escrita em disco.
     assert harness.storage.stored == []
     assert harness.documents.added == []
 

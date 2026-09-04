@@ -57,6 +57,20 @@ class StoredContent:
 
 
 @dataclass(frozen=True, slots=True)
+class DocumentCursor:
+    """Posição exclusiva e estável na ordenação cronológica dos anexos."""
+
+    stored_at: datetime
+    id: UUID
+
+    def __post_init__(self) -> None:
+        if self.stored_at.tzinfo is None or self.stored_at.utcoffset() is None:
+            raise ValueError("document cursor timestamp must include a timezone")
+        if not isinstance(self.id, UUID):
+            raise ValueError("document cursor id must be a UUID")
+
+
+@dataclass(frozen=True, slots=True)
 class StoredDocument:
     """Metadados persistentes que apontam para o arquivo na área privada."""
 
@@ -68,6 +82,10 @@ class StoredDocument:
     byte_size: int
     checksum_sha256: str
     stored_at: datetime
+    # Anotações livres: nenhuma é obrigatória e não existe catálogo documental.
+    title: str | None = None
+    category: str | None = None
+    notes: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.id, UUID):

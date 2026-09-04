@@ -4,7 +4,11 @@ from collections.abc import AsyncIterator
 from typing import Protocol
 from uuid import UUID
 
-from crm_api.domain.documents.entities import StoredContent, StoredDocument
+from crm_api.domain.documents.entities import (
+    DocumentCursor,
+    StoredContent,
+    StoredDocument,
+)
 
 
 class DocumentMetadataRepository(Protocol):
@@ -16,14 +20,25 @@ class DocumentMetadataRepository(Protocol):
         id: UUID,
         client_folder_id: UUID,
         original_filename: str,
+        title: str | None,
+        category: str | None,
+        notes: str | None,
         content: StoredContent,
     ) -> StoredDocument: ...
 
     async def get(self, *, id: UUID) -> StoredDocument | None: ...
 
+    async def list_for_client(
+        self,
+        *,
+        client_folder_id: UUID,
+        limit: int,
+        before: DocumentCursor | None,
+    ) -> list[StoredDocument]: ...
+
 
 class DocumentStorage(Protocol):
-    """Grava e descarta arquivos sem expor caminho absoluto nem URL pública."""
+    """Grava, lê e descarta arquivos sem expor caminho absoluto nem URL pública."""
 
     async def store(
         self,
@@ -32,5 +47,7 @@ class DocumentStorage(Protocol):
         original_filename: str,
         chunks: AsyncIterator[bytes],
     ) -> StoredContent: ...
+
+    def open_stream(self, *, storage_key: str) -> AsyncIterator[bytes]: ...
 
     async def discard(self, *, storage_key: str) -> None: ...

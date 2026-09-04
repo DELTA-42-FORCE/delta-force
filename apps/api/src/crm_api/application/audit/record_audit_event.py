@@ -20,7 +20,12 @@ _ALLOWED_HTTP_METHODS = frozenset(
     {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}
 )
 _ALLOWED_REASON_CODES = frozenset(
-    {"invalid_credentials", "invalid_session", "setup_already_completed"}
+    {
+        "invalid_credentials",
+        "invalid_session",
+        "setup_already_completed",
+        "document_content_unavailable",
+    }
 )
 _ROUTE_TEMPLATE_PATTERN = re.compile(r"^/[A-Za-z0-9_./{}-]{0,127}$")
 

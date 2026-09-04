@@ -8,8 +8,15 @@ import {
   type ReactNode,
 } from 'react'
 
-import { apiFetch, ApiError } from '../lib/apiClient'
+import { apiDownload, apiFetch, apiUpload, ApiError } from '../lib/apiClient'
+import type { DownloadedFile } from '../lib/apiClient'
 import { initializeDesktopConnection } from '../lib/desktopConnection'
+import {
+  isTauriRuntime,
+  openDesktopDocument,
+  openDownloadedDocument,
+} from '../lib/desktopShell'
+import type { DocumentOpenLocation } from '../lib/desktopShell'
 import {
   login as loginRequest,
   logout as logoutRequest,
@@ -33,6 +40,14 @@ interface AuthContextValue {
     path: string,
     options: { method: string; body?: unknown },
   ) => Promise<T>
+  authenticatedUpload: <T>(path: string, formData: FormData) => Promise<T>
+  authenticatedDownload: (path: string) => Promise<DownloadedFile>
+  authenticatedOpenDocument: (options: {
+    path: string
+    clientId: string
+    documentId: string
+    filename: string
+  }) => Promise<DocumentOpenLocation>
   login: (email: string, password: string) => Promise<void>
   setup: (input: SetupOwnerInput) => Promise<void>
   logout: () => Promise<void>
@@ -155,6 +170,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [authenticatedRequest],
   )
 
+  const authenticatedUpload = useCallback(
+    async <T,>(path: string, formData: FormData): Promise<T> => {
+      if (token === null) throw new ApiError(401, 'session is not available')
+
+      try {
+        return await apiUpload<T>(path, { token, formData })
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) clearSession()
+        throw error
+      }
+    },
+    [clearSession, token],
+  )
+
+  const authenticatedDownload = useCallback(
+    async (path: string): Promise<DownloadedFile> => {
+      if (token === null) throw new ApiError(401, 'session is not available')
+
+      try {
+        return await apiDownload(path, { token })
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) clearSession()
+        throw error
+      }
+    },
+    [clearSession, token],
+  )
+
+  const authenticatedOpenDocument = useCallback(
+    async (options: {
+      path: string
+      clientId: string
+      documentId: string
+      filename: string
+    }): Promise<DocumentOpenLocation> => {
+      if (token === null) throw new ApiError(401, 'session is not available')
+
+      try {
+        if (isTauriRuntime()) {
+          return await openDesktopDocument({
+            clientId: options.clientId,
+            documentId: options.documentId,
+            filename: options.filename,
+            sessionToken: token,
+          })
+        }
+        const file = await apiDownload(options.path, { token })
+        return openDownloadedDocument(file)
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) clearSession()
+        throw error
+      }
+    },
+    [clearSession, token],
+  )
+
   const retry = useCallback(() => {
     setStatus('checking-setup')
     setCheckSequence((current) => current + 1)
@@ -166,6 +237,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       authenticatedGet,
       authenticatedRequest,
+      authenticatedUpload,
+      authenticatedDownload,
+      authenticatedOpenDocument,
       login,
       setup,
       logout,
@@ -176,6 +250,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       authenticatedGet,
       authenticatedRequest,
+      authenticatedUpload,
+      authenticatedDownload,
+      authenticatedOpenDocument,
       login,
       setup,
       logout,

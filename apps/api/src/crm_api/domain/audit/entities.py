@@ -36,6 +36,8 @@ class AuditAction(StrEnum):
     CLIENT_FOLDER_VIEWED = "client_folder.viewed"
     CLIENT_FOLDER_UPDATED = "client_folder.updated"
     DOCUMENT_STORED = "document.stored"
+    DOCUMENT_VIEWED = "document.viewed"
+    DOCUMENT_EXPORTED = "document.exported"
 
 
 class AuditResourceType(StrEnum):

@@ -51,6 +51,10 @@ class DocumentModel(Base):
         index=True,
     )
     original_filename: Mapped[str] = mapped_column(String(), nullable=False)
+    # Anotações livres do proprietário: nenhuma é obrigatória (#22).
+    title: Mapped[str | None] = mapped_column(String(), nullable=True)
+    category: Mapped[str | None] = mapped_column(String(), nullable=True)
+    notes: Mapped[str | None] = mapped_column(String(), nullable=True)
     storage_key: Mapped[str] = mapped_column(String(), nullable=False)
     media_type: Mapped[str] = mapped_column(String(), nullable=False)
     byte_size: Mapped[int] = mapped_column(BigInteger(), nullable=False)

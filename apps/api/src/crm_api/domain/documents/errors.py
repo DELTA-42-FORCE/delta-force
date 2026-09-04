@@ -15,3 +15,11 @@ class UnsupportedDocumentMediaTypeError(DocumentStorageError):
 
 class InsufficientStorageError(DocumentStorageError):
     """O disco não tem capacidade livre suficiente para concluir a gravação."""
+
+
+class DocumentNotFoundError(Exception):
+    """Nenhum documento da pasta informada corresponde ao identificador."""
+
+
+class DocumentContentUnavailableError(DocumentStorageError):
+    """Os metadados existem, mas o arquivo não pôde ser lido na área privada."""

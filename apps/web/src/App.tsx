@@ -12,8 +12,20 @@ import {
   listClientFolders,
   updateClientFolder,
 } from './clients/clientsApi'
-import type { ClientCursor } from './clients/clientsApi'
+import type { ClientCursor, ClientFolder } from './clients/clientsApi'
 import { ClientsPage } from './clients/ClientsPage'
+import { ClientDocumentsPanel } from './documents/ClientDocumentsPanel'
+import {
+  attachClientDocument,
+  exportClientDocument,
+  listClientDocuments,
+  openClientDocument,
+} from './documents/documentsApi'
+import type {
+  ClientDocument,
+  DocumentAnnotations,
+  DocumentCursor,
+} from './documents/documentsApi'
 import { Brand } from './ui/Brand'
 
 function Root() {
@@ -22,6 +34,9 @@ function Root() {
     user,
     authenticatedGet,
     authenticatedRequest,
+    authenticatedUpload,
+    authenticatedDownload,
+    authenticatedOpenDocument,
     logout,
     retry,
   } = useAuth()
@@ -29,6 +44,9 @@ function Root() {
   const [activeView, setActiveView] = useState<
     'overview' | 'audit' | 'clients'
   >('overview')
+  const [documentsFolder, setDocumentsFolder] = useState<ClientFolder | null>(
+    null,
+  )
 
   const loadRecentActivity = useCallback(
     () => listRecentAuditEvents(authenticatedGet),
@@ -61,9 +79,74 @@ function Root() {
     [authenticatedRequest],
   )
 
+  const documentsFolderId = documentsFolder?.id ?? null
+
+  const loadDocumentsPage = useCallback(
+    (cursor: DocumentCursor | null) => {
+      if (documentsFolderId === null) {
+        return Promise.reject(new Error('no client folder is open'))
+      }
+      return listClientDocuments(authenticatedGet, {
+        clientId: documentsFolderId,
+        limit: 20,
+        cursor,
+      })
+    },
+    [authenticatedGet, documentsFolderId],
+  )
+
+  const attachDocument = useCallback(
+    (input: { file: File; annotations: DocumentAnnotations }) => {
+      if (documentsFolderId === null) {
+        return Promise.reject(new Error('no client folder is open'))
+      }
+      return attachClientDocument(authenticatedUpload, {
+        clientId: documentsFolderId,
+        file: input.file,
+        annotations: input.annotations,
+      })
+    },
+    [authenticatedUpload, documentsFolderId],
+  )
+
+  const exportDocument = useCallback(
+    (item: { id: string }) => {
+      if (documentsFolderId === null) {
+        return Promise.reject(new Error('no client folder is open'))
+      }
+      return exportClientDocument(authenticatedDownload, {
+        clientId: documentsFolderId,
+        documentId: item.id,
+      })
+    },
+    [authenticatedDownload, documentsFolderId],
+  )
+
+  const openDocument = useCallback(
+    async (item: ClientDocument) => {
+      if (documentsFolderId === null) {
+        throw new Error('no client folder is open')
+      }
+      return openClientDocument(authenticatedOpenDocument, {
+        clientId: documentsFolderId,
+        documentId: item.id,
+        filename: item.original_filename,
+      })
+    },
+    [authenticatedOpenDocument, documentsFolderId],
+  )
+
+  const goTo = useCallback((view: 'overview' | 'audit' | 'clients') => {
+    // Trocar de seção fecha a pasta aberta: os documentos pertencem ao cliente
+    // que estava em tela, não à navegação seguinte.
+    setDocumentsFolder(null)
+    setActiveView(view)
+  }, [])
+
   async function handleLogout() {
     setLogoutNotice(null)
     setActiveView('overview')
+    setDocumentsFolder(null)
     try {
       await logout()
     } catch {
@@ -126,7 +209,7 @@ function Root() {
                 className={`workspace-nav__item${activeView === 'overview' ? ' workspace-nav__item--active' : ''}`}
                 type="button"
                 aria-current={activeView === 'overview' ? 'page' : undefined}
-                onClick={() => setActiveView('overview')}
+                onClick={() => goTo('overview')}
               >
                 <span aria-hidden="true">⌂</span>
                 <span>Visão geral</span>
@@ -137,7 +220,7 @@ function Root() {
                 className={`workspace-nav__item${activeView === 'audit' ? ' workspace-nav__item--active' : ''}`}
                 type="button"
                 aria-current={activeView === 'audit' ? 'page' : undefined}
-                onClick={() => setActiveView('audit')}
+                onClick={() => goTo('audit')}
               >
                 <span aria-hidden="true">◷</span>
                 <span>Auditoria</span>
@@ -148,7 +231,7 @@ function Root() {
                 className={`workspace-nav__item${activeView === 'clients' ? ' workspace-nav__item--active' : ''}`}
                 type="button"
                 aria-current={activeView === 'clients' ? 'page' : undefined}
-                onClick={() => setActiveView('clients')}
+                onClick={() => goTo('clients')}
               >
                 <span aria-hidden="true">◎</span>
                 <span>Clientes</span>
@@ -156,7 +239,7 @@ function Root() {
             </li>
             <li className="workspace-nav__item">
               <span aria-hidden="true">▤</span> Documentos{' '}
-              <small>em breve</small>
+              <small>na pasta do cliente</small>
             </li>
             <li className="workspace-nav__item">
               <span aria-hidden="true">✉</span> E-mails <small>em breve</small>
@@ -201,11 +284,21 @@ function Root() {
               loadPage={loadAuditPage}
               onBack={() => setActiveView('overview')}
             />
+          ) : activeView === 'clients' && documentsFolder !== null ? (
+            <ClientDocumentsPanel
+              folder={documentsFolder}
+              loadPage={loadDocumentsPage}
+              attachDocument={attachDocument}
+              exportDocument={exportDocument}
+              openDocument={openDocument}
+              onBack={() => setDocumentsFolder(null)}
+            />
           ) : activeView === 'clients' ? (
             <ClientsPage
               loadPage={loadClientsPage}
               createFolder={createClient}
               updateFolder={updateClient}
+              onOpenDocuments={setDocumentsFolder}
             />
           ) : (
             <>
@@ -249,7 +342,7 @@ function Root() {
                     <p className="eyebrow">Construção do MVP</p>
                     <h2 id="modules-title">Próximos módulos</h2>
                   </div>
-                  <span>2 de 4 disponíveis</span>
+                  <span>3 de 4 disponíveis</span>
                 </div>
                 <div className="module-grid">
                   {[
@@ -269,7 +362,7 @@ function Root() {
                       '03',
                       'Documentos',
                       'PDFs e fotos JPEG por cliente.',
-                      'Planejado',
+                      'Disponível',
                     ],
                     [
                       '04',
@@ -279,7 +372,7 @@ function Root() {
                     ],
                   ].map(([number, title, description, state], index) => (
                     <article
-                      className={`module-card${index <= 1 ? ' module-card--ready' : ''}`}
+                      className={`module-card${index <= 2 ? ' module-card--ready' : ''}`}
                       key={number}
                     >
                       <span className="module-card__number">{number}</span>

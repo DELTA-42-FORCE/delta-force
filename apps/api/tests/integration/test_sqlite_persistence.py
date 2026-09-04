@@ -26,6 +26,7 @@ PREVIOUS_AUDIT_REVISION = "20260819_0003"
 PREVIOUS_CLIENT_FOLDER_REVISION = "20260829_0005"
 PREVIOUS_VIEW_UPDATE_REVISION = "20260830_0006"
 PREVIOUS_DOCUMENT_REVISION = "20260901_0007"
+PREVIOUS_ANNOTATION_REVISION = "20260902_0008"
 
 
 def run_alembic(command: str, revision: str) -> None:
@@ -454,7 +455,8 @@ def test_document_migration_round_trip_restores_schema_and_audit_catalog() -> No
         run_alembic("upgrade", "head")
         with connect(path) as connection:
             assert "documents" in _table_names(connection)
-            assert table_columns(connection, "documents") == {
+            # Subconjunto: as anotações opcionais chegam na 0009.
+            assert {
                 "id",
                 "client_folder_id",
                 "original_filename",
@@ -463,7 +465,7 @@ def test_document_migration_round_trip_restores_schema_and_audit_catalog() -> No
                 "byte_size",
                 "checksum_sha256",
                 "stored_at",
-            }
+            } <= table_columns(connection, "documents")
             connection.execute(
                 "INSERT INTO client_folders (id, display_name, profile_data) "
                 "VALUES (?, ?, ?)",
@@ -513,6 +515,74 @@ def test_document_migration_round_trip_restores_schema_and_audit_catalog() -> No
             connection.commit()
 
         run_alembic("downgrade", PREVIOUS_DOCUMENT_REVISION)
+    finally:
+        run_alembic("upgrade", "head")
+        with connect(path) as connection:
+            connection.execute("DELETE FROM client_folders WHERE id = ?", (folder_id,))
+            connection.commit()
+
+
+def test_document_annotation_migration_round_trip_keeps_columns_optional() -> None:
+    path = ensure_disposable_database()
+    folder_id = uuid.uuid4().hex
+
+    run_alembic("downgrade", PREVIOUS_ANNOTATION_REVISION)
+    try:
+        with connect(path) as connection:
+            columns = table_columns(connection, "documents")
+            assert {"title", "category", "notes"}.isdisjoint(columns)
+            for action in ("document.viewed", "document.exported"):
+                with pytest.raises(sqlite3.IntegrityError):
+                    insert_audit_event(
+                        connection,
+                        actor_kind="anonymous",
+                        actor_user_id=None,
+                        action=action,
+                        resource_type="document",
+                    )
+
+        run_alembic("upgrade", "head")
+        with connect(path) as connection:
+            assert {"title", "category", "notes"} <= table_columns(
+                connection, "documents"
+            )
+            connection.execute(
+                "INSERT INTO client_folders (id, display_name, profile_data) "
+                "VALUES (?, ?, ?)",
+                (folder_id, "Cliente Sintético de Anotação", "{}"),
+            )
+            connection.commit()
+
+            # Nenhuma anotação é obrigatória: o anexo entra sem título nem tipo.
+            document_id = _insert_document(
+                connection,
+                client_folder_id=folder_id,
+                storage_key=f"ef/01/{uuid.uuid4().hex}.pdf",
+            )
+            stored = connection.execute(
+                "SELECT title, category, notes FROM documents WHERE id = ?",
+                (document_id,),
+            ).fetchone()
+            assert stored == (None, None, None)
+
+            event_id = insert_audit_event(
+                connection,
+                actor_kind="anonymous",
+                actor_user_id=None,
+                action="document.exported",
+                resource_type="document",
+            )
+
+        # O rollback é recusado enquanto a auditoria de consulta/exportação existir.
+        with pytest.raises(subprocess.CalledProcessError):
+            run_alembic("downgrade", PREVIOUS_ANNOTATION_REVISION)
+
+        with connect(path) as connection:
+            connection.execute("DELETE FROM audit_events WHERE id = ?", (event_id,))
+            connection.execute("DELETE FROM documents WHERE id = ?", (document_id,))
+            connection.commit()
+
+        run_alembic("downgrade", PREVIOUS_ANNOTATION_REVISION)
     finally:
         run_alembic("upgrade", "head")
         with connect(path) as connection:
