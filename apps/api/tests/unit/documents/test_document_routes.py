@@ -21,11 +21,15 @@ from crm_api.application.documents.list_client_documents import (
     ListClientDocumentsUseCase,
 )
 from crm_api.application.documents.store_document import StoreDocumentUseCase
+from crm_api.application.documents.update_document_status import (
+    UpdateDocumentStatusUseCase,
+)
 from crm_api.domain.audit.entities import AuditEvent
 from crm_api.domain.auth.entities import User
 from crm_api.domain.clients.entities import ClientFolder
 from crm_api.domain.documents.entities import (
     DocumentCursor,
+    DocumentStatus,
     StoredContent,
     StoredDocument,
 )
@@ -112,6 +116,7 @@ class MemoryDocumentMetadataRepository:
         client_folder_id: UUID,
         limit: int,
         before: DocumentCursor | None,
+        document_status: DocumentStatus | None = None,
     ) -> list[StoredDocument]:
         ordered = sorted(
             (
@@ -128,7 +133,34 @@ class MemoryDocumentMetadataRepository:
                 for document in ordered
                 if (document.stored_at, document.id) < (before.stored_at, before.id)
             ]
+        if document_status is not None:
+            ordered = [
+                document for document in ordered if document.status is document_status
+            ]
         return ordered[:limit]
+
+    async def update_status(
+        self, *, id: UUID, status: DocumentStatus
+    ) -> StoredDocument | None:
+        document = self.documents.get(id)
+        if document is None:
+            return None
+        updated = StoredDocument(
+            id=document.id,
+            client_folder_id=document.client_folder_id,
+            original_filename=document.original_filename,
+            storage_key=document.storage_key,
+            media_type=document.media_type,
+            byte_size=document.byte_size,
+            checksum_sha256=document.checksum_sha256,
+            stored_at=document.stored_at,
+            title=document.title,
+            category=document.category,
+            notes=document.notes,
+            status=status,
+        )
+        self.documents[id] = updated
+        return updated
 
 
 @dataclass
@@ -197,6 +229,13 @@ def harness(tmp_path: Path) -> Iterator[_Harness]:
     ] = lambda: ExportClientDocumentUseCase(
         documents=documents, storage=storage, audit=audit, transaction=transaction
     )
+    app.dependency_overrides[
+        document_dependencies.get_update_document_status_use_case
+    ] = lambda: UpdateDocumentStatusUseCase(
+        documents=documents,
+        audit=audit,
+        transaction=transaction,
+    )
 
     try:
         with TestClient(app) as test_client:
@@ -236,6 +275,7 @@ def test_owner_attaches_a_pdf_to_a_client_folder(harness: _Harness) -> None:
     assert body["media_type"] == "application/pdf"
     assert body["byte_size"] == len(PDF_BYTES)
     assert (body["title"], body["category"], body["notes"]) == (None, None, None)
+    assert body["status"] == "pending"
     # A chave interna do arquivo não pode vazar no contrato HTTP.
     assert "storage_key" not in body
     assert harness.events[-1].action == "document.stored"
@@ -317,6 +357,73 @@ def test_owner_lists_the_documents_of_a_folder_and_the_query_is_audited(
     assert len(body["items"]) == 2
     assert body["next_cursor"] is None
     assert harness.events[-1].action == "document.viewed"
+
+
+def test_owner_filters_documents_by_tracking_status(harness: _Harness) -> None:
+    pending_id = UUID(_attach(harness).json()["id"])
+    regular_id = UUID(
+        _attach(harness, filename="rg.jpg", payload=JPEG_BYTES).json()["id"]
+    )
+    update = harness.client.patch(
+        f"/clients/{harness.folder_id}/documents/{regular_id}/status",
+        json={"status": "received_regular"},
+    )
+    assert update.status_code == 200
+
+    response = harness.client.get(
+        f"/clients/{harness.folder_id}/documents",
+        params={"status": "pending"},
+    )
+
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()["items"]] == [str(pending_id)]
+
+
+def test_owner_updates_a_document_status_and_the_change_is_audited(
+    harness: _Harness,
+) -> None:
+    document_id = _attach(harness).json()["id"]
+
+    response = harness.client.patch(
+        f"/clients/{harness.folder_id}/documents/{document_id}/status",
+        json={"status": "received_regular"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "received_regular"
+    event = harness.events[-1]
+    assert event.action == "document.status_updated"
+    assert event.resource_id == document_id
+    assert event.context == {
+        "previous_status": "pending",
+        "new_status": "received_regular",
+    }
+
+
+def test_updating_status_through_another_folder_does_not_reveal_the_document(
+    harness: _Harness,
+) -> None:
+    document_id = _attach(harness).json()["id"]
+    other_folder = harness.folders.add_folder()
+
+    response = harness.client.patch(
+        f"/clients/{other_folder.id}/documents/{document_id}/status",
+        json={"status": "incorrect_incomplete"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "document not found"
+
+
+def test_updating_status_rejects_an_unknown_value(harness: _Harness) -> None:
+    document_id = _attach(harness).json()["id"]
+
+    response = harness.client.patch(
+        f"/clients/{harness.folder_id}/documents/{document_id}/status",
+        json={"status": "expired"},
+    )
+
+    assert response.status_code == 422
 
 
 def test_listing_paginates_by_a_stable_cursor(harness: _Harness) -> None:
@@ -409,7 +516,7 @@ def test_every_document_route_requires_the_authenticated_owner() -> None:
     """A sessão é exigida no servidor; o 401 real é coberto na integração."""
     routes = list(documents_router.routes)
 
-    assert len(routes) == 4
+    assert len(routes) == 5
     for route in routes:
         dependants = route.dependant.dependencies  # type: ignore[attr-defined]
         dependency_names = {

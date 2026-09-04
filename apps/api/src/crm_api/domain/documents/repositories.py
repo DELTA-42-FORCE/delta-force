@@ -6,6 +6,7 @@ from uuid import UUID
 
 from crm_api.domain.documents.entities import (
     DocumentCursor,
+    DocumentStatus,
     StoredContent,
     StoredDocument,
 )
@@ -34,7 +35,12 @@ class DocumentMetadataRepository(Protocol):
         client_folder_id: UUID,
         limit: int,
         before: DocumentCursor | None,
+        document_status: DocumentStatus | None = None,
     ) -> list[StoredDocument]: ...
+
+    async def update_status(
+        self, *, id: UUID, status: DocumentStatus
+    ) -> StoredDocument | None: ...
 
     async def checksum_exists(
         self, *, client_folder_id: UUID, checksum_sha256: str

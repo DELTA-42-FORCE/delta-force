@@ -11,6 +11,9 @@ from crm_api.application.documents.list_client_documents import (
     ListClientDocumentsUseCase,
 )
 from crm_api.application.documents.store_document import StoreDocumentUseCase
+from crm_api.application.documents.update_document_status import (
+    UpdateDocumentStatusUseCase,
+)
 from crm_api.core.config import get_settings
 from crm_api.infrastructure.audit.repositories import (
     SqlAlchemyAuditEventRepository,
@@ -70,6 +73,16 @@ def get_export_client_document_use_case(
     return ExportClientDocumentUseCase(
         documents=SqlAlchemyDocumentMetadataRepository(session),
         storage=get_document_storage(),
+        audit=RecordAuditEventUseCase(events=SqlAlchemyAuditEventRepository(session)),
+        transaction=SqlAlchemyTransaction(session),
+    )
+
+
+def get_update_document_status_use_case(
+    session: DatabaseSession,
+) -> UpdateDocumentStatusUseCase:
+    return UpdateDocumentStatusUseCase(
+        documents=SqlAlchemyDocumentMetadataRepository(session),
         audit=RecordAuditEventUseCase(events=SqlAlchemyAuditEventRepository(session)),
         transaction=SqlAlchemyTransaction(session),
     )

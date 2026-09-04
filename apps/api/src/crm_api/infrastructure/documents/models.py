@@ -38,6 +38,10 @@ class DocumentModel(Base):
             "length(trim(original_filename)) > 0",
             name="ck_documents_original_filename_not_blank",
         ),
+        CheckConstraint(
+            "status IN ('pending', 'received_regular', 'incorrect_incomplete')",
+            name="ck_documents_status",
+        ),
         UniqueConstraint("storage_key", name="uq_documents_storage_key"),
     )
 
@@ -55,6 +59,9 @@ class DocumentModel(Base):
     title: Mapped[str | None] = mapped_column(String(), nullable=True)
     category: Mapped[str | None] = mapped_column(String(), nullable=True)
     notes: Mapped[str | None] = mapped_column(String(), nullable=True)
+    status: Mapped[str] = mapped_column(
+        String(), nullable=False, server_default="pending", index=True
+    )
     storage_key: Mapped[str] = mapped_column(String(), nullable=False)
     media_type: Mapped[str] = mapped_column(String(), nullable=False)
     byte_size: Mapped[int] = mapped_column(BigInteger(), nullable=False)

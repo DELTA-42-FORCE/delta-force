@@ -27,6 +27,7 @@ PREVIOUS_CLIENT_FOLDER_REVISION = "20260829_0005"
 PREVIOUS_VIEW_UPDATE_REVISION = "20260830_0006"
 PREVIOUS_DOCUMENT_REVISION = "20260901_0007"
 PREVIOUS_ANNOTATION_REVISION = "20260902_0008"
+PREVIOUS_DOCUMENT_STATUS_REVISION = "20260903_0010"
 
 
 def run_alembic(command: str, revision: str) -> None:
@@ -586,5 +587,85 @@ def test_document_annotation_migration_round_trip_keeps_columns_optional() -> No
     finally:
         run_alembic("upgrade", "head")
         with connect(path) as connection:
+            connection.execute("DELETE FROM client_folders WHERE id = ?", (folder_id,))
+            connection.commit()
+
+
+def test_document_status_migration_backfills_and_protects_history() -> None:
+    path = ensure_disposable_database()
+    folder_id = uuid.uuid4().hex
+    document_id: str | None = None
+
+    run_alembic("downgrade", PREVIOUS_DOCUMENT_STATUS_REVISION)
+    try:
+        with connect(path) as connection:
+            assert "status" not in table_columns(connection, "documents")
+            with pytest.raises(sqlite3.IntegrityError):
+                insert_audit_event(
+                    connection,
+                    actor_kind="anonymous",
+                    actor_user_id=None,
+                    action="document.status_updated",
+                    resource_type="document",
+                )
+            connection.execute(
+                "INSERT INTO client_folders (id, display_name, profile_data) "
+                "VALUES (?, ?, ?)",
+                (folder_id, "Cliente Sintético de Status", "{}"),
+            )
+            document_id = _insert_document(
+                connection,
+                client_folder_id=folder_id,
+                storage_key=f"ab/23/{uuid.uuid4().hex}.pdf",
+            )
+
+        run_alembic("upgrade", "head")
+        with connect(path) as connection:
+            assert "status" in table_columns(connection, "documents")
+            indexes = {
+                row[1] for row in connection.execute("PRAGMA index_list(documents)")
+            }
+            assert "ix_documents_status" in indexes
+            stored_status = connection.execute(
+                "SELECT status FROM documents WHERE id = ?", (document_id,)
+            ).fetchone()
+            assert stored_status == ("pending",)
+
+            connection.execute(
+                "UPDATE documents SET status = 'incorrect_incomplete' WHERE id = ?",
+                (document_id,),
+            )
+            connection.commit()
+
+        with pytest.raises(subprocess.CalledProcessError):
+            run_alembic("downgrade", PREVIOUS_DOCUMENT_STATUS_REVISION)
+
+        with connect(path) as connection:
+            connection.execute(
+                "UPDATE documents SET status = 'pending' WHERE id = ?", (document_id,)
+            )
+            event_id = insert_audit_event(
+                connection,
+                actor_kind="anonymous",
+                actor_user_id=None,
+                action="document.status_updated",
+                resource_type="document",
+            )
+
+        with pytest.raises(subprocess.CalledProcessError):
+            run_alembic("downgrade", PREVIOUS_DOCUMENT_STATUS_REVISION)
+
+        with connect(path) as connection:
+            connection.execute("DELETE FROM audit_events WHERE id = ?", (event_id,))
+            connection.commit()
+
+        run_alembic("downgrade", PREVIOUS_DOCUMENT_STATUS_REVISION)
+        with connect(path) as connection:
+            assert "status" not in table_columns(connection, "documents")
+    finally:
+        run_alembic("upgrade", "head")
+        with connect(path) as connection:
+            if document_id is not None:
+                connection.execute("DELETE FROM documents WHERE id = ?", (document_id,))
             connection.execute("DELETE FROM client_folders WHERE id = ?", (folder_id,))
             connection.commit()

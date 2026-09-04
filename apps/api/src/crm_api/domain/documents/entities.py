@@ -34,6 +34,14 @@ _ACCEPTED_EXTENSIONS = {
 }
 
 
+class DocumentStatus(StrEnum):
+    """Situação opcional de acompanhamento de um documento armazenado."""
+
+    PENDING = "pending"
+    RECEIVED_REGULAR = "received_regular"
+    INCORRECT_INCOMPLETE = "incorrect_incomplete"
+
+
 @dataclass(frozen=True, slots=True)
 class StoredContent:
     """Resultado da gravação já publicada na árvore privada."""
@@ -86,6 +94,7 @@ class StoredDocument:
     title: str | None = None
     category: str | None = None
     notes: str | None = None
+    status: DocumentStatus = DocumentStatus.PENDING
 
     def __post_init__(self) -> None:
         if not isinstance(self.id, UUID):
@@ -98,6 +107,8 @@ class StoredDocument:
             raise ValueError("document storage_key must not be blank")
         if not isinstance(self.media_type, DocumentMediaType):
             raise ValueError("document media_type is invalid")
+        if not isinstance(self.status, DocumentStatus):
+            raise ValueError("document status is invalid")
         if not isinstance(self.byte_size, int) or self.byte_size <= 0:
             raise ValueError("document byte_size must be positive")
         if self.stored_at.tzinfo is None or self.stored_at.utcoffset() is None:
