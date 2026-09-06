@@ -140,7 +140,7 @@ class MemoryDocumentMetadataRepository:
         return ordered[:limit]
 
     async def update_status(
-        self, *, id: UUID, status: DocumentStatus
+        self, *, id: UUID, status: DocumentStatus | None
     ) -> StoredDocument | None:
         document = self.documents.get(id)
         if document is None:
@@ -275,7 +275,7 @@ def test_owner_attaches_a_pdf_to_a_client_folder(harness: _Harness) -> None:
     assert body["media_type"] == "application/pdf"
     assert body["byte_size"] == len(PDF_BYTES)
     assert (body["title"], body["category"], body["notes"]) == (None, None, None)
-    assert body["status"] == "pending"
+    assert body["status"] is None
     # A chave interna do arquivo não pode vazar no contrato HTTP.
     assert "storage_key" not in body
     assert harness.events[-1].action == "document.stored"
@@ -364,11 +364,16 @@ def test_owner_filters_documents_by_tracking_status(harness: _Harness) -> None:
     regular_id = UUID(
         _attach(harness, filename="rg.jpg", payload=JPEG_BYTES).json()["id"]
     )
-    update = harness.client.patch(
+    pending_update = harness.client.patch(
+        f"/clients/{harness.folder_id}/documents/{pending_id}/status",
+        json={"status": "pending"},
+    )
+    regular_update = harness.client.patch(
         f"/clients/{harness.folder_id}/documents/{regular_id}/status",
         json={"status": "received_regular"},
     )
-    assert update.status_code == 200
+    assert pending_update.status_code == 200
+    assert regular_update.status_code == 200
 
     response = harness.client.get(
         f"/clients/{harness.folder_id}/documents",
@@ -395,8 +400,28 @@ def test_owner_updates_a_document_status_and_the_change_is_audited(
     assert event.action == "document.status_updated"
     assert event.resource_id == document_id
     assert event.context == {
-        "previous_status": "pending",
+        "previous_status": "untracked",
         "new_status": "received_regular",
+    }
+
+
+def test_owner_can_remove_document_tracking(harness: _Harness) -> None:
+    document_id = _attach(harness).json()["id"]
+    harness.client.patch(
+        f"/clients/{harness.folder_id}/documents/{document_id}/status",
+        json={"status": "pending"},
+    )
+
+    response = harness.client.patch(
+        f"/clients/{harness.folder_id}/documents/{document_id}/status",
+        json={"status": None},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] is None
+    assert harness.events[-1].context == {
+        "previous_status": "pending",
+        "new_status": "untracked",
     }
 
 

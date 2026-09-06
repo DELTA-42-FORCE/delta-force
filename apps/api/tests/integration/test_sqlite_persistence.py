@@ -629,7 +629,7 @@ def test_document_status_migration_backfills_and_protects_history() -> None:
             stored_status = connection.execute(
                 "SELECT status FROM documents WHERE id = ?", (document_id,)
             ).fetchone()
-            assert stored_status == ("pending",)
+            assert stored_status == (None,)
 
             connection.execute(
                 "UPDATE documents SET status = 'incorrect_incomplete' WHERE id = ?",
@@ -642,7 +642,7 @@ def test_document_status_migration_backfills_and_protects_history() -> None:
 
         with connect(path) as connection:
             connection.execute(
-                "UPDATE documents SET status = 'pending' WHERE id = ?", (document_id,)
+                "UPDATE documents SET status = NULL WHERE id = ?", (document_id,)
             )
             event_id = insert_audit_event(
                 connection,

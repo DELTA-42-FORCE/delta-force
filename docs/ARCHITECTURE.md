@@ -99,8 +99,9 @@ com `X-Content-Type-Options: nosniff`, e as ações `document.stored`,
 do SQLite tem resolução de segundo e desalinharia o cursor.
 
 A fatia de API da #23 acrescenta acompanhamento opcional aos metadados do
-documento. Todo anexo começa como `pending` e pode mudar para
-`received_regular` ou `incorrect_incomplete`; nenhum estado cria catálogo
+documento. Todo anexo começa sem acompanhamento e o proprietário pode marcá-lo
+explicitamente como `pending`, `received_regular` ou `incorrect_incomplete`,
+além de remover o acompanhamento depois; nenhum estado cria catálogo
 obrigatório, vencimento ou bloqueio sobre cliente e outros anexos. A listagem
 aceita filtro por estado, e a alteração usa a mesma transação do evento
 `document.status_updated`, cujo contexto fechado registra apenas os estados

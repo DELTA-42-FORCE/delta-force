@@ -46,14 +46,13 @@ def _replace_action_catalog(*, include_status_update: bool) -> None:
 
 
 def upgrade() -> None:
-    """Existing and new documents start pending until the owner reviews them."""
+    """Tracking is opt-in; existing and new documents remain untracked."""
     with op.batch_alter_table("documents", recreate="always") as batch_op:
         batch_op.add_column(
             sa.Column(
                 "status",
                 sa.String(),
-                nullable=False,
-                server_default=sa.text("'pending'"),
+                nullable=True,
             )
         )
         batch_op.create_check_constraint(
@@ -72,10 +71,10 @@ def downgrade() -> None:
             "'document.status_updated')"
         )
     )
-    has_non_default_status = connection.scalar(
-        sa.text("SELECT EXISTS(SELECT 1 FROM documents WHERE status != 'pending')")
+    has_tracked_status = connection.scalar(
+        sa.text("SELECT EXISTS(SELECT 1 FROM documents WHERE status IS NOT NULL)")
     )
-    if has_incompatible_events or has_non_default_status:
+    if has_incompatible_events or has_tracked_status:
         raise RuntimeError(
             "cannot safely downgrade 20260904_0011 while document status data or "
             "audit events exist; preserve them and keep this migration"

@@ -138,7 +138,7 @@ async def test_document_metadata_persists_without_the_binary() -> None:
     assert stored.title == "Contrato de locação"
     assert stored.category == "contratos"
     assert stored.notes == "via assinada"
-    assert stored.status == DocumentStatus.PENDING.value
+    assert stored.status is None
     # O conteúdo não pertence ao banco: apenas a chave que o localiza.
     assert not hasattr(stored, "content")
 
@@ -424,7 +424,7 @@ async def test_status_update_persists_filters_and_records_audit_history() -> Non
     assert [item.id for item in filtered] == [document.id]
     assert event is not None
     assert event.context == {
-        "previous_status": "pending",
+        "previous_status": "untracked",
         "new_status": "incorrect_incomplete",
     }
 

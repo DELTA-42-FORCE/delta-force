@@ -33,9 +33,9 @@ class UpdateDocumentStatusUseCase:
         actor_user_id: UUID,
         client_folder_id: UUID,
         document_id: UUID,
-        status: DocumentStatus,
+        status: DocumentStatus | None,
     ) -> StoredDocument:
-        if not isinstance(status, DocumentStatus):
+        if status is not None and not isinstance(status, DocumentStatus):
             raise ValueError("document status is invalid")
 
         current = await resolve_document_in_folder(
@@ -43,7 +43,7 @@ class UpdateDocumentStatusUseCase:
             client_folder_id=client_folder_id,
             document_id=document_id,
         )
-        if current.status is status:
+        if current.status == status:
             return current
 
         try:
@@ -58,8 +58,8 @@ class UpdateDocumentStatusUseCase:
                 resource_id=str(document_id),
                 result=AuditResult.SUCCESS,
                 context={
-                    "previous_status": current.status.value,
-                    "new_status": status.value,
+                    "previous_status": _audit_status(current.status),
+                    "new_status": _audit_status(status),
                 },
             )
             await self.transaction.commit()
@@ -67,3 +67,7 @@ class UpdateDocumentStatusUseCase:
             await self.transaction.rollback()
             raise
         return updated
+
+
+def _audit_status(status: DocumentStatus | None) -> str:
+    return status.value if status is not None else "untracked"
