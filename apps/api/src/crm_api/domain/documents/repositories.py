@@ -39,7 +39,7 @@ class DocumentMetadataRepository(Protocol):
     ) -> list[StoredDocument]: ...
 
     async def update_status(
-        self, *, id: UUID, status: DocumentStatus
+        self, *, id: UUID, status: DocumentStatus | None
     ) -> StoredDocument | None: ...
 
     async def checksum_exists(

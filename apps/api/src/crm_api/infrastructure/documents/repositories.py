@@ -31,7 +31,7 @@ def _to_stored_document(model: DocumentModel) -> StoredDocument:
         title=model.title,
         category=model.category,
         notes=model.notes,
-        status=DocumentStatus(model.status),
+        status=DocumentStatus(model.status) if model.status is not None else None,
     )
 
 
@@ -111,12 +111,12 @@ class SqlAlchemyDocumentMetadataRepository:
         return [_to_stored_document(model) for model in models]
 
     async def update_status(
-        self, *, id: UUID, status: DocumentStatus
+        self, *, id: UUID, status: DocumentStatus | None
     ) -> StoredDocument | None:
         model = await self.session.get(DocumentModel, id)
         if model is None:
             return None
-        model.status = status.value
+        model.status = status.value if status is not None else None
         await self.session.flush()
         await self.session.refresh(model)
         return _to_stored_document(model)

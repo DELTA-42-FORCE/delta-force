@@ -37,7 +37,7 @@ _ALLOWED_REASON_CODES = frozenset(
 )
 _ROUTE_TEMPLATE_PATTERN = re.compile(r"^/[A-Za-z0-9_./{}-]{0,127}$")
 _ALLOWED_DOCUMENT_STATUSES = frozenset(
-    {"pending", "received_regular", "incorrect_incomplete"}
+    {"untracked", "pending", "received_regular", "incorrect_incomplete"}
 )
 
 

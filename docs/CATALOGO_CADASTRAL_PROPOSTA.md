@@ -313,15 +313,18 @@ sintéticos para uma rodada separada de aprovação visual.
       escrita em streaming são a regra vigente;
 - [ ] limites de arquivos ativos e histórico de versões aprovados;
 - [ ] efeito de documento obrigatório/irregular aprovado;
-- [ ] significados dos status, criação da pendência e conferência manual após
-      recebimento aprovados;
+- [x] para o fluxo flexível vigente: acompanhamento é opcional e manual; anexos
+      começam sem status; pendente exige providência, recebido/regular foi
+      conferido e considerado adequado, e incorreto/incompleto foi conferido
+      com problema; o proprietário também pode remover o acompanhamento;
 - [ ] protótipo/modelo identificado e conteúdo/layout da ficha PDF aprovados;
 - [ ] máscaras, foto e paginação/overflow da ficha PDF aprovados;
 - [ ] respostas sem dados pessoais reais anexados à decisão.
 
-Enquanto qualquer item estiver aberto, as issues dependentes podem receber
-somente backlog, critérios de aceite e plano de testes. É proibido implementar
-schema, migration, API, interface, upload ou geração de PDF antes da homologação.
+Enquanto qualquer item estiver aberto, somente funcionalidades dependentes
+deste catálogo rígido histórico ficam bloqueadas. Isso não impede a pasta
+flexível, anexos opcionais, status manuais independentes de catálogo nem a ficha
+PDF baseada apenas nos dados disponíveis, conforme `CLIENT_DECISIONS.md`.
 
 ## 8. Homologação
 

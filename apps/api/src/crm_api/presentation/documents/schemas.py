@@ -23,11 +23,11 @@ class DocumentResponse(BaseModel):
     title: str | None
     category: str | None
     notes: str | None
-    status: DocumentStatus
+    status: DocumentStatus | None
 
 
 class UpdateDocumentStatusRequest(BaseModel):
-    status: DocumentStatus
+    status: DocumentStatus | None
 
 
 class DocumentCursorResponse(BaseModel):
