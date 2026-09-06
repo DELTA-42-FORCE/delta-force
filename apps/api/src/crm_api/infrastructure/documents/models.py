@@ -59,9 +59,7 @@ class DocumentModel(Base):
     title: Mapped[str | None] = mapped_column(String(), nullable=True)
     category: Mapped[str | None] = mapped_column(String(), nullable=True)
     notes: Mapped[str | None] = mapped_column(String(), nullable=True)
-    status: Mapped[str] = mapped_column(
-        String(), nullable=False, server_default="pending", index=True
-    )
+    status: Mapped[str | None] = mapped_column(String(), nullable=True, index=True)
     storage_key: Mapped[str] = mapped_column(String(), nullable=False)
     media_type: Mapped[str] = mapped_column(String(), nullable=False)
     byte_size: Mapped[int] = mapped_column(BigInteger(), nullable=False)

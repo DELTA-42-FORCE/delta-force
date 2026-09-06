@@ -94,7 +94,8 @@ class StoredDocument:
     title: str | None = None
     category: str | None = None
     notes: str | None = None
-    status: DocumentStatus = DocumentStatus.PENDING
+    # Acompanhamento é opt-in: anexar um arquivo não cria uma pendência.
+    status: DocumentStatus | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.id, UUID):
@@ -107,7 +108,7 @@ class StoredDocument:
             raise ValueError("document storage_key must not be blank")
         if not isinstance(self.media_type, DocumentMediaType):
             raise ValueError("document media_type is invalid")
-        if not isinstance(self.status, DocumentStatus):
+        if self.status is not None and not isinstance(self.status, DocumentStatus):
             raise ValueError("document status is invalid")
         if not isinstance(self.byte_size, int) or self.byte_size <= 0:
             raise ValueError("document byte_size must be positive")

@@ -45,7 +45,7 @@ class _DocumentRepository:
         return self.document if id == self.document.id else None
 
     async def update_status(
-        self, *, id: UUID, status: DocumentStatus
+        self, *, id: UUID, status: DocumentStatus | None
     ) -> StoredDocument | None:
         assert id == self.document.id
         self.update_calls += 1
@@ -112,7 +112,7 @@ async def test_updates_status_and_records_old_and_new_values() -> None:
     event = events.events[0]
     assert event.action == "document.status_updated"
     assert event.context == {
-        "previous_status": "pending",
+        "previous_status": "untracked",
         "new_status": "received_regular",
     }
 
@@ -124,13 +124,34 @@ async def test_same_status_is_an_idempotent_no_op() -> None:
         actor_user_id=ACTOR_ID,
         client_folder_id=FOLDER_ID,
         document_id=documents.document.id,
-        status=DocumentStatus.PENDING,
+        status=None,
     )
 
     assert unchanged is documents.document
     assert documents.update_calls == 0
     assert events.events == []
     assert transaction.commits == 0
+
+
+async def test_tracking_can_be_removed_and_is_audited() -> None:
+    use_case, documents, events, transaction = _harness()
+    documents.document = replace(
+        documents.document, status=DocumentStatus.INCORRECT_INCOMPLETE
+    )
+
+    updated = await use_case.execute(
+        actor_user_id=ACTOR_ID,
+        client_folder_id=FOLDER_ID,
+        document_id=documents.document.id,
+        status=None,
+    )
+
+    assert updated.status is None
+    assert transaction.commits == 1
+    assert events.events[0].context == {
+        "previous_status": "incorrect_incomplete",
+        "new_status": "untracked",
+    }
 
 
 async def test_document_from_another_folder_is_hidden() -> None:
