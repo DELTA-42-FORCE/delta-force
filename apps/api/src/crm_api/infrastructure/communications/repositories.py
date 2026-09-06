@@ -3,10 +3,14 @@
 from dataclasses import dataclass
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from crm_api.domain.communications.entities import MessageTemplate, RecipientCandidate
+from crm_api.domain.communications.entities import (
+    MessageTemplate,
+    RecipientCandidate,
+    RecipientCandidateCursor,
+)
 from crm_api.domain.documents.entities import DocumentStatus
 from crm_api.infrastructure.clients.models import ClientFolderModel
 from crm_api.infrastructure.communications.models import MessageTemplateModel
@@ -73,7 +77,11 @@ class SqlAlchemyCommunicationRepository:
         return True
 
     async def list_recipient_candidates(
-        self, *, document_status: DocumentStatus, limit: int
+        self,
+        *,
+        document_status: DocumentStatus,
+        limit: int,
+        before: RecipientCandidateCursor | None,
     ) -> list[RecipientCandidate]:
         count = func.count(DocumentModel.id)
         statement = (
@@ -88,9 +96,20 @@ class SqlAlchemyCommunicationRepository:
             )
             .where(DocumentModel.status == document_status.value)
             .group_by(ClientFolderModel.id, ClientFolderModel.display_name)
-            .order_by(ClientFolderModel.display_name.asc(), ClientFolderModel.id.asc())
-            .limit(limit)
         )
+        if before is not None:
+            statement = statement.where(
+                or_(
+                    ClientFolderModel.display_name > before.display_name,
+                    and_(
+                        ClientFolderModel.display_name == before.display_name,
+                        ClientFolderModel.id > before.client_id,
+                    ),
+                )
+            )
+        statement = statement.order_by(
+            ClientFolderModel.display_name.asc(), ClientFolderModel.id.asc()
+        ).limit(limit)
         rows = (await self.session.execute(statement)).all()
         return [
             RecipientCandidate(

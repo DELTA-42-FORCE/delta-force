@@ -711,6 +711,20 @@ def test_message_template_migration_round_trip_protects_data_and_audit() -> None
                 connection,
                 actor_kind="anonymous",
                 actor_user_id=None,
+                action="recipient_candidates.viewed",
+                resource_type="client_folder",
+            )
+
+        with pytest.raises(subprocess.CalledProcessError):
+            run_alembic("downgrade", PREVIOUS_MESSAGE_TEMPLATE_REVISION)
+
+        with connect(path) as connection:
+            connection.execute("DELETE FROM audit_events WHERE id = ?", (event_id,))
+            connection.commit()
+            event_id = insert_audit_event(
+                connection,
+                actor_kind="anonymous",
+                actor_user_id=None,
                 action="message_template.deleted",
                 resource_type="message_template",
             )

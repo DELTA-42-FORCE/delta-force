@@ -8,6 +8,22 @@ from crm_api.domain.documents.entities import DocumentStatus
 
 
 @dataclass(frozen=True, slots=True)
+class RecipientCandidateCursor:
+    """Posição exclusiva e estável na seleção alfabética de candidatos."""
+
+    display_name: str
+    client_id: UUID
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.display_name, str) or not self.display_name:
+            raise ValueError(
+                "recipient candidate cursor display_name must not be blank"
+            )
+        if not isinstance(self.client_id, UUID):
+            raise ValueError("recipient candidate cursor client_id must be a UUID")
+
+
+@dataclass(frozen=True, slots=True)
 class MessageTemplate:
     """Modelo mantido pelo proprietário; não representa uma mensagem enviada."""
 

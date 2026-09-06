@@ -21,7 +21,8 @@ _AUDIT_ACTION_CONSTRAINT = (
     "'client_folder.created', 'client_folder.viewed', 'client_folder.updated', "
     "'client_folder.profile_exported', 'document.stored', 'document.viewed', "
     "'document.exported', 'document.status_updated', 'message_template.created', "
-    "'message_template.updated', 'message_template.deleted')"
+    "'message_template.updated', 'message_template.deleted', "
+    "'recipient_candidates.viewed')"
 )
 _PREVIOUS_AUDIT_ACTION_CONSTRAINT = (
     "action IN ('auth.owner_setup', 'auth.login', 'auth.owner_profile_view', "
@@ -103,16 +104,17 @@ def downgrade() -> None:
     has_templates = connection.scalar(
         sa.text("SELECT EXISTS(SELECT 1 FROM message_templates)")
     )
-    has_template_events = connection.scalar(
+    has_communication_events = connection.scalar(
         sa.text(
-            "SELECT EXISTS(SELECT 1 FROM audit_events WHERE action LIKE "
-            "'message_template.%')"
+            "SELECT EXISTS(SELECT 1 FROM audit_events WHERE "
+            "action LIKE 'message_template.%' OR "
+            "action = 'recipient_candidates.viewed')"
         )
     )
-    if has_templates or has_template_events:
+    if has_templates or has_communication_events:
         raise RuntimeError(
             "cannot safely downgrade 20260904_0012 while message templates or "
-            "their audit events exist"
+            "communication audit events exist"
         )
     _replace_audit_catalog(include_templates=False)
     op.drop_table("message_templates")

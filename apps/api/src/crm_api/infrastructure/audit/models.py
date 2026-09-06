@@ -39,7 +39,8 @@ class AuditEventModel(Base):
             "'client_folder.updated', 'client_folder.profile_exported', "
             "'document.stored', 'document.viewed', 'document.exported', "
             "'document.status_updated', 'message_template.created', "
-            "'message_template.updated', 'message_template.deleted')",
+            "'message_template.updated', 'message_template.deleted', "
+            "'recipient_candidates.viewed')",
             name="ck_audit_events_action",
         ),
         CheckConstraint(
