@@ -8,6 +8,9 @@ import pytest
 from sqlalchemy import delete, select
 
 from crm_api.application.audit.record_audit_event import RecordAuditEventUseCase
+from crm_api.application.communications.list_recipient_candidates import (
+    ListRecipientCandidatesUseCase,
+)
 from crm_api.application.communications.templates import CreateMessageTemplateUseCase
 from crm_api.domain.documents.entities import DocumentStatus
 from crm_api.infrastructure.audit.models import AuditEventModel
@@ -51,7 +54,8 @@ async def clear_communication_rows() -> AsyncIterator[None]:
         )
         await session.execute(
             delete(AuditEventModel).where(
-                AuditEventModel.resource_type == "message_template"
+                (AuditEventModel.resource_type == "message_template")
+                | (AuditEventModel.action == "recipient_candidates.viewed")
             )
         )
         await session.execute(delete(MessageTemplateModel))
@@ -163,9 +167,93 @@ async def test_recipient_candidates_are_grouped_by_client_and_status() -> None:
         ).list_recipient_candidates(
             document_status=DocumentStatus.PENDING,
             limit=100,
+            before=None,
         )
 
     assert len(candidates) == 1
     assert candidates[0].client_id == pending_client_id
     assert candidates[0].matching_documents == 2
     assert not hasattr(candidates[0], "email")
+
+
+async def test_recipient_candidates_paginate_beyond_one_hundred_and_audit() -> None:
+    _requires_disposable_sqlite()
+    owner_id = uuid4()
+    candidate_ids = [uuid4() for _ in range(101)]
+    async with get_session_factory()() as session:
+        session.add(
+            UserModel(
+                id=owner_id,
+                email=f"owner-{owner_id}{_OWNER_DOMAIN}",
+                full_name="Proprietário Sintético",
+                password_hash="synthetic-password-hash",
+                is_active=True,
+            )
+        )
+        session.add_all(
+            ClientFolderModel(
+                id=client_id,
+                display_name=f"{_CLIENT_PREFIX}{index:03d}",
+                profile_data={},
+            )
+            for index, client_id in enumerate(candidate_ids)
+        )
+        await session.flush()
+        session.add_all(
+            DocumentModel(
+                id=uuid4(),
+                client_folder_id=client_id,
+                original_filename=f"synthetic-{index:03d}.pdf",
+                storage_key=f"communications/{uuid4()}.pdf",
+                media_type="application/pdf",
+                byte_size=20,
+                checksum_sha256=f"{index:064x}",
+                status=DocumentStatus.PENDING.value,
+            )
+            for index, client_id in enumerate(candidate_ids)
+        )
+        await session.commit()
+
+    async with get_session_factory()() as session:
+        use_case = ListRecipientCandidatesUseCase(
+            repository=SqlAlchemyCommunicationRepository(session),
+            audit=RecordAuditEventUseCase(SqlAlchemyAuditEventRepository(session)),
+            transaction=SqlAlchemyTransaction(session),
+        )
+        first_page = await use_case.execute(
+            actor_user_id=owner_id,
+            document_status=DocumentStatus.PENDING,
+            limit=100,
+            before=None,
+        )
+        second_page = await use_case.execute(
+            actor_user_id=owner_id,
+            document_status=DocumentStatus.PENDING,
+            limit=100,
+            before=first_page.next_cursor,
+        )
+
+    assert len(first_page.items) == 100
+    assert first_page.next_cursor is not None
+    assert len(second_page.items) == 1
+    assert second_page.next_cursor is None
+    assert {
+        candidate.client_id for candidate in first_page.items + second_page.items
+    } == set(candidate_ids)
+
+    async with get_session_factory()() as session:
+        events = (
+            await session.scalars(
+                select(AuditEventModel)
+                .where(
+                    AuditEventModel.actor_user_id == owner_id,
+                    AuditEventModel.action == "recipient_candidates.viewed",
+                )
+                .order_by(AuditEventModel.occurred_at.asc())
+            )
+        ).all()
+
+    assert len(events) == 2
+    assert all(event.resource_type == "client_folder" for event in events)
+    assert all(event.resource_id is None and event.context == {} for event in events)
+    assert _CLIENT_PREFIX not in repr(events)

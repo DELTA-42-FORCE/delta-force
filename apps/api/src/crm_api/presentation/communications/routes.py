@@ -14,7 +14,10 @@ from crm_api.application.communications.templates import (
     ListMessageTemplatesUseCase,
     UpdateMessageTemplateUseCase,
 )
-from crm_api.domain.communications.entities import MessageTemplate
+from crm_api.domain.communications.entities import (
+    MessageTemplate,
+    RecipientCandidateCursor,
+)
 from crm_api.domain.communications.errors import MessageTemplateNotFoundError
 from crm_api.domain.documents.entities import DocumentStatus
 from crm_api.presentation.auth.dependencies import CurrentUser
@@ -28,6 +31,8 @@ from crm_api.presentation.communications.dependencies import (
 from crm_api.presentation.communications.schemas import (
     MessageTemplatePayload,
     MessageTemplateResponse,
+    RecipientCandidateCursorResponse,
+    RecipientCandidateListResponse,
     RecipientCandidateResponse,
 )
 
@@ -131,7 +136,7 @@ async def delete_message_template(
 
 @router.get(
     "/email-recipient-candidates",
-    response_model=list[RecipientCandidateResponse],
+    response_model=RecipientCandidateListResponse,
 )
 async def list_recipient_candidates(
     current_user: CurrentUser,
@@ -141,20 +146,57 @@ async def list_recipient_candidates(
     ],
     document_status: Annotated[DocumentStatus, Query(alias="status")],
     limit: Annotated[int, Query(ge=1, le=100)] = 100,
-) -> list[RecipientCandidateResponse]:
-    del current_user
+    before_display_name: Annotated[str | None, Query()] = None,
+    before_client_id: Annotated[UUID | None, Query()] = None,
+) -> RecipientCandidateListResponse:
+    if (before_display_name is None) != (before_client_id is None):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=(
+                "before_display_name and before_client_id must be provided together"
+            ),
+        )
     try:
-        candidates = await use_case.execute(
-            document_status=document_status, limit=limit
+        cursor = (
+            RecipientCandidateCursor(
+                display_name=before_display_name,
+                client_id=before_client_id,
+            )
+            if before_display_name is not None and before_client_id is not None
+            else None
+        )
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="recipient candidate cursor is invalid",
+        ) from None
+
+    try:
+        page = await use_case.execute(
+            actor_user_id=current_user.id,
+            document_status=document_status,
+            limit=limit,
+            before=cursor,
         )
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from None
-    return [
-        RecipientCandidateResponse(
-            client_id=item.client_id,
-            display_name=item.display_name,
-            document_status=item.document_status,
-            matching_documents=item.matching_documents,
-        )
-        for item in candidates
-    ]
+    return RecipientCandidateListResponse(
+        items=[
+            RecipientCandidateResponse(
+                client_id=item.client_id,
+                display_name=item.display_name,
+                document_status=item.document_status,
+                matching_documents=item.matching_documents,
+            )
+            for item in page.items
+        ],
+        limit=limit,
+        next_cursor=(
+            RecipientCandidateCursorResponse(
+                display_name=page.next_cursor.display_name,
+                client_id=page.next_cursor.client_id,
+            )
+            if page.next_cursor is not None
+            else None
+        ),
+    )

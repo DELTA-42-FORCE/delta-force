@@ -61,4 +61,8 @@ def get_delete_message_template_use_case(
 def get_list_recipient_candidates_use_case(
     session: DatabaseSession,
 ) -> ListRecipientCandidatesUseCase:
-    return ListRecipientCandidatesUseCase(repository=_repository(session))
+    return ListRecipientCandidatesUseCase(
+        repository=_repository(session),
+        audit=RecordAuditEventUseCase(SqlAlchemyAuditEventRepository(session)),
+        transaction=SqlAlchemyTransaction(session),
+    )

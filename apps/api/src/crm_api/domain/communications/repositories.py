@@ -3,7 +3,11 @@
 from typing import Protocol
 from uuid import UUID
 
-from crm_api.domain.communications.entities import MessageTemplate, RecipientCandidate
+from crm_api.domain.communications.entities import (
+    MessageTemplate,
+    RecipientCandidate,
+    RecipientCandidateCursor,
+)
 from crm_api.domain.documents.entities import DocumentStatus
 
 
@@ -23,5 +27,9 @@ class CommunicationRepository(Protocol):
     async def delete_template(self, *, id: UUID) -> bool: ...
 
     async def list_recipient_candidates(
-        self, *, document_status: DocumentStatus, limit: int
+        self,
+        *,
+        document_status: DocumentStatus,
+        limit: int,
+        before: RecipientCandidateCursor | None,
     ) -> list[RecipientCandidate]: ...

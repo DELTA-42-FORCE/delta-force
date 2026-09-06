@@ -25,3 +25,14 @@ class RecipientCandidateResponse(BaseModel):
     display_name: str
     document_status: DocumentStatus
     matching_documents: int = Field(ge=1)
+
+
+class RecipientCandidateCursorResponse(BaseModel):
+    display_name: str
+    client_id: UUID
+
+
+class RecipientCandidateListResponse(BaseModel):
+    items: list[RecipientCandidateResponse]
+    limit: int = Field(ge=1, le=100)
+    next_cursor: RecipientCandidateCursorResponse | None

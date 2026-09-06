@@ -43,6 +43,7 @@ class AuditAction(StrEnum):
     MESSAGE_TEMPLATE_CREATED = "message_template.created"
     MESSAGE_TEMPLATE_UPDATED = "message_template.updated"
     MESSAGE_TEMPLATE_DELETED = "message_template.deleted"
+    RECIPIENT_CANDIDATES_VIEWED = "recipient_candidates.viewed"
 
 
 class AuditResourceType(StrEnum):
