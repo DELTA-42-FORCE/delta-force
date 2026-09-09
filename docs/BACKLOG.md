@@ -133,3 +133,19 @@ externo. Este é o aceite do MVP local.
 | Criar relatório financeiro por período e situação | REL-02, REL-03 | next |
 | Integrar emissão fiscal | FIN-05 | future — depende de definição contábil/fiscal |
 | Avaliar portal de cliente e IA para documentos | seção 10 | future — requer prova de conceito de custo, privacidade e precisão |
+
+### Regras financeiras confirmadas para a etapa posterior
+
+- sinal fixo de R$ 2.000,00 em todos os contratos;
+- saldo em quantidade `N`, definida no contrato, de parcelas iguais, com
+  vencimento no mesmo dia de cada período;
+- estados persistidos `Ativo`, `Quitado` e `Cancelado`, com atraso derivado
+  automaticamente das parcelas vencidas e não pagas do contrato ativo;
+- valores em BRL com precisão exata, sem ponto flutuante binário;
+- vencimentos representados somente como data civil, sem horário ou fuso.
+
+Antes de mover as issues financeiras para **Ready**, ainda é necessário definir:
+o evento que libera o parcelamento (#28), como estabelecer o primeiro
+vencimento, o tratamento dos dias 29, 30 e 31 e a alocação da diferença de
+centavos quando o saldo não for divisível igualmente. Essas respostas não
+alteram a prioridade do MVP.

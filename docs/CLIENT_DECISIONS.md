@@ -1,6 +1,6 @@
 # Decisões confirmadas com o cliente
 
-**Atualizado em 25 de agosto de 2026.** Este registro complementa o levantamento
+**Atualizado em 4 de setembro de 2026.** Este registro complementa o levantamento
 de requisitos. Em caso de divergência, uma decisão posterior confirmada pelo
 cliente prevalece sobre uma hipótese anterior.
 
@@ -48,6 +48,26 @@ cliente prevalece sobre uma hipótese anterior.
   atender eventual solicitação legítima do titular.
 - O e-mail remetente da mala direta ainda será informado pelo cliente. Nenhuma
   credencial, conta de teste real ou segredo deve ser adicionado ao repositório.
+
+## Contratos e parcelamento — etapa posterior ao MVP
+
+- Todo contrato possui sinal fixo de **R$ 2.000,00**.
+- O saldo restante será dividido em uma quantidade `N`, definida no contrato,
+  de parcelas iguais, com vencimento no mesmo dia de cada período.
+- Os estados persistidos do contrato serão **Ativo**, **Quitado** e
+  **Cancelado**. A condição **Em atraso** será calculada automaticamente a partir
+  das parcelas vencidas e não pagas de um contrato ativo; não será um estado
+  preenchido manualmente.
+- Valores em BRL exigem precisão exata e não podem ser calculados com ponto
+  flutuante binário. Vencimentos são datas civis, sem horário ou variação de
+  fuso.
+- Permanecem pendentes antes da implementação: o evento que inicia/libera o
+  parcelamento; como definir o primeiro vencimento; a regra para vencimentos nos
+  dias 29, 30 e 31; e a alocação de eventual diferença de centavos da divisão.
+
+Essas decisões detalham a issue #29, mas não repriorizam o financeiro: contratos,
+cobranças e relatórios continuam fora do MVP. A issue #28 permanece bloqueada
+até a homologação do evento que libera o parcelamento.
 
 ## Decisões técnicas registradas
 
