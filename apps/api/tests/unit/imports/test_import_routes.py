@@ -67,6 +67,9 @@ class _MemoryDocumentRepository:
         id: UUID,
         client_folder_id: UUID,
         original_filename: str,
+        title: str | None,
+        category: str | None,
+        notes: str | None,
         content: StoredContent,
     ) -> StoredDocument:
         document = StoredDocument(
@@ -78,6 +81,9 @@ class _MemoryDocumentRepository:
             byte_size=content.byte_size,
             checksum_sha256=content.checksum_sha256,
             stored_at=datetime.now(UTC),
+            title=title,
+            category=category,
+            notes=notes,
         )
         self.documents[id] = document
         return document

@@ -141,6 +141,9 @@ class ImportLegacyArchiveUseCase:
                 id=document_id,
                 client_folder_id=client.id,
                 original_filename=filename,
+                title=None,
+                category=None,
+                notes=None,
                 content=content,
             )
             await self.audit.execute(
