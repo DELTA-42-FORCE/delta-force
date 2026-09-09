@@ -2,9 +2,24 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { ApiError } from '../lib/apiClient'
+import { ApiError, type DownloadedFile } from '../lib/apiClient'
 import type { ClientCursor, ClientFolder, ClientFolderPage } from './clientsApi'
 import { ClientsPage } from './ClientsPage'
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
+
+const pdfFile: DownloadedFile = {
+  blob: new Blob(['%PDF']),
+  filename: 'ficha-cadastral-ana-souza.pdf',
+}
 
 // O download real usa URL.createObjectURL, ausente no jsdom; o teste do PDF
 // verifica a chamada ao caso de uso, não o salvamento em disco.
@@ -277,6 +292,77 @@ describe('ClientsPage', () => {
     await waitFor(() =>
       expect(exportProfile).toHaveBeenCalledWith(folder(ANA_ID, 'Ana Souza')),
     )
+  })
+
+  it('blocks a second generation while one is pending and re-enables after it settles', async () => {
+    const loadPage = vi.fn().mockResolvedValue({
+      items: [folder(ANA_ID, 'Ana Souza'), folder(BRUNO_ID, 'Bruno Lima')],
+      nextCursor: null,
+    })
+    const ana = deferred<DownloadedFile>()
+    const exportProfile = vi.fn().mockReturnValueOnce(ana.promise)
+    const user = userEvent.setup()
+
+    render(
+      <ClientsPage
+        onOpenDocuments={vi.fn()}
+        exportProfile={exportProfile}
+        loadPage={loadPage}
+        createFolder={vi.fn()}
+        updateFolder={vi.fn()}
+      />,
+    )
+    expect(await screen.findByText('Ana Souza')).toBeVisible()
+
+    const [anaButton, brunoButton] = screen.getAllByRole('button', {
+      name: 'Ficha PDF',
+    })
+    await user.click(anaButton)
+
+    // Enquanto a ficha de Ana está pendente, todos os botões ficam inativos.
+    expect(
+      await screen.findByRole('button', { name: 'Gerando…' }),
+    ).toBeDisabled()
+    expect(brunoButton).toBeDisabled()
+
+    // Clicar em Bruno não dispara uma segunda geração concorrente.
+    await user.click(brunoButton)
+    expect(exportProfile).toHaveBeenCalledTimes(1)
+    expect(exportProfile).toHaveBeenCalledWith(folder(ANA_ID, 'Ana Souza'))
+
+    // Concluída a operação, os botões voltam a ficar habilitados.
+    ana.resolve(pdfFile)
+    await waitFor(() =>
+      expect(screen.getAllByRole('button', { name: 'Ficha PDF' })).toHaveLength(
+        2,
+      ),
+    )
+    for (const button of screen.getAllByRole('button', { name: 'Ficha PDF' })) {
+      expect(button).toBeEnabled()
+    }
+  })
+
+  it('ignores a double click on the same generate button', async () => {
+    const loadPage = vi.fn().mockResolvedValue(page(ANA_ID, 'Ana Souza', null))
+    const pending = deferred<DownloadedFile>()
+    const exportProfile = vi.fn().mockReturnValue(pending.promise)
+    const user = userEvent.setup()
+
+    render(
+      <ClientsPage
+        onOpenDocuments={vi.fn()}
+        exportProfile={exportProfile}
+        loadPage={loadPage}
+        createFolder={vi.fn()}
+        updateFolder={vi.fn()}
+      />,
+    )
+    expect(await screen.findByText('Ana Souza')).toBeVisible()
+
+    await user.dblClick(screen.getByRole('button', { name: 'Ficha PDF' }))
+
+    expect(exportProfile).toHaveBeenCalledTimes(1)
+    pending.resolve(pdfFile)
   })
 
   it('shows an alert when the profile PDF cannot be generated', async () => {

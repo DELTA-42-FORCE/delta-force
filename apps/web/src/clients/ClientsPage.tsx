@@ -45,6 +45,7 @@ export function ClientsPage({
   const [view, setView] = useState<View>({ mode: 'list' })
   const [exportingId, setExportingId] = useState<string | null>(null)
   const [exportError, setExportError] = useState<string | null>(null)
+  const exportingRef = useRef(false)
   const initialRequestRef = useRef<{
     key: string
     request: Promise<ClientFolderPage>
@@ -129,6 +130,11 @@ export function ClientsPage({
   }
 
   async function handleExportProfile(folder: ClientFolder) {
+    // A geração é uma operação global única: enquanto uma ficha estiver
+    // pendente, ignoramos novas solicitações (duplo clique ou outra linha) para
+    // evitar downloads/auditorias duplicados e conclusões fora de ordem.
+    if (exportingRef.current) return
+    exportingRef.current = true
     setExportError(null)
     setExportingId(folder.id)
     try {
@@ -139,6 +145,7 @@ export function ClientsPage({
     } catch (error) {
       setExportError(describeProfileExportFailure(error))
     } finally {
+      exportingRef.current = false
       setExportingId(null)
     }
   }
@@ -250,7 +257,7 @@ export function ClientsPage({
                     <button
                       className="text-button"
                       type="button"
-                      disabled={exportingId === folder.id}
+                      disabled={exportingId !== null}
                       onClick={() => void handleExportProfile(folder)}
                     >
                       {exportingId === folder.id ? 'Gerando…' : 'Ficha PDF'}
