@@ -24,11 +24,12 @@ describe('import labels', () => {
 })
 
 describe('describeImportFailure', () => {
-  it('surfaces the server detail for an invalid source folder (422)', () => {
+  it('gives a stable hint for an invalid source folder (422) without leaking the raw server detail', () => {
     const message = describeImportFailure(
       new ApiError(422, 'source path is not a directory'),
     )
-    expect(message).toContain('source path is not a directory')
+    expect(message).toContain('A pasta de origem não pôde ser usada')
+    expect(message).not.toContain('source path is not a directory')
   })
 
   it('maps insufficient space (507) to a disk-space hint', () => {

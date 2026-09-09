@@ -128,14 +128,16 @@ export function LegacyImportPanel({
     setError(null)
     setPhase('importing')
     try {
-      const next = await runImport(sourcePath.trim())
+      // A confirmação usa a pasta que a prévia efetivamente analisou, e não o
+      // texto atual do campo: é o que está na tela e o que o revisor aprovou.
+      const next = await runImport(preview.source_path)
       setResult(next)
       setPhase('done')
     } catch (caught) {
       setError(describeImportFailure(caught))
       setPhase('previewed')
     }
-  }, [preview, runImport, sourcePath])
+  }, [preview, runImport])
 
   const importable = preview?.summary.matched ?? 0
   const busy = phase === 'previewing' || phase === 'importing'
@@ -152,7 +154,12 @@ export function LegacyImportPanel({
             arquivos elegíveis — a pasta de origem nunca é alterada nem apagada.
           </p>
         </div>
-        <button className="secondary-button" type="button" onClick={onBack}>
+        <button
+          className="secondary-button"
+          type="button"
+          onClick={onBack}
+          disabled={busy}
+        >
           Voltar
         </button>
       </header>
@@ -160,6 +167,7 @@ export function LegacyImportPanel({
       <form
         className="import-form"
         onSubmit={(event) => void handlePreview(event)}
+        noValidate
       >
         <label htmlFor="import-source">Pasta de origem</label>
         <input
@@ -170,6 +178,9 @@ export function LegacyImportPanel({
           placeholder="Ex.: C:\\Clientes"
           autoComplete="off"
           spellCheck={false}
+          // Trava o campo enquanto uma prévia ou importação está em curso: a
+          // pasta confirmada não pode divergir da que está sendo analisada.
+          disabled={busy}
         />
         <button
           className="primary-button"
@@ -200,29 +211,31 @@ export function LegacyImportPanel({
               Nenhum arquivo foi encontrado na pasta de origem informada.
             </p>
           ) : (
-            <table className="import-table">
-              <caption className="visually-hidden">
-                Arquivos encontrados e a situação de cada um
-              </caption>
-              <thead>
-                <tr>
-                  <th scope="col">Arquivo</th>
-                  <th scope="col">Pasta de cliente</th>
-                  <th scope="col">Tipo</th>
-                  <th scope="col">Situação</th>
-                </tr>
-              </thead>
-              <tbody>
-                {preview.items.map((item) => (
-                  <tr key={item.relative_path}>
-                    <td>{item.relative_path}</td>
-                    <td>{item.client_folder_name ?? '—'}</td>
-                    <td>{describeMediaType(item.media_type)}</td>
-                    <td>{describeImportStatus(item.status)}</td>
+            <div className="import-table-wrap">
+              <table className="import-table">
+                <caption className="sr-only">
+                  Arquivos encontrados e a situação de cada um
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Arquivo</th>
+                    <th scope="col">Pasta de cliente</th>
+                    <th scope="col">Tipo</th>
+                    <th scope="col">Situação</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {preview.items.map((item) => (
+                    <tr key={item.relative_path}>
+                      <td>{item.relative_path}</td>
+                      <td>{item.client_folder_name ?? '—'}</td>
+                      <td>{describeMediaType(item.media_type)}</td>
+                      <td>{describeImportStatus(item.status)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
 
           <div className="import-confirm">
@@ -247,32 +260,35 @@ export function LegacyImportPanel({
         <section className="import-result" aria-label="Relatório da importação">
           <h2>Importação concluída</h2>
           <p className="import-success">
-            A operação foi registrada na auditoria. A pasta de origem permanece
-            intacta.
+            {(result.summary.imported ?? 0) > 0
+              ? 'Cada documento importado foi registrado na auditoria. A pasta de origem permanece intacta.'
+              : 'Nenhum documento foi importado, então não há novos registros na auditoria. A pasta de origem permanece intacta.'}
           </p>
           <SummaryList summary={result.summary} order={RESULT_KEY_ORDER} />
 
-          <table className="import-table">
-            <caption className="visually-hidden">
-              Desfecho de cada arquivo processado
-            </caption>
-            <thead>
-              <tr>
-                <th scope="col">Arquivo</th>
-                <th scope="col">Pasta de cliente</th>
-                <th scope="col">Desfecho</th>
-              </tr>
-            </thead>
-            <tbody>
-              {result.items.map((item) => (
-                <tr key={item.relative_path}>
-                  <td>{item.relative_path}</td>
-                  <td>{item.client_folder_name ?? '—'}</td>
-                  <td>{describeImportOutcome(item.outcome)}</td>
+          <div className="import-table-wrap">
+            <table className="import-table">
+              <caption className="sr-only">
+                Desfecho de cada arquivo processado
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Arquivo</th>
+                  <th scope="col">Pasta de cliente</th>
+                  <th scope="col">Desfecho</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {result.items.map((item) => (
+                  <tr key={item.relative_path}>
+                    <td>{item.relative_path}</td>
+                    <td>{item.client_folder_name ?? '—'}</td>
+                    <td>{describeImportOutcome(item.outcome)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
       )}
     </section>

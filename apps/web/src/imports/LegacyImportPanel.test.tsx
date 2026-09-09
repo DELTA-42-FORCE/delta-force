@@ -8,6 +8,16 @@ import type { LegacyImportPreview, LegacyImportResult } from './importsApi'
 
 afterEach(cleanup)
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
+
 const SOURCE = 'C:\\Clientes'
 
 const PREVIEW: LegacyImportPreview = {
@@ -159,7 +169,71 @@ describe('LegacyImportPanel', () => {
     )
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('source path is not a directory')
+    expect(alert).toHaveTextContent('A pasta de origem não pôde ser usada')
+    expect(alert).not.toHaveTextContent('source path is not a directory')
     expect(importButton()).not.toBeInTheDocument()
+  })
+
+  it('locks the field while a preview runs and confirms the folder the preview analyzed', async () => {
+    const preview = deferred<LegacyImportPreview>()
+    // O servidor normaliza o caminho; a confirmação deve seguir o que a prévia
+    // devolveu, não o texto digitado.
+    const analyzed: LegacyImportPreview = {
+      ...PREVIEW,
+      source_path: 'C:\\Clientes\\Normalizado',
+    }
+    const previewImport = vi.fn().mockReturnValue(preview.promise)
+    const runImport = vi.fn().mockResolvedValue(RESULT)
+    render(
+      <LegacyImportPanel
+        previewImport={previewImport}
+        runImport={runImport}
+        onBack={vi.fn()}
+      />,
+    )
+    const user = userEvent.setup()
+    const field = screen.getByLabelText('Pasta de origem')
+    await user.type(field, SOURCE)
+    await user.click(screen.getByRole('button', { name: 'Pré-visualizar' }))
+
+    // Durante a prévia o campo e a navegação ficam travados: a pasta não muda.
+    expect(field).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Voltar' })).toBeDisabled()
+    await user.type(field, '\\Outra')
+    expect(field).toHaveValue(SOURCE)
+
+    preview.resolve(analyzed)
+    await screen.findByText('Prévia — nada foi importado ainda')
+    await user.click(screen.getByRole('button', { name: 'Importar acervo' }))
+
+    await screen.findByText('Importação concluída')
+    expect(runImport).toHaveBeenCalledWith('C:\\Clientes\\Normalizado')
+    expect(runImport).not.toHaveBeenCalledWith(SOURCE)
+  })
+
+  it('locks the field while the import runs', async () => {
+    const run = deferred<LegacyImportResult>()
+    const runImport = vi.fn().mockReturnValue(run.promise)
+    render(
+      <LegacyImportPanel
+        previewImport={vi.fn().mockResolvedValue(PREVIEW)}
+        runImport={runImport}
+        onBack={vi.fn()}
+      />,
+    )
+    const user = userEvent.setup()
+    const field = screen.getByLabelText('Pasta de origem')
+    await user.type(field, SOURCE)
+    await user.click(screen.getByRole('button', { name: 'Pré-visualizar' }))
+    await screen.findByText('Prévia — nada foi importado ainda')
+
+    await user.click(screen.getByRole('button', { name: 'Importar acervo' }))
+
+    // Enquanto a importação corre, o campo e a navegação seguem travados.
+    expect(field).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Voltar' })).toBeDisabled()
+
+    run.resolve(RESULT)
+    await screen.findByText('Importação concluída')
   })
 })

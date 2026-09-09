@@ -58,8 +58,9 @@ export function describeImportFailure(error: unknown): string {
       return 'Seu acesso à importação foi negado.'
     case 422:
       // LegacyImportSourceError: a pasta não existe, não é diretório ou não
-      // pôde ser lida. O texto do servidor detalha qual é o problema.
-      return `A pasta de origem não pôde ser usada: ${error.message}`
+      // pôde ser lida. Não repassamos o detalhe técnico bruto do servidor;
+      // apresentamos uma orientação estável em português.
+      return 'A pasta de origem não pôde ser usada. Confira se o caminho existe, é uma pasta e pode ser lida, e tente novamente.'
     case 507:
       return 'Não há espaço livre suficiente neste computador para concluir a importação. Libere espaço no disco e tente novamente.'
     default:
