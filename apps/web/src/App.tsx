@@ -26,6 +26,8 @@ import type {
   DocumentAnnotations,
   DocumentCursor,
 } from './documents/documentsApi'
+import { LegacyImportPanel } from './imports/LegacyImportPanel'
+import { importLegacyArchive, previewLegacyImport } from './imports/importsApi'
 import { Brand } from './ui/Brand'
 
 function Root() {
@@ -42,7 +44,7 @@ function Root() {
   } = useAuth()
   const [logoutNotice, setLogoutNotice] = useState<string | null>(null)
   const [activeView, setActiveView] = useState<
-    'overview' | 'audit' | 'clients'
+    'overview' | 'audit' | 'clients' | 'imports'
   >('overview')
   const [documentsFolder, setDocumentsFolder] = useState<ClientFolder | null>(
     null,
@@ -136,12 +138,27 @@ function Root() {
     [authenticatedOpenDocument, documentsFolderId],
   )
 
-  const goTo = useCallback((view: 'overview' | 'audit' | 'clients') => {
-    // Trocar de seção fecha a pasta aberta: os documentos pertencem ao cliente
-    // que estava em tela, não à navegação seguinte.
-    setDocumentsFolder(null)
-    setActiveView(view)
-  }, [])
+  const previewImport = useCallback(
+    (sourcePath: string) =>
+      previewLegacyImport(authenticatedRequest, sourcePath),
+    [authenticatedRequest],
+  )
+
+  const runImport = useCallback(
+    (sourcePath: string) =>
+      importLegacyArchive(authenticatedRequest, sourcePath),
+    [authenticatedRequest],
+  )
+
+  const goTo = useCallback(
+    (view: 'overview' | 'audit' | 'clients' | 'imports') => {
+      // Trocar de seção fecha a pasta aberta: os documentos pertencem ao cliente
+      // que estava em tela, não à navegação seguinte.
+      setDocumentsFolder(null)
+      setActiveView(view)
+    },
+    [],
+  )
 
   async function handleLogout() {
     setLogoutNotice(null)
@@ -237,6 +254,17 @@ function Root() {
                 <span>Clientes</span>
               </button>
             </li>
+            <li>
+              <button
+                className={`workspace-nav__item${activeView === 'imports' ? ' workspace-nav__item--active' : ''}`}
+                type="button"
+                aria-current={activeView === 'imports' ? 'page' : undefined}
+                onClick={() => goTo('imports')}
+              >
+                <span aria-hidden="true">⇪</span>
+                <span>Importar acervo</span>
+              </button>
+            </li>
             <li className="workspace-nav__item">
               <span aria-hidden="true">▤</span> Documentos{' '}
               <small>na pasta do cliente</small>
@@ -282,6 +310,12 @@ function Root() {
           {activeView === 'audit' ? (
             <AuditHistoryPage
               loadPage={loadAuditPage}
+              onBack={() => setActiveView('overview')}
+            />
+          ) : activeView === 'imports' ? (
+            <LegacyImportPanel
+              previewImport={previewImport}
+              runImport={runImport}
               onBack={() => setActiveView('overview')}
             />
           ) : activeView === 'clients' && documentsFolder !== null ? (
