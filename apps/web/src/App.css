@@ -1222,6 +1222,20 @@ button.workspace-nav__item--active:hover {
   font-weight: 750;
 }
 
+.import-form__source {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.import-form__source input {
+  flex: 1;
+  min-width: 0;
+}
+
+.import-form__source .secondary-button {
+  flex-shrink: 0;
+}
+
 .import-form input {
   min-height: 2.7rem;
   padding: 0.55rem 0.75rem;
@@ -1230,6 +1244,11 @@ button.workspace-nav__item--active:hover {
   outline: none;
   color: #24334a;
   background: #fff;
+}
+
+.import-form input:read-only {
+  color: #35506a;
+  background: #f7f9fc;
 }
 
 .import-form input:focus {

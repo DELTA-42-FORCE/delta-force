@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
+import { open } from '@tauri-apps/plugin-dialog'
 
 import type { DownloadedFile } from './apiClient'
 
@@ -7,6 +8,22 @@ export type DocumentOpenLocation = 'desktop-app' | 'browser-tab'
 
 export function isTauriRuntime(): boolean {
   return '__TAURI_INTERNALS__' in window
+}
+
+/**
+ * Abre o seletor nativo de pasta do Windows para a importação do acervo (#45).
+ *
+ * O WebView não tem acesso ao sistema de arquivos; o shell nativo apresenta o
+ * diálogo e devolve o caminho absoluto escolhido. Retorna `null` quando o
+ * proprietário cancela a seleção.
+ */
+export async function pickImportFolder(): Promise<string | null> {
+  const selected = await open({
+    directory: true,
+    multiple: false,
+    title: 'Selecione a pasta do acervo legado',
+  })
+  return typeof selected === 'string' ? selected : null
 }
 
 /**
