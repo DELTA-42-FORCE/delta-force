@@ -211,6 +211,50 @@ describe('LegacyImportPanel', () => {
     expect(runImport).not.toHaveBeenCalledWith(SOURCE)
   })
 
+  it('fills the source from the native folder picker in the desktop shell', async () => {
+    const pickFolder = vi.fn().mockResolvedValue('D:\\Acervo\\Legado')
+    const previewImport = vi.fn().mockResolvedValue({
+      ...PREVIEW,
+      source_path: 'D:\\Acervo\\Legado',
+    })
+    render(
+      <LegacyImportPanel
+        previewImport={previewImport}
+        runImport={vi.fn().mockResolvedValue(RESULT)}
+        onBack={vi.fn()}
+        pickFolder={pickFolder}
+      />,
+    )
+    const user = userEvent.setup()
+
+    // No shell o campo não é digitável: a pasta vem do seletor nativo.
+    const field = screen.getByLabelText('Pasta de origem')
+    expect(field).toHaveAttribute('readonly')
+
+    await user.click(screen.getByRole('button', { name: 'Escolher pasta…' }))
+    expect(field).toHaveValue('D:\\Acervo\\Legado')
+
+    await user.click(screen.getByRole('button', { name: 'Pré-visualizar' }))
+    await screen.findByText('Prévia — nada foi importado ainda')
+    expect(previewImport).toHaveBeenCalledWith('D:\\Acervo\\Legado')
+  })
+
+  it('has no native picker and keeps the field editable in the browser', async () => {
+    render(
+      <LegacyImportPanel
+        previewImport={vi.fn().mockResolvedValue(PREVIEW)}
+        runImport={vi.fn().mockResolvedValue(RESULT)}
+        onBack={vi.fn()}
+      />,
+    )
+    expect(
+      screen.queryByRole('button', { name: 'Escolher pasta…' }),
+    ).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Pasta de origem')).not.toHaveAttribute(
+      'readonly',
+    )
+  })
+
   it('locks the field while the import runs', async () => {
     const run = deferred<LegacyImportResult>()
     const runImport = vi.fn().mockReturnValue(run.promise)

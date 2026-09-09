@@ -21,6 +21,9 @@ interface LegacyImportPanelProps {
   previewImport: (sourcePath: string) => Promise<LegacyImportPreview>
   runImport: (sourcePath: string) => Promise<LegacyImportResult>
   onBack: () => void
+  // No shell Windows a pasta vem do seletor nativo; ausente (execução no
+  // navegador), o proprietário digita o caminho no campo de texto.
+  pickFolder?: () => Promise<string | null>
 }
 
 type Phase = 'idle' | 'previewing' | 'previewed' | 'importing' | 'done'
@@ -76,6 +79,7 @@ export function LegacyImportPanel({
   previewImport,
   runImport,
   onBack,
+  pickFolder,
 }: LegacyImportPanelProps) {
   const [sourcePath, setSourcePath] = useState('')
   const [phase, setPhase] = useState<Phase>('idle')
@@ -142,6 +146,14 @@ export function LegacyImportPanel({
   const importable = preview?.summary.matched ?? 0
   const busy = phase === 'previewing' || phase === 'importing'
 
+  const handlePickFolder = useCallback(async () => {
+    if (pickFolder === undefined) return
+    const chosen = await pickFolder()
+    if (chosen !== null && chosen.trim() !== '') {
+      handlePathChange(chosen)
+    }
+  }, [pickFolder, handlePathChange])
+
   return (
     <section className="import-panel" aria-labelledby="import-title">
       <header className="section-heading">
@@ -170,18 +182,33 @@ export function LegacyImportPanel({
         noValidate
       >
         <label htmlFor="import-source">Pasta de origem</label>
-        <input
-          id="import-source"
-          type="text"
-          value={sourcePath}
-          onChange={(event) => handlePathChange(event.target.value)}
-          placeholder="Ex.: C:\\Clientes"
-          autoComplete="off"
-          spellCheck={false}
-          // Trava o campo enquanto uma prévia ou importação está em curso: a
-          // pasta confirmada não pode divergir da que está sendo analisada.
-          disabled={busy}
-        />
+        <div className="import-form__source">
+          <input
+            id="import-source"
+            type="text"
+            value={sourcePath}
+            onChange={(event) => handlePathChange(event.target.value)}
+            placeholder="Ex.: C:\\Clientes"
+            autoComplete="off"
+            spellCheck={false}
+            // Trava o campo enquanto uma prévia ou importação está em curso: a
+            // pasta confirmada não pode divergir da que está sendo analisada. No
+            // shell Windows a pasta vem do seletor nativo, então o campo apenas
+            // exibe o caminho escolhido.
+            disabled={busy}
+            readOnly={pickFolder !== undefined}
+          />
+          {pickFolder !== undefined && (
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => void handlePickFolder()}
+              disabled={busy}
+            >
+              Escolher pasta…
+            </button>
+          )}
+        </div>
         <button
           className="primary-button"
           type="submit"

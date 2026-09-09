@@ -462,7 +462,7 @@ mod document_open_tests {
 }
 
 pub fn run() {
-    let mut builder = tauri::Builder::default();
+    let mut builder = tauri::Builder::default().plugin(tauri_plugin_dialog::init());
     #[cfg(windows)]
     {
         builder = builder.plugin(tauri_plugin_single_instance::init(

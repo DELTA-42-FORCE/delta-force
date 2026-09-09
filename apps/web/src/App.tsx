@@ -28,6 +28,7 @@ import type {
 } from './documents/documentsApi'
 import { LegacyImportPanel } from './imports/LegacyImportPanel'
 import { importLegacyArchive, previewLegacyImport } from './imports/importsApi'
+import { isTauriRuntime, pickImportFolder } from './lib/desktopShell'
 import { Brand } from './ui/Brand'
 
 function Root() {
@@ -317,6 +318,7 @@ function Root() {
               previewImport={previewImport}
               runImport={runImport}
               onBack={() => setActiveView('overview')}
+              pickFolder={isTauriRuntime() ? pickImportFolder : undefined}
             />
           ) : activeView === 'clients' && documentsFolder !== null ? (
             <ClientDocumentsPanel

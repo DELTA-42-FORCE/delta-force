@@ -6,6 +6,7 @@
   "permissions": [
     "core:default",
     "allow-desktop-connection",
-    "allow-open-document"
+    "allow-open-document",
+    "dialog:allow-open"
   ]
 }
