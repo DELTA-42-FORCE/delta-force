@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 
+import type { DownloadedFile } from '../lib/apiClient'
+import { saveDownloadedFile } from '../lib/download'
+import { describeProfileExportFailure } from './clientMessages'
 import { ClientFolderForm } from './ClientFolderForm'
 import type { ClientCursor, ClientFolder, ClientFolderPage } from './clientsApi'
 
@@ -17,6 +20,7 @@ interface ClientsPageProps {
     input: { display_name: string; profile_data: Record<string, string> },
   ) => Promise<ClientFolder>
   onOpenDocuments: (folder: ClientFolder) => void
+  exportProfile: (folder: ClientFolder) => Promise<DownloadedFile>
 }
 
 type View =
@@ -27,6 +31,7 @@ export function ClientsPage({
   createFolder,
   updateFolder,
   onOpenDocuments,
+  exportProfile,
 }: ClientsPageProps) {
   const [folders, setFolders] = useState<ClientFolder[]>([])
   const [nextCursor, setNextCursor] = useState<ClientCursor | null>(null)
@@ -38,6 +43,8 @@ export function ClientsPage({
   const [activeQuery, setActiveQuery] = useState<string | null>(null)
   const [loadSequence, setLoadSequence] = useState(0)
   const [view, setView] = useState<View>({ mode: 'list' })
+  const [exportingId, setExportingId] = useState<string | null>(null)
+  const [exportError, setExportError] = useState<string | null>(null)
   const initialRequestRef = useRef<{
     key: string
     request: Promise<ClientFolderPage>
@@ -119,6 +126,21 @@ export function ClientsPage({
     await updateFolder(folderId, input)
     setView({ mode: 'list' })
     refresh()
+  }
+
+  async function handleExportProfile(folder: ClientFolder) {
+    setExportError(null)
+    setExportingId(folder.id)
+    try {
+      saveDownloadedFile(
+        await exportProfile(folder),
+        `ficha-cadastral-${folder.display_name}.pdf`,
+      )
+    } catch (error) {
+      setExportError(describeProfileExportFailure(error))
+    } finally {
+      setExportingId(null)
+    }
   }
 
   if (view.mode === 'create') {
@@ -212,6 +234,7 @@ export function ClientsPage({
 
         {state === 'ready' && folders.length > 0 && (
           <>
+            {exportError !== null && <p role="alert">{exportError}</p>}
             <ul className="clients-list">
               {folders.map((folder) => (
                 <li className="clients-list__item" key={folder.id}>
@@ -223,6 +246,14 @@ export function ClientsPage({
                       onClick={() => onOpenDocuments(folder)}
                     >
                       Documentos
+                    </button>
+                    <button
+                      className="text-button"
+                      type="button"
+                      disabled={exportingId === folder.id}
+                      onClick={() => void handleExportProfile(folder)}
+                    >
+                      {exportingId === folder.id ? 'Gerando…' : 'Ficha PDF'}
                     </button>
                     <button
                       className="text-button"

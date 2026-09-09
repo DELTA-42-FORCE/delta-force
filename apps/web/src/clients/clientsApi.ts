@@ -1,3 +1,5 @@
+import type { DownloadedFile } from '../lib/apiClient'
+
 export interface ClientFolder {
   id: string
   display_name: string
@@ -26,6 +28,7 @@ export type AuthenticatedRequest = <T>(
   path: string,
   options: { method: string; body?: unknown },
 ) => Promise<T>
+export type AuthenticatedDownload = (path: string) => Promise<DownloadedFile>
 
 export async function listClientFolders(
   authenticatedGet: AuthenticatedGet,
@@ -79,4 +82,11 @@ export async function updateClientFolder(
     method: 'PUT',
     body: input,
   })
+}
+
+export async function exportClientProfile(
+  authenticatedDownload: AuthenticatedDownload,
+  id: string,
+): Promise<DownloadedFile> {
+  return authenticatedDownload(`/clients/${id}/profile.pdf`)
 }

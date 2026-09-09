@@ -2,8 +2,13 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { ApiError } from '../lib/apiClient'
 import type { ClientCursor, ClientFolder, ClientFolderPage } from './clientsApi'
 import { ClientsPage } from './ClientsPage'
+
+// O download real usa URL.createObjectURL, ausente no jsdom; o teste do PDF
+// verifica a chamada ao caso de uso, não o salvamento em disco.
+vi.mock('../lib/download', () => ({ saveDownloadedFile: vi.fn() }))
 
 const ANA_ID = '00000000-0000-0000-0000-000000000001'
 const BRUNO_ID = '00000000-0000-0000-0000-000000000002'
@@ -52,6 +57,7 @@ describe('ClientsPage', () => {
     render(
       <ClientsPage
         onOpenDocuments={vi.fn()}
+        exportProfile={vi.fn()}
         loadPage={loadPage}
         createFolder={vi.fn()}
         updateFolder={vi.fn()}
@@ -71,6 +77,7 @@ describe('ClientsPage', () => {
     render(
       <ClientsPage
         onOpenDocuments={vi.fn()}
+        exportProfile={vi.fn()}
         loadPage={() => Promise.resolve({ items: [], nextCursor: null })}
         createFolder={vi.fn()}
         updateFolder={vi.fn()}
@@ -96,6 +103,7 @@ describe('ClientsPage', () => {
     render(
       <ClientsPage
         onOpenDocuments={vi.fn()}
+        exportProfile={vi.fn()}
         loadPage={loadPage}
         createFolder={vi.fn()}
         updateFolder={vi.fn()}
@@ -126,6 +134,7 @@ describe('ClientsPage', () => {
     render(
       <ClientsPage
         onOpenDocuments={vi.fn()}
+        exportProfile={vi.fn()}
         loadPage={loadPage}
         createFolder={vi.fn()}
         updateFolder={vi.fn()}
@@ -154,6 +163,7 @@ describe('ClientsPage', () => {
     render(
       <ClientsPage
         onOpenDocuments={vi.fn()}
+        exportProfile={vi.fn()}
         loadPage={loadPage}
         createFolder={createFolder}
         updateFolder={vi.fn()}
@@ -193,6 +203,7 @@ describe('ClientsPage', () => {
     render(
       <ClientsPage
         onOpenDocuments={vi.fn()}
+        exportProfile={vi.fn()}
         loadPage={loadPage}
         createFolder={vi.fn()}
         updateFolder={updateFolder}
@@ -229,6 +240,7 @@ describe('ClientsPage', () => {
     render(
       <ClientsPage
         onOpenDocuments={onOpenDocuments}
+        exportProfile={vi.fn()}
         loadPage={loadPage}
         createFolder={vi.fn()}
         updateFolder={vi.fn()}
@@ -239,5 +251,54 @@ describe('ClientsPage', () => {
     await user.click(screen.getByRole('button', { name: 'Documentos' }))
 
     expect(onOpenDocuments).toHaveBeenCalledWith(folder(ANA_ID, 'Ana Souza'))
+  })
+
+  it('generates the profile PDF for the chosen folder', async () => {
+    const loadPage = vi.fn().mockResolvedValue(page(ANA_ID, 'Ana Souza', null))
+    const exportProfile = vi.fn().mockResolvedValue({
+      blob: new Blob(['%PDF']),
+      filename: 'ficha-cadastral-ana-souza.pdf',
+    })
+    const user = userEvent.setup()
+
+    render(
+      <ClientsPage
+        onOpenDocuments={vi.fn()}
+        exportProfile={exportProfile}
+        loadPage={loadPage}
+        createFolder={vi.fn()}
+        updateFolder={vi.fn()}
+      />,
+    )
+    expect(await screen.findByText('Ana Souza')).toBeVisible()
+
+    await user.click(screen.getByRole('button', { name: 'Ficha PDF' }))
+
+    await waitFor(() =>
+      expect(exportProfile).toHaveBeenCalledWith(folder(ANA_ID, 'Ana Souza')),
+    )
+  })
+
+  it('shows an alert when the profile PDF cannot be generated', async () => {
+    const loadPage = vi.fn().mockResolvedValue(page(ANA_ID, 'Ana Souza', null))
+    const exportProfile = vi.fn().mockRejectedValue(new ApiError(404, 'gone'))
+    const user = userEvent.setup()
+
+    render(
+      <ClientsPage
+        onOpenDocuments={vi.fn()}
+        exportProfile={exportProfile}
+        loadPage={loadPage}
+        createFolder={vi.fn()}
+        updateFolder={vi.fn()}
+      />,
+    )
+    expect(await screen.findByText('Ana Souza')).toBeVisible()
+
+    await user.click(screen.getByRole('button', { name: 'Ficha PDF' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'não existe mais',
+    )
   })
 })
