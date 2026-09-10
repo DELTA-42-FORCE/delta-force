@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   createClientFolder,
+  exportClientProfile,
   getClientFolder,
   listClientFolders,
   updateClientFolder,
@@ -95,6 +96,23 @@ describe('updateClientFolder', () => {
         method: 'PUT',
         body: { display_name: 'Ana Souza Lima', profile_data: {} },
       },
+    )
+  })
+})
+
+describe('exportClientProfile', () => {
+  it('downloads the profile PDF for the given client', async () => {
+    const file = { blob: new Blob(['%PDF']), filename: 'ficha-cadastral.pdf' }
+    const authenticatedDownload = vi.fn().mockResolvedValue(file)
+
+    await expect(
+      exportClientProfile(
+        authenticatedDownload,
+        '00000000-0000-0000-0000-000000000001',
+      ),
+    ).resolves.toBe(file)
+    expect(authenticatedDownload).toHaveBeenCalledWith(
+      '/clients/00000000-0000-0000-0000-000000000001/profile.pdf',
     )
   })
 })

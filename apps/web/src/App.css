@@ -675,9 +675,14 @@ button.workspace-nav__item--active:hover {
   font-weight: 800;
 }
 
-.text-button:hover {
+.text-button:hover:not(:disabled) {
   color: #05586d;
   text-decoration: underline;
+}
+
+.text-button:disabled {
+  cursor: wait;
+  opacity: 0.62;
 }
 
 .activity-section {

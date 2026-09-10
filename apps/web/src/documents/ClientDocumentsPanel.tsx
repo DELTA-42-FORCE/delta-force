@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 
 import type { ClientFolder } from '../clients/clientsApi'
 import type { DownloadedFile } from '../lib/apiClient'
+import { saveDownloadedFile } from '../lib/download'
 import type { DocumentOpenLocation } from '../lib/desktopShell'
 import {
   describeAttachFailure,
@@ -27,20 +28,6 @@ interface ClientDocumentsPanelProps {
   exportDocument: (document: ClientDocument) => Promise<DownloadedFile>
   openDocument: (document: ClientDocument) => Promise<DocumentOpenLocation>
   onBack: () => void
-}
-
-function saveToDisk(file: DownloadedFile, fallbackName: string) {
-  const url = URL.createObjectURL(file.blob)
-  try {
-    const anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = file.filename ?? fallbackName
-    document.body.appendChild(anchor)
-    anchor.click()
-    anchor.remove()
-  } finally {
-    URL.revokeObjectURL(url)
-  }
 }
 
 export function ClientDocumentsPanel({
@@ -155,7 +142,7 @@ export function ClientDocumentsPanel({
     setExportError(null)
     setExportingId(item.id)
     try {
-      saveToDisk(await exportDocument(item), item.original_filename)
+      saveDownloadedFile(await exportDocument(item), item.original_filename)
     } catch (error) {
       setExportError(describeExportFailure(error))
     } finally {

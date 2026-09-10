@@ -9,6 +9,7 @@ import { LoginPage } from './auth/LoginPage'
 import { SetupPage } from './auth/SetupPage'
 import {
   createClientFolder,
+  exportClientProfile,
   listClientFolders,
   updateClientFolder,
 } from './clients/clientsApi'
@@ -77,6 +78,12 @@ function Root() {
       input: { display_name: string; profile_data: Record<string, string> },
     ) => updateClientFolder(authenticatedRequest, id, input),
     [authenticatedRequest],
+  )
+
+  const exportProfile = useCallback(
+    (folder: ClientFolder) =>
+      exportClientProfile(authenticatedDownload, folder.id),
+    [authenticatedDownload],
   )
 
   const documentsFolderId = documentsFolder?.id ?? null
@@ -299,6 +306,7 @@ function Root() {
               createFolder={createClient}
               updateFolder={updateClient}
               onOpenDocuments={setDocumentsFolder}
+              exportProfile={exportProfile}
             />
           ) : (
             <>
