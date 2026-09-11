@@ -37,7 +37,8 @@ class AuditEventModel(Base):
             "'auth.access_denied', 'audit.log_view', "
             "'client_folder.created', 'client_folder.viewed', "
             "'client_folder.updated', 'client_folder.profile_exported', "
-            "'document.stored', 'document.viewed', 'document.exported')",
+            "'document.stored', 'document.viewed', 'document.exported', "
+            "'document.status_updated')",
             name="ck_audit_events_action",
         ),
         CheckConstraint(

@@ -180,6 +180,8 @@ async def test_rejects_secret_or_other_non_allowlisted_context_keys(
         {"route_template": "not-a-server-route"},
         {"route_template": "/" + "a" * 128},
         {"reason_code": 17},
+        {"previous_status": "expired", "new_status": "pending"},
+        {"previous_status": "pending", "new_status": "person@example.com"},
     ],
 )
 async def test_rejects_unbounded_or_sensitive_context_values(
