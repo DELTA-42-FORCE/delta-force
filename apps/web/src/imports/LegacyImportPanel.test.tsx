@@ -239,6 +239,36 @@ describe('LegacyImportPanel', () => {
     expect(previewImport).toHaveBeenCalledWith('D:\\Acervo\\Legado')
   })
 
+  it('disables and restores navigation and folder selection while a preview runs', async () => {
+    const preview = deferred<LegacyImportPreview>()
+    const pickFolder = vi.fn().mockResolvedValue(SOURCE)
+    render(
+      <LegacyImportPanel
+        previewImport={vi.fn().mockReturnValue(preview.promise)}
+        runImport={vi.fn().mockResolvedValue(RESULT)}
+        onBack={vi.fn()}
+        pickFolder={pickFolder}
+      />,
+    )
+    const user = userEvent.setup()
+    const backButton = screen.getByRole('button', { name: 'Voltar' })
+    const pickerButton = screen.getByRole('button', {
+      name: 'Escolher pasta…',
+    })
+
+    await user.click(pickerButton)
+    await user.click(screen.getByRole('button', { name: 'Pré-visualizar' }))
+
+    expect(backButton).toBeDisabled()
+    expect(pickerButton).toBeDisabled()
+
+    preview.resolve(PREVIEW)
+    await screen.findByText('Prévia — nada foi importado ainda')
+
+    expect(backButton).toBeEnabled()
+    expect(pickerButton).toBeEnabled()
+  })
+
   it('has no native picker and keeps the field editable in the browser', async () => {
     render(
       <LegacyImportPanel

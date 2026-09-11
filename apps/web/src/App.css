@@ -1,4 +1,8 @@
 :root {
+  --scrollbar-track: #edf0f4;
+  --scrollbar-thumb: #6d798b;
+  --scrollbar-thumb-hover: #526178;
+  --scrollbar-thumb-active: #314057;
   color: #18243a;
   background: #f2f5f9;
   font-family:
@@ -15,6 +19,32 @@
 
 * {
   box-sizing: border-box;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 0.2rem solid var(--scrollbar-track);
+  border-radius: 999px;
+  background: var(--scrollbar-thumb);
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover);
+}
+
+*::-webkit-scrollbar-thumb:active {
+  background-color: var(--scrollbar-thumb-active);
 }
 
 body {
@@ -268,6 +298,11 @@ button {
   border: 1px solid #d3dae4;
   color: #314057;
   background: #fff;
+}
+
+.secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
 }
 
 .feedback {
@@ -1333,8 +1368,24 @@ button.workspace-nav__item--active:hover {
 .import-table-wrap {
   max-height: 26rem;
   overflow: auto;
+  scrollbar-gutter: stable;
   border: 1px solid #e6eaf0;
   border-radius: 0.65rem;
+}
+
+@media (forced-colors: active) {
+  * {
+    scrollbar-color: auto;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: Canvas;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    border-color: Canvas;
+    background: CanvasText;
+  }
 }
 
 .import-table {
