@@ -1,10 +1,11 @@
 """E2E parcial do MVP (#27): encadeia pela API HTTP os fluxos já entregues.
 
-Cobre login, cadastro de cliente, anexo/consulta/exportação de documento, ficha
-cadastral em PDF, importação do acervo legado e a trilha de auditoria — validando
-o critério de aceite ponta a ponta do #27 nas partes disponíveis. O passo de mala
-direta (selecionar pendência e enviar e-mail em lote) depende de #23/#24/#25 e
-fica explicitamente pendente em ``test_batch_email_step_is_pending``.
+Cobre primeiro acesso, login, cadastro de cliente, anexo/consulta/exportação de
+documento, ficha cadastral em PDF, importação do acervo legado e a trilha de
+auditoria — validando o critério de aceite ponta a ponta do #27 nas partes
+disponíveis. O passo de mala direta (selecionar pendência e enviar e-mail em
+lote) depende de #23/#24/#25 e fica explicitamente pendente em
+``test_batch_email_step_is_pending``.
 """
 
 import uuid
@@ -16,8 +17,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import delete, select
 
 from crm_api.infrastructure.audit.models import AuditEventModel
-from crm_api.infrastructure.auth.models import SessionModel, UserModel
-from crm_api.infrastructure.auth.passwords import BcryptPasswordHasher
+from crm_api.infrastructure.auth.models import OwnerSlotModel, SessionModel, UserModel
 from crm_api.infrastructure.clients.models import ClientFolderModel
 from crm_api.infrastructure.database import get_engine, get_session_factory
 from crm_api.infrastructure.documents.models import DocumentModel
@@ -50,10 +50,7 @@ def _requires_disposable_sqlite() -> None:
         raise RuntimeError("refusing E2E test on non-disposable SQLite database")
 
 
-@pytest.fixture(autouse=True)
-async def clear_e2e_rows() -> AsyncIterator[None]:
-    """Devolve o banco compartilhado vazio para os round-trips de migration da suíte."""
-    yield
+async def _clear_e2e_rows() -> None:
     if not _is_disposable_sqlite():
         return
     async with get_session_factory()() as session:
@@ -62,25 +59,16 @@ async def clear_e2e_rows() -> AsyncIterator[None]:
         await session.execute(delete(SessionModel))
         await session.execute(delete(ClientFolderModel))
         await session.execute(delete(UserModel))
+        await session.execute(delete(OwnerSlotModel))
         await session.commit()
 
 
-async def _seed_active_owner() -> tuple[str, str, uuid.UUID]:
-    email = f"e2e-{uuid.uuid4()}@deltaforce.internal"
-    password = "correct-horse-battery-staple"
-    user_id = uuid.uuid4()
-    async with get_session_factory()() as session:
-        session.add(
-            UserModel(
-                id=user_id,
-                email=email,
-                full_name="Proprietário E2E",
-                password_hash=BcryptPasswordHasher().hash(password),
-                is_active=True,
-            )
-        )
-        await session.commit()
-    return email, password, user_id
+@pytest.fixture(autouse=True)
+async def clear_e2e_rows() -> AsyncIterator[None]:
+    """Isola o cenário e devolve o banco vazio para os testes seguintes."""
+    await _clear_e2e_rows()
+    yield
+    await _clear_e2e_rows()
 
 
 async def _owner_audit_actions(owner_id: uuid.UUID) -> set[str]:
@@ -95,15 +83,41 @@ async def _owner_audit_actions(owner_id: uuid.UUID) -> set[str]:
 
 async def test_owner_walks_the_core_mvp_flow(tmp_path: Path) -> None:
     _requires_disposable_sqlite()
-    email, password, owner_id = await _seed_active_owner()
     client = TestClient(app)
+    email = f"e2e-{uuid.uuid4()}@deltaforce.internal"
+    password = "correct-horse-battery-staple"
 
-    # 1. Usuário autorizado entra com sua conta.
+    # 1. Na primeira execução, o proprietário cria a única conta local.
+    setup_status = client.get("/auth/setup")
+    assert setup_status.status_code == 200
+    assert setup_status.json() == {"requires_setup": True}
+
+    setup = client.post(
+        "/auth/setup",
+        json={
+            "email": email,
+            "full_name": "Proprietário E2E",
+            "password": password,
+        },
+    )
+    assert setup.status_code == 201
+    owner_id = uuid.UUID(setup.json()["user"]["id"])
+
+    setup_status = client.get("/auth/setup")
+    assert setup_status.status_code == 200
+    assert setup_status.json() == {"requires_setup": False}
+
+    # 2. Encerra a sessão inicial e entra novamente com a conta criada.
+    initial_auth = {"Authorization": f"Bearer {setup.json()['session_token']}"}
+    logout = client.post("/auth/logout", headers=initial_auth)
+    assert logout.status_code == 204
+
     login = client.post("/auth/login", json={"email": email, "password": password})
     assert login.status_code == 200
+    assert login.json()["user"]["id"] == str(owner_id)
     auth = {"Authorization": f"Bearer {login.json()['session_token']}"}
 
-    # 2. Cadastra cliente com a identificação aplicável (só campos disponíveis).
+    # 3. Cadastra cliente com a identificação aplicável (só campos disponíveis).
     folder_name = f"Cliente E2E {uuid.uuid4().hex[:8]}"
     created = client.post(
         "/clients",
@@ -116,7 +130,7 @@ async def test_owner_walks_the_core_mvp_flow(tmp_path: Path) -> None:
     assert created.status_code == 201
     client_id = created.json()["id"]
 
-    # 3. Anexa e classifica um documento (PDF).
+    # 4. Anexa e classifica um documento (PDF).
     attached = client.post(
         f"/clients/{client_id}/documents",
         headers=auth,
@@ -126,7 +140,7 @@ async def test_owner_walks_the_core_mvp_flow(tmp_path: Path) -> None:
     assert attached.status_code == 201
     document_id = attached.json()["id"]
 
-    # 4. Consulta a lista e exporta o documento anexado.
+    # 5. Consulta a lista e exporta o documento anexado.
     listing = client.get(
         f"/clients/{client_id}/documents", headers=auth, params={"limit": 20}
     )
@@ -139,14 +153,14 @@ async def test_owner_walks_the_core_mvp_flow(tmp_path: Path) -> None:
     assert exported.status_code == 200
     assert exported.content.startswith(b"%PDF")
 
-    # 5. Gera a ficha cadastral em PDF.
+    # 6. Gera a ficha cadastral em PDF.
     profile = client.get(f"/clients/{client_id}/profile.pdf", headers=auth)
     assert profile.status_code == 200
     assert profile.headers["content-type"].startswith("application/pdf")
     assert profile.content.startswith(b"%PDF")
     assert "attachment" in profile.headers.get("content-disposition", "")
 
-    # 6. Importa o acervo legado de uma pasta com o nome do cliente cadastrado.
+    # 7. Importa o acervo legado de uma pasta com o nome do cliente cadastrado.
     source = tmp_path / "acervo"
     (source / folder_name).mkdir(parents=True)
     (source / folder_name / "antigo.pdf").write_bytes(LEGACY_PDF_BYTES)
@@ -163,7 +177,7 @@ async def test_owner_walks_the_core_mvp_flow(tmp_path: Path) -> None:
     assert imported.status_code == 200
     assert imported.json()["summary"]["imported"] >= 1
 
-    # 7. Consulta o histórico pela própria API.
+    # 8. Consulta o histórico pela própria API.
     audit = client.get("/audit/events", headers=auth, params={"limit": 50})
     assert audit.status_code == 200
     assert audit.json()["items"]
@@ -171,7 +185,9 @@ async def test_owner_walks_the_core_mvp_flow(tmp_path: Path) -> None:
     # A trilha registra cada ação relevante do proprietário.
     actions = await _owner_audit_actions(owner_id)
     assert {
+        "auth.owner_setup",
         "auth.login",
+        "auth.logout",
         "client_folder.created",
         "document.stored",
         "document.exported",
