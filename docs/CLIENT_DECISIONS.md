@@ -38,6 +38,13 @@ cliente prevalece sobre uma hipótese anterior.
   e 30 a 40 novos. Existem arquivos possivelmente corrompidos; a importação
   precisa produzir relatório e preservar a origem.
 - A ficha cadastral em PDF faz parte do MVP.
+- O acompanhamento documental é opcional e manual. Anexar ou importar um
+  arquivo não cria pendência automaticamente: o documento começa sem status.
+  Quando decidir acompanhá-lo, o proprietário pode marcar **pendente** (ainda
+  exige providência), **recebido/regular** (conferido manualmente e considerado
+  adequado) ou **incorreto/incompleto** (conferido manualmente e com problema),
+  e também pode remover o acompanhamento. Esses estados não bloqueiam cadastro,
+  edição nem outros anexos e não criam catálogo de documentos obrigatórios.
 
 ## Backup, retenção e comunicação
 
