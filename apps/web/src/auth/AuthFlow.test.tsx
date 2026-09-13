@@ -126,10 +126,49 @@ describe('owner authentication flow', () => {
     )
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Revise o nome, o e-mail e a senha. Use um e-mail válido e uma senha entre 12 e 72 caracteres.',
+      'Revise os campos indicados. O nome deve ter entre 2 e 200 caracteres; use um e-mail válido e uma senha de 12 a 72 caracteres, com no máximo 72 bytes.',
     )
     expect(screen.getByRole('alert')).not.toHaveTextContent(
       'technical validation detail',
+    )
+    expect(screen.getByLabelText('Nome completo')).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    )
+    expect(screen.getByLabelText('E-mail')).toHaveAttribute(
+      'aria-describedby',
+      'setup-validation-error',
+    )
+  })
+
+  it('validates email and UTF-8 password size before calling the API', async () => {
+    vi.spyOn(authApi, 'requiresSetup').mockResolvedValue(true)
+    const setupSpy = vi.spyOn(authApi, 'setupOwner')
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.type(await screen.findByLabelText('Nome completo'), 'Dono local')
+    await user.type(screen.getByLabelText('E-mail'), 'email-invalido')
+    await user.type(screen.getByLabelText('Senha'), 'á'.repeat(40))
+    await user.type(screen.getByLabelText('Confirmar senha'), 'á'.repeat(40))
+
+    const submitButton = screen.getByRole('button', {
+      name: 'Criar conta e entrar',
+    })
+    expect(submitButton.closest('form')).toHaveAttribute('novalidate')
+    await user.click(submitButton)
+
+    expect(setupSpy).not.toHaveBeenCalled()
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /senha de 12 a 72 caracteres, com no máximo 72 bytes/,
+    )
+    expect(screen.getByLabelText('E-mail')).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    )
+    expect(screen.getByLabelText('Senha')).toHaveAttribute(
+      'aria-invalid',
+      'true',
     )
   })
 
