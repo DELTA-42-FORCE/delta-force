@@ -26,6 +26,13 @@ export function SetupPage() {
     } catch (submitError) {
       if (submitError instanceof ApiError && submitError.status === 409) {
         retry()
+      } else if (
+        submitError instanceof ApiError &&
+        submitError.status === 422
+      ) {
+        setError(
+          'Revise o nome, o e-mail e a senha. Use um e-mail válido e uma senha entre 12 e 72 caracteres.',
+        )
       } else {
         setError('Não foi possível concluir a configuração. Tente novamente.')
       }

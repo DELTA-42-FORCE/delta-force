@@ -103,6 +103,36 @@ describe('owner authentication flow', () => {
     expect(storageSpy).not.toHaveBeenCalled()
   })
 
+  it('explains how to correct setup data rejected by validation', async () => {
+    vi.spyOn(authApi, 'requiresSetup').mockResolvedValue(true)
+    vi.spyOn(authApi, 'setupOwner').mockRejectedValue(
+      new ApiError(422, 'technical validation detail'),
+    )
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.type(
+      await screen.findByLabelText('Nome completo'),
+      'Proprietário',
+    )
+    await user.type(screen.getByLabelText('E-mail'), 'teste@example.com')
+    await user.type(screen.getByLabelText('Senha'), 'senha-segura-123')
+    await user.type(
+      screen.getByLabelText('Confirmar senha'),
+      'senha-segura-123',
+    )
+    await user.click(
+      screen.getByRole('button', { name: 'Criar conta e entrar' }),
+    )
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Revise o nome, o e-mail e a senha. Use um e-mail válido e uma senha entre 12 e 72 caracteres.',
+    )
+    expect(screen.getByRole('alert')).not.toHaveTextContent(
+      'technical validation detail',
+    )
+  })
+
   it('shows login after setup has already been completed', async () => {
     vi.spyOn(authApi, 'requiresSetup').mockResolvedValue(false)
 
