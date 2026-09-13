@@ -170,6 +170,61 @@ describe('owner authentication flow', () => {
       'aria-invalid',
       'true',
     )
+    expect(screen.getByLabelText('E-mail')).toHaveFocus()
+  })
+
+  it('keeps unrelated field errors while the owner corrects one field', async () => {
+    vi.spyOn(authApi, 'requiresSetup').mockResolvedValue(true)
+    const setupSpy = vi.spyOn(authApi, 'setupOwner')
+    const user = userEvent.setup()
+    render(<App />)
+
+    const fullNameInput = await screen.findByLabelText('Nome completo')
+    const emailInput = screen.getByLabelText('E-mail')
+    const passwordInput = screen.getByLabelText('Senha')
+
+    await user.click(
+      screen.getByRole('button', { name: 'Criar conta e entrar' }),
+    )
+
+    expect(setupSpy).not.toHaveBeenCalled()
+    expect(fullNameInput).toHaveFocus()
+    expect(fullNameInput).toHaveAttribute('aria-invalid', 'true')
+    expect(emailInput).toHaveAttribute('aria-invalid', 'true')
+    expect(passwordInput).toHaveAttribute('aria-invalid', 'true')
+
+    await user.type(fullNameInput, 'Dono local')
+
+    expect(fullNameInput).not.toHaveAttribute('aria-invalid')
+    expect(emailInput).toHaveAttribute('aria-invalid', 'true')
+    expect(passwordInput).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Revise os campos indicados.',
+    )
+
+    await user.type(emailInput, 'dono@example.com')
+    await user.type(passwordInput, 'senha-segura-123')
+
+    const confirmationInput = screen.getByLabelText('Confirmar senha')
+    expect(confirmationInput).toHaveAttribute('aria-invalid', 'true')
+
+    await user.type(confirmationInput, 'senha-segura-123')
+
+    expect(confirmationInput).not.toHaveAttribute('aria-invalid')
+    await waitFor(() => {
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    })
+
+    await user.clear(emailInput)
+
+    expect(emailInput).toHaveAttribute('aria-invalid', 'true')
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Revise os campos indicados.',
+    )
+    expect(emailInput).toHaveAttribute(
+      'aria-describedby',
+      'setup-validation-error',
+    )
   })
 
   it('shows login after setup has already been completed', async () => {
