@@ -108,6 +108,15 @@ aceita filtro por estado, e a alteração usa a mesma transação do evento
 anterior e novo. A interface desse fluxo será entregue depois da definição de
 design.
 
+A primeira fatia de backend da #24 mantém modelos de mensagem localmente e
+seleciona candidatos por situação documental. Essa seleção expõe somente UUID,
+nome de identificação, situação e quantidade de documentos correspondentes;
+ela não resolve nem devolve endereços. A consulta usa cursor estável para não
+limitar o acervo aos primeiros 100 clientes e registra somente o evento
+`recipient_candidates.viewed`, sem nomes ou outros dados pessoais. A renderização
+com variáveis aguarda a homologação dos modelos e do campo opcional de e-mail,
+enquanto transporte, credenciais e histórico de disparos pertencem às #25 e #46.
+
 Na interface, os documentos abrem a partir da pasta do cliente, em
 `apps/web/src/documents/`. A tela traduz a falha do servidor em uma frase por
 causa — formato recusado, nome inválido, disco sem espaço, acesso negado e falha
