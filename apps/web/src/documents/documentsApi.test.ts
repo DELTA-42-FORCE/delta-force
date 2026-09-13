@@ -5,6 +5,7 @@ import {
   exportClientDocument,
   listClientDocuments,
   openClientDocument,
+  updateClientDocumentStatus,
 } from './documentsApi'
 
 const CLIENT_ID = '00000000-0000-0000-0000-0000000000aa'
@@ -101,6 +102,43 @@ describe('exportClientDocument', () => {
     expect(authenticatedDownload).toHaveBeenCalledWith(
       `/clients/${CLIENT_ID}/documents/${DOCUMENT_ID}/content`,
     )
+  })
+})
+
+describe('updateClientDocumentStatus', () => {
+  it('patches the optional tracking status', async () => {
+    const authenticatedRequest = vi
+      .fn()
+      .mockResolvedValue({ id: DOCUMENT_ID, status: 'pending' })
+
+    await updateClientDocumentStatus(authenticatedRequest, {
+      clientId: CLIENT_ID,
+      documentId: DOCUMENT_ID,
+      status: 'pending',
+    })
+
+    expect(authenticatedRequest).toHaveBeenCalledWith(
+      `/clients/${CLIENT_ID}/documents/${DOCUMENT_ID}/status`,
+      { method: 'PATCH', body: { status: 'pending' } },
+    )
+  })
+
+  it('sends null to remove tracking', async () => {
+    const authenticatedRequest = vi.fn().mockResolvedValue({
+      id: DOCUMENT_ID,
+      status: null,
+    })
+
+    await updateClientDocumentStatus(authenticatedRequest, {
+      clientId: CLIENT_ID,
+      documentId: DOCUMENT_ID,
+      status: null,
+    })
+
+    expect(authenticatedRequest).toHaveBeenCalledWith(expect.any(String), {
+      method: 'PATCH',
+      body: { status: null },
+    })
   })
 })
 

@@ -12,7 +12,11 @@ export interface ClientDocument {
   title: string | null
   category: string | null
   notes: string | null
+  status: DocumentStatus | null
 }
+
+export type DocumentStatus =
+  'pending' | 'received_regular' | 'incorrect_incomplete'
 
 export interface DocumentCursor {
   stored_at: string
@@ -36,6 +40,10 @@ export interface DocumentAnnotations {
 }
 
 export type AuthenticatedGet = <T>(path: string) => Promise<T>
+export type AuthenticatedRequest = <T>(
+  path: string,
+  options: { method: string; body?: unknown },
+) => Promise<T>
 export type AuthenticatedUpload = <T>(
   path: string,
   formData: FormData,
@@ -89,6 +97,20 @@ export async function attachClientDocument(
   return authenticatedUpload<ClientDocument>(
     `/clients/${options.clientId}/documents`,
     formData,
+  )
+}
+
+export async function updateClientDocumentStatus(
+  authenticatedRequest: AuthenticatedRequest,
+  options: {
+    clientId: string
+    documentId: string
+    status: DocumentStatus | null
+  },
+): Promise<ClientDocument> {
+  return authenticatedRequest<ClientDocument>(
+    `/clients/${options.clientId}/documents/${options.documentId}/status`,
+    { method: 'PATCH', body: { status: options.status } },
   )
 }
 

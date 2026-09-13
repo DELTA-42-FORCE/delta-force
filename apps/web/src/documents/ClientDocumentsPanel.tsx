@@ -9,6 +9,7 @@ import {
   describeExportFailure,
   describeMediaType,
   describeOpenFailure,
+  describeStatusUpdateFailure,
   formatByteSize,
 } from './documentMessages'
 import type {
@@ -16,6 +17,7 @@ import type {
   ClientDocumentPage,
   DocumentAnnotations,
   DocumentCursor,
+  DocumentStatus,
 } from './documentsApi'
 
 interface ClientDocumentsPanelProps {
@@ -27,6 +29,10 @@ interface ClientDocumentsPanelProps {
   }) => Promise<ClientDocument>
   exportDocument: (document: ClientDocument) => Promise<DownloadedFile>
   openDocument: (document: ClientDocument) => Promise<DocumentOpenLocation>
+  updateStatus: (
+    document: ClientDocument,
+    status: DocumentStatus | null,
+  ) => Promise<ClientDocument>
   onBack: () => void
 }
 
@@ -36,6 +42,7 @@ export function ClientDocumentsPanel({
   attachDocument,
   exportDocument,
   openDocument,
+  updateStatus,
   onBack,
 }: ClientDocumentsPanelProps) {
   const [documents, setDocuments] = useState<ClientDocument[]>([])
@@ -53,6 +60,9 @@ export function ClientDocumentsPanel({
   const [openError, setOpenError] = useState<string | null>(null)
   const [openNotice, setOpenNotice] = useState<string | null>(null)
   const [openingId, setOpeningId] = useState<string | null>(null)
+  const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null)
+  const [statusError, setStatusError] = useState<string | null>(null)
+  const [statusNotice, setStatusNotice] = useState<string | null>(null)
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState('')
   const [notes, setNotes] = useState('')
@@ -165,6 +175,30 @@ export function ClientDocumentsPanel({
       setOpenError(describeOpenFailure(error))
     } finally {
       setOpeningId(null)
+    }
+  }
+
+  async function handleStatusChange(
+    item: ClientDocument,
+    status: DocumentStatus | null,
+  ) {
+    setStatusError(null)
+    setStatusNotice(null)
+    setStatusUpdatingId(item.id)
+    try {
+      const updated = await updateStatus(item, status)
+      setDocuments((current) =>
+        current.map((document) =>
+          document.id === updated.id ? updated : document,
+        ),
+      )
+      setStatusNotice(
+        `Acompanhamento de "${updated.title ?? updated.original_filename}" atualizado.`,
+      )
+    } catch (error) {
+      setStatusError(describeStatusUpdateFailure(error))
+    } finally {
+      setStatusUpdatingId(null)
     }
   }
 
@@ -303,44 +337,86 @@ export function ClientDocumentsPanel({
                 {exportError}
               </p>
             )}
+            {statusNotice !== null && (
+              <p className="feedback feedback--success" role="status">
+                {statusNotice}
+              </p>
+            )}
+            {statusError !== null && (
+              <p className="feedback feedback--error" role="alert">
+                {statusError}
+              </p>
+            )}
             <ul className="documents-list">
-              {documents.map((item) => (
-                <li className="documents-list__item" key={item.id}>
-                  <div className="documents-list__info">
-                    <strong>{item.title ?? item.original_filename}</strong>
-                    <small>
-                      {describeMediaType(item.media_type)} ·{' '}
-                      {formatByteSize(item.byte_size)}
-                      {item.category !== null && ` · ${item.category}`}
-                    </small>
-                    {item.notes !== null && (
-                      <small className="documents-list__notes">
-                        {item.notes}
+              {documents.map((item) => {
+                const displayName = item.title ?? item.original_filename
+                return (
+                  <li className="documents-list__item" key={item.id}>
+                    <div className="documents-list__info">
+                      <strong>{displayName}</strong>
+                      <small>
+                        {describeMediaType(item.media_type)} ·{' '}
+                        {formatByteSize(item.byte_size)}
+                        {item.category !== null && ` · ${item.category}`}
                       </small>
-                    )}
-                  </div>
-                  <div className="documents-list__actions">
-                    <button
-                      className="text-button"
-                      type="button"
-                      disabled={openingId === item.id}
-                      onClick={() => void handleOpen(item)}
-                    >
-                      {openingId === item.id ? 'Abrindo…' : 'Abrir'}
-                    </button>
-                    <button
-                      className="text-button"
-                      type="button"
-                      disabled={exportingId === item.id}
-                      onClick={() => void handleExport(item)}
-                    >
-                      {exportingId === item.id
-                        ? 'Exportando…'
-                        : 'Exportar cópia'}
-                    </button>
-                  </div>
-                </li>
-              ))}
+                      {item.notes !== null && (
+                        <small className="documents-list__notes">
+                          {item.notes}
+                        </small>
+                      )}
+                    </div>
+                    <div className="documents-list__actions">
+                      <label className="documents-list__status">
+                        <span>
+                          {statusUpdatingId === item.id
+                            ? 'Salvando…'
+                            : 'Acompanhamento'}
+                        </span>
+                        <select
+                          aria-label={`Acompanhamento de ${displayName}`}
+                          value={item.status ?? ''}
+                          disabled={statusUpdatingId !== null}
+                          onChange={(event) =>
+                            void handleStatusChange(
+                              item,
+                              event.target.value === ''
+                                ? null
+                                : (event.target.value as DocumentStatus),
+                            )
+                          }
+                        >
+                          <option value="">Sem acompanhamento</option>
+                          <option value="pending">Pendente</option>
+                          <option value="received_regular">
+                            Recebido e regular
+                          </option>
+                          <option value="incorrect_incomplete">
+                            Incorreto ou incompleto
+                          </option>
+                        </select>
+                      </label>
+                      <button
+                        className="text-button"
+                        type="button"
+                        disabled={openingId === item.id}
+                        onClick={() => void handleOpen(item)}
+                      >
+                        {openingId === item.id ? 'Abrindo…' : 'Abrir'}
+                      </button>
+                      <button
+                        className="text-button"
+                        type="button"
+                        disabled={exportingId === item.id}
+                        onClick={() => void handleExport(item)}
+                      >
+                        {exportingId === item.id
+                          ? 'Exportando…'
+                          : 'Exportar cópia'}
+                      </button>
+                    </div>
+                  </li>
+                )
+              })}
             </ul>
             {(nextCursor !== null || moreState === 'error') && (
               <div className="clients-page__more">

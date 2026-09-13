@@ -58,6 +58,23 @@ export function describeOpenFailure(error: unknown): string {
   return 'Não foi possível abrir o documento neste computador. Ele pode ter sido movido ou removido fora do CRM — você ainda pode usar “Exportar cópia”.'
 }
 
+export function describeStatusUpdateFailure(error: unknown): string {
+  if (!(error instanceof ApiError)) {
+    return 'Não foi possível falar com o serviço local do CRM. O acompanhamento não foi alterado.'
+  }
+
+  switch (error.status) {
+    case 401:
+      return 'Sua sessão expirou. Entre novamente para alterar o acompanhamento.'
+    case 403:
+      return 'Seu acesso a este documento foi negado.'
+    case 404:
+      return 'Documento não encontrado nesta pasta. Atualize a lista e tente novamente.'
+    default:
+      return 'Não foi possível alterar o acompanhamento. Nada foi modificado; tente novamente.'
+  }
+}
+
 const UNITS = ['B', 'KB', 'MB', 'GB', 'TB'] as const
 
 export function formatByteSize(bytes: number): string {
