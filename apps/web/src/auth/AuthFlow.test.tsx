@@ -103,6 +103,130 @@ describe('owner authentication flow', () => {
     expect(storageSpy).not.toHaveBeenCalled()
   })
 
+  it('explains how to correct setup data rejected by validation', async () => {
+    vi.spyOn(authApi, 'requiresSetup').mockResolvedValue(true)
+    vi.spyOn(authApi, 'setupOwner').mockRejectedValue(
+      new ApiError(422, 'technical validation detail'),
+    )
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.type(
+      await screen.findByLabelText('Nome completo'),
+      'Proprietário',
+    )
+    await user.type(screen.getByLabelText('E-mail'), 'teste@example.com')
+    await user.type(screen.getByLabelText('Senha'), 'senha-segura-123')
+    await user.type(
+      screen.getByLabelText('Confirmar senha'),
+      'senha-segura-123',
+    )
+    await user.click(
+      screen.getByRole('button', { name: 'Criar conta e entrar' }),
+    )
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Revise os campos indicados. O nome deve ter entre 2 e 200 caracteres; use um e-mail válido e uma senha de 12 a 72 caracteres, com no máximo 72 bytes.',
+    )
+    expect(screen.getByRole('alert')).not.toHaveTextContent(
+      'technical validation detail',
+    )
+    expect(screen.getByLabelText('Nome completo')).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    )
+    expect(screen.getByLabelText('E-mail')).toHaveAttribute(
+      'aria-describedby',
+      'setup-validation-error',
+    )
+  })
+
+  it('validates email and UTF-8 password size before calling the API', async () => {
+    vi.spyOn(authApi, 'requiresSetup').mockResolvedValue(true)
+    const setupSpy = vi.spyOn(authApi, 'setupOwner')
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.type(await screen.findByLabelText('Nome completo'), 'Dono local')
+    await user.type(screen.getByLabelText('E-mail'), 'email-invalido')
+    await user.type(screen.getByLabelText('Senha'), 'á'.repeat(40))
+    await user.type(screen.getByLabelText('Confirmar senha'), 'á'.repeat(40))
+
+    const submitButton = screen.getByRole('button', {
+      name: 'Criar conta e entrar',
+    })
+    expect(submitButton.closest('form')).toHaveAttribute('novalidate')
+    await user.click(submitButton)
+
+    expect(setupSpy).not.toHaveBeenCalled()
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /senha de 12 a 72 caracteres, com no máximo 72 bytes/,
+    )
+    expect(screen.getByLabelText('E-mail')).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    )
+    expect(screen.getByLabelText('Senha')).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    )
+    expect(screen.getByLabelText('E-mail')).toHaveFocus()
+  })
+
+  it('keeps unrelated field errors while the owner corrects one field', async () => {
+    vi.spyOn(authApi, 'requiresSetup').mockResolvedValue(true)
+    const setupSpy = vi.spyOn(authApi, 'setupOwner')
+    const user = userEvent.setup()
+    render(<App />)
+
+    const fullNameInput = await screen.findByLabelText('Nome completo')
+    const emailInput = screen.getByLabelText('E-mail')
+    const passwordInput = screen.getByLabelText('Senha')
+
+    await user.click(
+      screen.getByRole('button', { name: 'Criar conta e entrar' }),
+    )
+
+    expect(setupSpy).not.toHaveBeenCalled()
+    expect(fullNameInput).toHaveFocus()
+    expect(fullNameInput).toHaveAttribute('aria-invalid', 'true')
+    expect(emailInput).toHaveAttribute('aria-invalid', 'true')
+    expect(passwordInput).toHaveAttribute('aria-invalid', 'true')
+
+    await user.type(fullNameInput, 'Dono local')
+
+    expect(fullNameInput).not.toHaveAttribute('aria-invalid')
+    expect(emailInput).toHaveAttribute('aria-invalid', 'true')
+    expect(passwordInput).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Revise os campos indicados.',
+    )
+
+    await user.type(emailInput, 'dono@example.com')
+    await user.type(passwordInput, 'senha-segura-123')
+
+    const confirmationInput = screen.getByLabelText('Confirmar senha')
+    expect(confirmationInput).toHaveAttribute('aria-invalid', 'true')
+
+    await user.type(confirmationInput, 'senha-segura-123')
+
+    expect(confirmationInput).not.toHaveAttribute('aria-invalid')
+    await waitFor(() => {
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    })
+
+    await user.clear(emailInput)
+
+    expect(emailInput).toHaveAttribute('aria-invalid', 'true')
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Revise os campos indicados.',
+    )
+    expect(emailInput).toHaveAttribute(
+      'aria-describedby',
+      'setup-validation-error',
+    )
+  })
+
   it('shows login after setup has already been completed', async () => {
     vi.spyOn(authApi, 'requiresSetup').mockResolvedValue(false)
 
