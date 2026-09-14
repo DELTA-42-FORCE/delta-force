@@ -100,6 +100,14 @@ describe('owner authentication flow', () => {
         name: 'Bem-vindo, Proprietário Delta Force',
       }),
     ).toBeVisible()
+    expect(
+      screen.getByText(
+        'Clientes, documentos e modelos já estão disponíveis. O envio de e-mails aguarda a configuração segura do remetente.',
+      ),
+    ).toBeVisible()
+    expect(
+      screen.queryByText(/a próxima etapa adicionará/i),
+    ).not.toBeInTheDocument()
     expect(storageSpy).not.toHaveBeenCalled()
   })
 
