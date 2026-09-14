@@ -21,11 +21,13 @@ import {
   exportClientDocument,
   listClientDocuments,
   openClientDocument,
+  updateClientDocumentStatus,
 } from './documents/documentsApi'
 import type {
   ClientDocument,
   DocumentAnnotations,
   DocumentCursor,
+  DocumentStatus,
 } from './documents/documentsApi'
 import { LegacyImportPanel } from './imports/LegacyImportPanel'
 import { importLegacyArchive, previewLegacyImport } from './imports/importsApi'
@@ -144,6 +146,20 @@ function Root() {
       })
     },
     [authenticatedOpenDocument, documentsFolderId],
+  )
+
+  const updateDocumentStatus = useCallback(
+    (item: ClientDocument, status: DocumentStatus | null) => {
+      if (documentsFolderId === null) {
+        return Promise.reject(new Error('no client folder is open'))
+      }
+      return updateClientDocumentStatus(authenticatedRequest, {
+        clientId: documentsFolderId,
+        documentId: item.id,
+        status,
+      })
+    },
+    [authenticatedRequest, documentsFolderId],
   )
 
   const previewImport = useCallback(
@@ -334,6 +350,7 @@ function Root() {
               attachDocument={attachDocument}
               exportDocument={exportDocument}
               openDocument={openDocument}
+              updateStatus={updateDocumentStatus}
               onBack={() => setDocumentsFolder(null)}
             />
           ) : activeView === 'clients' ? (

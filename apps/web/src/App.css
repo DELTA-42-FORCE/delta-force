@@ -1236,6 +1236,35 @@ button.workspace-nav__item--active:hover {
   flex-shrink: 0;
 }
 
+.documents-list__status {
+  display: grid;
+  gap: 0.25rem;
+  color: #59677a;
+  font-size: 0.68rem;
+  font-weight: 750;
+}
+
+.documents-list__status select {
+  min-height: 2.25rem;
+  max-width: 13rem;
+  padding: 0.4rem 1.8rem 0.4rem 0.6rem;
+  border: 1px solid #ced6e1;
+  border-radius: 0.55rem;
+  outline: none;
+  color: #24334a;
+  background: #fff;
+}
+
+.documents-list__status select:focus {
+  border-color: #07829a;
+  box-shadow: 0 0 0 0.2rem rgb(7 130 154 / 13%);
+}
+
+.documents-list__status select:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 .import-panel {
   display: grid;
   gap: 1.5rem;

@@ -5,6 +5,7 @@ import {
   describeAttachFailure,
   describeExportFailure,
   describeMediaType,
+  describeStatusUpdateFailure,
   formatByteSize,
 } from './documentMessages'
 
@@ -63,6 +64,23 @@ describe('formatByteSize', () => {
 
   it('does not invent a size for an invalid value', () => {
     expect(formatByteSize(Number.NaN)).toBe('—')
+  })
+})
+
+describe('describeStatusUpdateFailure', () => {
+  it('does not expose a technical backend error', () => {
+    const message = describeStatusUpdateFailure(
+      new ApiError(500, 'database connection leaked'),
+    )
+
+    expect(message).toMatch(/Nada foi modificado/)
+    expect(message).not.toContain('database connection leaked')
+  })
+
+  it('explains that a missing document requires a refresh', () => {
+    expect(describeStatusUpdateFailure(new ApiError(404, 'not found'))).toMatch(
+      /Atualize a lista/,
+    )
   })
 })
 

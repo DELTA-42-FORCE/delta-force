@@ -43,6 +43,7 @@ function documentItem(
     title: null,
     category: null,
     notes: null,
+    status: null,
     ...overrides,
   }
 }
@@ -77,6 +78,7 @@ function renderPanel(
     attachDocument?: ReturnType<typeof vi.fn>
     exportDocument?: ReturnType<typeof vi.fn>
     openDocument?: ReturnType<typeof vi.fn>
+    updateStatus?: ReturnType<typeof vi.fn>
   } = {},
 ) {
   const loadPage =
@@ -93,6 +95,13 @@ function renderPanel(
     } satisfies DownloadedFile)
   const openDocument =
     overrides.openDocument ?? vi.fn().mockResolvedValue('desktop-app')
+  const updateStatus =
+    overrides.updateStatus ??
+    vi
+      .fn()
+      .mockImplementation((item: ClientDocument, status) =>
+        Promise.resolve({ ...item, status }),
+      )
 
   render(
     <ClientDocumentsPanel
@@ -101,10 +110,17 @@ function renderPanel(
       attachDocument={attachDocument}
       exportDocument={exportDocument}
       openDocument={openDocument}
+      updateStatus={updateStatus}
       onBack={vi.fn()}
     />,
   )
-  return { loadPage, attachDocument, exportDocument, openDocument }
+  return {
+    loadPage,
+    attachDocument,
+    exportDocument,
+    openDocument,
+    updateStatus,
+  }
 }
 
 describe('ClientDocumentsPanel', () => {
@@ -131,6 +147,58 @@ describe('ClientDocumentsPanel', () => {
 
     expect(await screen.findByText('Contrato')).toBeVisible()
     expect(screen.getByText(/PDF · 2,0 KB · contratos/)).toBeVisible()
+  })
+
+  it('updates and removes the optional document tracking status', async () => {
+    const item = documentItem(FIRST_ID)
+    const updateStatus = vi
+      .fn()
+      .mockImplementation((current: ClientDocument, status) =>
+        Promise.resolve({ ...current, status }),
+      )
+    const user = userEvent.setup()
+    renderPanel({
+      loadPage: vi.fn().mockResolvedValue(pageOf(item, null)),
+      updateStatus,
+    })
+
+    const statusSelect = await screen.findByRole('combobox', {
+      name: 'Acompanhamento de contrato.pdf',
+    })
+    expect(statusSelect).toHaveValue('')
+
+    await user.selectOptions(statusSelect, 'pending')
+    await waitFor(() => expect(statusSelect).toHaveValue('pending'))
+    expect(updateStatus).toHaveBeenLastCalledWith(item, 'pending')
+
+    await user.selectOptions(statusSelect, '')
+    await waitFor(() => expect(statusSelect).toHaveValue(''))
+    expect(updateStatus).toHaveBeenLastCalledWith(
+      expect.objectContaining({ status: 'pending' }),
+      null,
+    )
+  })
+
+  it('keeps the previous status when the update fails', async () => {
+    const updateStatus = vi
+      .fn()
+      .mockRejectedValue(new ApiError(500, 'technical detail'))
+    const user = userEvent.setup()
+    renderPanel({
+      loadPage: vi.fn().mockResolvedValue(pageOf(documentItem(FIRST_ID), null)),
+      updateStatus,
+    })
+
+    const statusSelect = await screen.findByRole('combobox', {
+      name: 'Acompanhamento de contrato.pdf',
+    })
+    await user.selectOptions(statusSelect, 'incorrect_incomplete')
+
+    expect(
+      await screen.findByText(/Nada foi modificado; tente novamente/),
+    ).toBeVisible()
+    expect(statusSelect).toHaveValue('')
+    expect(screen.queryByText('technical detail')).not.toBeInTheDocument()
   })
 
   it('attaches a file with optional annotations and reloads the list', async () => {
