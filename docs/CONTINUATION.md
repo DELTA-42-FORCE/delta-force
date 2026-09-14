@@ -58,22 +58,23 @@ atualize #80 da mesma forma. Nunca execute o merge enquanto houver
   autenticação, limites de envio e regra de falha/reenvio. Isso bloqueia #25.
 - **#44:** o HD externo foi confirmado, mas a estratégia de senha/chave de
   criptografia ainda precisa de aprovação. Não implemente backup desprotegido.
-- **ADR 0002/#43:** a issue #43 foi fechada como concluída, porém
-  `docs/adr/0002-aplicativo-local-windows.md`, `docs/ARCHITECTURE.md` e
-  `docs/CLIENT_DECISIONS.md` ainda registram a ADR como **Proposta**. O time deve
-  reconciliar essa divergência antes de tratar a arquitetura como aceita.
-- **#26:** depende da decisão arquitetural reconciliada e da entrega #44.
+- **ADR 0002/#43:** a arquitetura está **Aceita** e a issue #43 está concluída.
+  A PR #48 aprovou Tauri 2, React, FastAPI empacotada como sidecar e
+  SQLite/filesystem privado; a integração essencial foi entregue pela #57.
+  Permanecem pendentes somente os gates operacionais e de release registrados
+  na própria ADR, como proteção do equipamento, assinatura e recuperação do
+  backup.
+- **#26:** depende das decisões operacionais restantes e da entrega #44.
 - **#27:** permanece aberta até envio/histórico, backup/restauração e aceite em
   instalação Windows limpa.
 
 ## Próxima sequência segura
 
 1. Obter revisão e integrar #80/#81.
-2. Confirmar com o time o status real da ADR 0002.
-3. Obter do cliente/time as decisões de #44 e #46.
-4. Implementar #25 somente após #46; implementar #44 somente após a decisão de
-   criptografia e a reconciliação da ADR.
-5. Completar #26 e executar o aceite final de #27 em Windows limpo.
+2. Obter do cliente/time as decisões de #44 e #46.
+3. Implementar #25 somente após #46 e implementar #44 somente após a decisão
+   de criptografia.
+4. Completar #26 e executar o aceite final de #27 em Windows limpo.
 
 Para qualquer nova entrega, crie worktree/branch curta a partir de
 `origin/develop`, rode `just check`, abra PR para `develop` e solicite revisão:
