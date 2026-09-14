@@ -1,11 +1,11 @@
 """E2E parcial do MVP (#27): encadeia pela API HTTP os fluxos já entregues.
 
 Cobre primeiro acesso, login, cadastro de cliente, anexo/consulta/exportação de
-documento, ficha cadastral em PDF, importação do acervo legado e a trilha de
-auditoria — validando o critério de aceite ponta a ponta do #27 nas partes
-disponíveis. O passo de mala direta (selecionar pendência e enviar e-mail em
-lote) depende de #23/#24/#25 e fica explicitamente pendente em
-``test_batch_email_step_is_pending``.
+documento, ficha cadastral em PDF, importação do acervo legado, classificação
+documental, modelos, triagem e a trilha de auditoria — validando o critério de
+aceite ponta a ponta do #27 nas partes disponíveis. O envio da mala direta
+depende de #25/#46 e fica explicitamente pendente em
+``test_batch_email_sending_step_is_pending``.
 """
 
 import uuid
@@ -19,6 +19,7 @@ from sqlalchemy import delete, select
 from crm_api.infrastructure.audit.models import AuditEventModel
 from crm_api.infrastructure.auth.models import OwnerSlotModel, SessionModel, UserModel
 from crm_api.infrastructure.clients.models import ClientFolderModel
+from crm_api.infrastructure.communications.models import MessageTemplateModel
 from crm_api.infrastructure.database import get_engine, get_session_factory
 from crm_api.infrastructure.documents.models import DocumentModel
 from crm_api.main import app
@@ -57,6 +58,7 @@ async def _clear_e2e_rows() -> None:
         await session.execute(delete(DocumentModel))
         await session.execute(delete(AuditEventModel))
         await session.execute(delete(SessionModel))
+        await session.execute(delete(MessageTemplateModel))
         await session.execute(delete(ClientFolderModel))
         await session.execute(delete(UserModel))
         await session.execute(delete(OwnerSlotModel))
@@ -140,12 +142,24 @@ async def test_owner_walks_the_core_mvp_flow(tmp_path: Path) -> None:
     assert attached.status_code == 201
     document_id = attached.json()["id"]
 
-    # 5. Consulta a lista e exporta o documento anexado.
+    # 5. Classifica o documento para a triagem de comunicação.
+    classified = client.patch(
+        f"/clients/{client_id}/documents/{document_id}/status",
+        headers=auth,
+        json={"status": "pending"},
+    )
+    assert classified.status_code == 200
+    assert classified.json()["status"] == "pending"
+
+    # 6. Consulta a lista e exporta o documento anexado.
     listing = client.get(
         f"/clients/{client_id}/documents", headers=auth, params={"limit": 20}
     )
     assert listing.status_code == 200
-    assert any(item["id"] == document_id for item in listing.json()["items"])
+    assert any(
+        item["id"] == document_id and item["status"] == "pending"
+        for item in listing.json()["items"]
+    )
 
     exported = client.get(
         f"/clients/{client_id}/documents/{document_id}/content", headers=auth
@@ -153,14 +167,14 @@ async def test_owner_walks_the_core_mvp_flow(tmp_path: Path) -> None:
     assert exported.status_code == 200
     assert exported.content.startswith(b"%PDF")
 
-    # 6. Gera a ficha cadastral em PDF.
+    # 7. Gera a ficha cadastral em PDF.
     profile = client.get(f"/clients/{client_id}/profile.pdf", headers=auth)
     assert profile.status_code == 200
     assert profile.headers["content-type"].startswith("application/pdf")
     assert profile.content.startswith(b"%PDF")
     assert "attachment" in profile.headers.get("content-disposition", "")
 
-    # 7. Importa o acervo legado de uma pasta com o nome do cliente cadastrado.
+    # 8. Importa o acervo legado de uma pasta com o nome do cliente cadastrado.
     source = tmp_path / "acervo"
     (source / folder_name).mkdir(parents=True)
     (source / folder_name / "antigo.pdf").write_bytes(LEGACY_PDF_BYTES)
@@ -177,7 +191,39 @@ async def test_owner_walks_the_core_mvp_flow(tmp_path: Path) -> None:
     assert imported.status_code == 200
     assert imported.json()["summary"]["imported"] >= 1
 
-    # 8. Consulta o histórico pela própria API.
+    # 9. Cria um modelo estático e localiza o cliente na triagem documental.
+    template = client.post(
+        "/message-templates",
+        headers=auth,
+        json={
+            "name": "Pendência documental E2E",
+            "subject": "Documento pendente",
+            "body": "Mensagem estática sintética para o teste ponta a ponta.",
+        },
+    )
+    assert template.status_code == 201
+
+    templates = client.get("/message-templates", headers=auth)
+    assert templates.status_code == 200
+    assert any(item["id"] == template.json()["id"] for item in templates.json())
+
+    candidates = client.get(
+        "/email-recipient-candidates",
+        headers=auth,
+        params={"status": "pending", "limit": 20},
+    )
+    assert candidates.status_code == 200
+    matching_candidate = next(
+        item for item in candidates.json()["items"] if item["client_id"] == client_id
+    )
+    assert matching_candidate == {
+        "client_id": client_id,
+        "display_name": folder_name,
+        "document_status": "pending",
+        "matching_documents": 1,
+    }
+
+    # 10. Consulta o histórico pela própria API.
     audit = client.get("/audit/events", headers=auth, params={"limit": 50})
     assert audit.status_code == 200
     assert audit.json()["items"]
@@ -190,14 +236,15 @@ async def test_owner_walks_the_core_mvp_flow(tmp_path: Path) -> None:
         "auth.logout",
         "client_folder.created",
         "document.stored",
+        "document.status_updated",
         "document.exported",
         "client_folder.profile_exported",
+        "message_template.created",
+        "recipient_candidates.viewed",
     } <= actions
 
 
-async def test_batch_email_step_is_pending() -> None:
-    # O passo "selecionar pendência e enviar e-mail em lote" do #27 depende do
-    # status de documentos (#23), dos modelos/seleção de destinatários (#24) e do
-    # envio (#25), ainda não integrados. Fica pendente para manter o critério
-    # visível na suíte sem falhar a validação parcial.
-    pytest.skip("mala direta pendente: depende de #23/#24/#25")
+async def test_batch_email_sending_step_is_pending() -> None:
+    # Classificação, modelo e seleção já são exercitados acima. O envio e seu
+    # histórico dependem da #25 e da definição segura do remetente na #46.
+    pytest.skip("envio da mala direta pendente: depende de #25/#46")
