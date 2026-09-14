@@ -21,6 +21,7 @@ try {
     --noconfirm `
     --clean `
     --onedir `
+    --hidden-import aiosqlite `
     --name delta-force-api `
     --paths src `
     --add-data "$apiRoot/alembic;alembic" `
