@@ -49,7 +49,7 @@ Use Conventional Commits: `feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore
 | `just web-check` | Prettier, ESLint, tipos e testes do web. |
 | `just desktop-install` | Instala a CLI e dependências do shell Tauri. |
 | `just desktop-build` | No Windows, gera o sidecar PyInstaller `onedir` e o instalador NSIS de teste. |
-| `just desktop-installer-smoke` | Instala o NSIS em área temporária, inicia e fecha o aplicativo, desinstala e comprova que os dados locais foram preservados. Requer um perfil Windows sem instalação ou dados existentes do CRM. |
+| `just desktop-installer-smoke` | Instala o NSIS em área temporária, inicia e fecha o aplicativo, desinstala, reinstala usando o mesmo banco e comprova que os dados locais foram preservados. Requer um perfil Windows sem instalação ou dados existentes do CRM. |
 | `just desktop-format-check` | Verifica a formatação Rust do shell. |
 | `just desktop-test` | Executa no Windows os testes de ciclo de vida do supervisor e do Job Object. |
 | `just infra-up` | Sobe serviços auxiliares legados/opcionais; não é pré-requisito do CRM. |

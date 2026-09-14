@@ -170,7 +170,97 @@ try {
     throw 'Uninstall removed the synthetic CRM database.'
   }
 
-  Write-Output 'Installer smoke test passed: install, startup, shutdown, uninstall and data preservation.'
+  $reinstaller = Start-Process `
+    -FilePath $InstallerPath `
+    -ArgumentList @('/S', "/D=$installRoot") `
+    -Wait `
+    -PassThru `
+    -WindowStyle Hidden
+  if ($reinstaller.ExitCode -ne 0) {
+    throw "NSIS reinstaller exited with code $($reinstaller.ExitCode)."
+  }
+
+  if (@(Get-ProductRegistration).Count -ne 1) {
+    throw 'Reinstall did not restore exactly one uninstall registration.'
+  }
+  foreach ($relativePath in @($applicationExecutable, 'uninstall.exe', $sidecarExecutable)) {
+    if (-not (Test-Path -LiteralPath (Join-Path $installRoot $relativePath) -PathType Leaf)) {
+      throw "Reinstalled package is missing $relativePath."
+    }
+  }
+  if (
+    -not (Test-Path -LiteralPath $desktopShortcut -PathType Leaf) -or
+    -not (Test-Path -LiteralPath $startMenuShortcut -PathType Leaf)
+  ) {
+    throw 'Reinstall did not restore the application shortcuts.'
+  }
+  if (-not (Test-Path -LiteralPath $sentinel -PathType Leaf)) {
+    throw 'Reinstall did not preserve the synthetic application data sentinel.'
+  }
+
+  $app = Start-Process `
+    -FilePath (Join-Path $installRoot $applicationExecutable) `
+    -PassThru `
+    -WindowStyle Hidden
+  $reinstallReadyDeadline = [DateTime]::UtcNow.AddSeconds(30)
+  do {
+    Start-Sleep -Milliseconds 500
+    $app.Refresh()
+    $sidecars = @(Get-SmokeSidecars $installRoot)
+  } while (
+    (-not $app.HasExited) -and
+    $sidecars.Count -ne 1 -and
+    [DateTime]::UtcNow -lt $reinstallReadyDeadline
+  )
+
+  if ($app.HasExited) {
+    throw "Reinstalled application exited before readiness with code $($app.ExitCode)."
+  }
+  if ($sidecars.Count -ne 1) {
+    throw 'Reinstalled application did not start exactly one sidecar within 30 seconds.'
+  }
+  if (-not $app.CloseMainWindow() -or -not $app.WaitForExit(15000)) {
+    throw 'Reinstalled application did not close gracefully within 15 seconds.'
+  }
+  Start-Sleep -Seconds 2
+  if (@(Get-SmokeSidecars $installRoot).Count -ne 0) {
+    throw 'The packaged sidecar remained after the reinstalled desktop window closed.'
+  }
+
+  $secondUninstaller = Start-Process `
+    -FilePath (Join-Path $installRoot 'uninstall.exe') `
+    -ArgumentList '/S' `
+    -Wait `
+    -PassThru `
+    -WindowStyle Hidden
+  if ($secondUninstaller.ExitCode -ne 0) {
+    throw "NSIS uninstaller after reinstall exited with code $($secondUninstaller.ExitCode)."
+  }
+
+  $secondUninstallDeadline = [DateTime]::UtcNow.AddSeconds(30)
+  do {
+    Start-Sleep -Milliseconds 500
+    $registrationRemoved = @(Get-ProductRegistration).Count -eq 0
+    $applicationRemoved = -not (Test-Path -LiteralPath (Join-Path $installRoot $applicationExecutable))
+    $shortcutsRemoved =
+      -not (Test-Path -LiteralPath $desktopShortcut) -and
+      -not (Test-Path -LiteralPath $startMenuShortcut)
+  } while (
+    (-not $registrationRemoved -or -not $applicationRemoved -or -not $shortcutsRemoved) -and
+    [DateTime]::UtcNow -lt $secondUninstallDeadline
+  )
+
+  if (-not $registrationRemoved -or -not $applicationRemoved -or -not $shortcutsRemoved) {
+    throw 'Uninstall after reinstall did not remove registration, application files and shortcuts.'
+  }
+  if (
+    -not (Test-Path -LiteralPath $sentinel -PathType Leaf) -or
+    -not (Test-Path -LiteralPath (Join-Path $dataRoot 'crm.sqlite3') -PathType Leaf)
+  ) {
+    throw 'Uninstall after reinstall removed the preserved synthetic application data.'
+  }
+
+  Write-Output 'Installer smoke test passed: install, startup, uninstall, reinstall and data preservation.'
 } finally {
   if ($null -ne $app -and -not $app.HasExited) {
     Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue
