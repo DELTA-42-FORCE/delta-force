@@ -15,6 +15,20 @@ import {
 } from './clients/clientsApi'
 import type { ClientCursor, ClientFolder } from './clients/clientsApi'
 import { ClientsPage } from './clients/ClientsPage'
+import { CommunicationsPage } from './communications/CommunicationsPage'
+import {
+  createMessageTemplate,
+  deleteMessageTemplate,
+  listMessageTemplates,
+  listRecipientCandidates,
+  updateMessageTemplate,
+} from './communications/communicationsApi'
+import type {
+  MessageTemplate,
+  MessageTemplatePayload,
+  RecipientCandidateCursor,
+  RecipientDocumentStatus,
+} from './communications/communicationsApi'
 import { ClientDocumentsPanel } from './documents/ClientDocumentsPanel'
 import {
   attachClientDocument,
@@ -48,7 +62,7 @@ function Root() {
   } = useAuth()
   const [logoutNotice, setLogoutNotice] = useState<string | null>(null)
   const [activeView, setActiveView] = useState<
-    'overview' | 'audit' | 'clients' | 'imports'
+    'overview' | 'audit' | 'clients' | 'imports' | 'communications'
   >('overview')
   const [documentsFolder, setDocumentsFolder] = useState<ClientFolder | null>(
     null,
@@ -174,8 +188,44 @@ function Root() {
     [authenticatedRequest],
   )
 
+  const loadTemplates = useCallback(
+    () => listMessageTemplates(authenticatedGet),
+    [authenticatedGet],
+  )
+
+  const createTemplate = useCallback(
+    (payload: MessageTemplatePayload) =>
+      createMessageTemplate(authenticatedRequest, payload),
+    [authenticatedRequest],
+  )
+
+  const updateTemplate = useCallback(
+    (template: MessageTemplate, payload: MessageTemplatePayload) =>
+      updateMessageTemplate(authenticatedRequest, template.id, payload),
+    [authenticatedRequest],
+  )
+
+  const deleteTemplate = useCallback(
+    (template: MessageTemplate) =>
+      deleteMessageTemplate(authenticatedRequest, template.id),
+    [authenticatedRequest],
+  )
+
+  const loadCandidates = useCallback(
+    (
+      documentStatus: RecipientDocumentStatus,
+      cursor: RecipientCandidateCursor | null,
+    ) =>
+      listRecipientCandidates(authenticatedGet, {
+        status: documentStatus,
+        limit: 20,
+        cursor,
+      }),
+    [authenticatedGet],
+  )
+
   const goTo = useCallback(
-    (view: 'overview' | 'audit' | 'clients' | 'imports') => {
+    (view: 'overview' | 'audit' | 'clients' | 'imports' | 'communications') => {
       // Trocar de seção fecha a pasta aberta: os documentos pertencem ao cliente
       // que estava em tela, não à navegação seguinte.
       setDocumentsFolder(null)
@@ -293,8 +343,19 @@ function Root() {
               <span aria-hidden="true">▤</span> Documentos{' '}
               <small>na pasta do cliente</small>
             </li>
-            <li className="workspace-nav__item">
-              <span aria-hidden="true">✉</span> E-mails <small>em breve</small>
+            <li>
+              <button
+                className={`workspace-nav__item${activeView === 'communications' ? ' workspace-nav__item--active' : ''}`}
+                type="button"
+                aria-current={
+                  activeView === 'communications' ? 'page' : undefined
+                }
+                onClick={() => goTo('communications')}
+              >
+                <span aria-hidden="true">✉</span>
+                <span>E-mails</span>
+                <small>preparação</small>
+              </button>
             </li>
           </ul>
         </nav>
@@ -342,6 +403,15 @@ function Root() {
               runImport={runImport}
               onBack={() => setActiveView('overview')}
               pickFolder={isTauriRuntime() ? pickImportFolder : undefined}
+            />
+          ) : activeView === 'communications' ? (
+            <CommunicationsPage
+              loadTemplates={loadTemplates}
+              createTemplate={createTemplate}
+              updateTemplate={updateTemplate}
+              deleteTemplate={deleteTemplate}
+              loadCandidates={loadCandidates}
+              onBack={() => setActiveView('overview')}
             />
           ) : activeView === 'clients' && documentsFolder !== null ? (
             <ClientDocumentsPanel
@@ -403,7 +473,7 @@ function Root() {
                     <p className="eyebrow">Construção do MVP</p>
                     <h2 id="modules-title">Próximos módulos</h2>
                   </div>
-                  <span>3 de 4 disponíveis</span>
+                  <span>3 completos · 1 em preparação</span>
                 </div>
                 <div className="module-grid">
                   {[
@@ -428,12 +498,12 @@ function Root() {
                     [
                       '04',
                       'Comunicação',
-                      'Modelos e histórico de e-mails.',
-                      'Planejado',
+                      'Modelos e triagem; envio aguarda remetente.',
+                      'Preparação disponível',
                     ],
                   ].map(([number, title, description, state], index) => (
                     <article
-                      className={`module-card${index <= 2 ? ' module-card--ready' : ''}`}
+                      className={`module-card${index <= 3 ? ' module-card--ready' : ''}`}
                       key={number}
                     >
                       <span className="module-card__number">{number}</span>

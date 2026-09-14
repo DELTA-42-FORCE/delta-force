@@ -288,6 +288,45 @@ describe('owner authentication flow', () => {
     ).toBeVisible()
   })
 
+  it('opens email preparation with authenticated template and triage requests', async () => {
+    const user = await signIn()
+    await waitFor(() => expect(fetch).toHaveBeenCalledOnce())
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input)
+      const body = url.endsWith('/message-templates')
+        ? []
+        : { items: [], next_cursor: null }
+      return {
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(body),
+      } as Response
+    })
+
+    await user.click(screen.getByRole('button', { name: /^E-mails/ }))
+
+    expect(
+      await screen.findByRole('heading', { name: 'Preparação de e-mails' }),
+    ).toBeVisible()
+    expect(screen.getByText('Envio desativado')).toBeVisible()
+    expect(
+      screen.queryByRole('button', { name: /enviar/i }),
+    ).not.toBeInTheDocument()
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(3))
+    expect(fetch).toHaveBeenCalledWith(
+      'http://localhost:8000/message-templates',
+      expect.objectContaining({
+        headers: { Authorization: 'Bearer raw-secret-token' },
+      }),
+    )
+    expect(fetch).toHaveBeenCalledWith(
+      'http://localhost:8000/email-recipient-candidates?status=pending&limit=20',
+      expect.objectContaining({
+        headers: { Authorization: 'Bearer raw-secret-token' },
+      }),
+    )
+  })
+
   it('clears an already invalid session after logout returns 401', async () => {
     vi.spyOn(authApi, 'logout').mockRejectedValue(
       new ApiError(401, 'invalid or expired session'),
