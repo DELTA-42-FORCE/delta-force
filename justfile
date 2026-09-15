@@ -127,6 +127,9 @@ desktop-build:
     just desktop-sidecar
     npm --prefix apps/desktop run build
 
+desktop-installer-smoke:
+    powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File apps/desktop/scripts/test-installer.ps1
+
 desktop-format-check:
     cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --check
 

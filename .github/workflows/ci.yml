@@ -119,3 +119,4 @@ jobs:
       - run: just desktop-format-check
       - run: just desktop-test
       - run: just desktop-build
+      - run: just desktop-installer-smoke
