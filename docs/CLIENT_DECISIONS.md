@@ -50,6 +50,9 @@ cliente prevalece sobre uma hipótese anterior.
 
 - O backup será feito em **HD externo** e a restauração após perda/troca de
   computador deverá ocorrer a partir dele.
+- A proteção do backup poderá usar uma **senha digitada pelo proprietário**. A
+  aplicação não deve persistir essa senha no computador, no próprio backup, em
+  logs ou no repositório.
 - Dados e documentos devem ser guardados, sem prazo de descarte definido.
   Isso não elimina a necessidade de proteger backup, documentar restauração e
   atender eventual solicitação legítima do titular.
@@ -85,5 +88,5 @@ até a homologação do evento que libera o parcelamento.
 
 A ADR 0002 e a issue #57 já definiram e implementaram o shell/empacotamento
 Windows, o diretório privado, a primeira execução e a estratégia de atualização
-manual. A criptografia e a recuperação do backup, e o provedor de e-mail seguem
-pendentes.
+manual. O formato criptográfico, a custódia/recuperação da senha do backup e o
+provedor de e-mail seguem pendentes.
