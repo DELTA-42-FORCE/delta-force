@@ -3,20 +3,22 @@
 Este arquivo permite retomar o trabalho sem depender do histórico de uma
 conversa. Antes de agir, leia `AGENTS.md` e confirme o estado atual no GitHub;
 os dados abaixo são um retrato de **14 de setembro de 2026, após a integração da
-PR #84**.
+PR #87**.
 
 ## Estado confirmado
 
-- `origin/develop` estava em `aa35073`, após o merge da PR #84.
+- `origin/develop` estava em `a972a38`, após o merge da PR #87.
 - Acesso local, clientes, documentos PDF/JPEG, status documental, ficha PDF,
   importação assistida, auditoria, modelos de mensagem e triagem estão
   integrados.
 - O E2E da preparação de comunicação, o texto de progresso do painel e a
   inicialização do SQLite no aplicativo Windows instalado também estão
   integrados.
-- Além da atualização deste handoff, não havia outra PR aberta. O envio real de
-  e-mail, backup/restauração e o aceite completo do MVP em uma instalação
-  Windows limpa ainda não estão concluídos.
+- As GitHub Actions obrigatórias usam versões com runtime Node 24; o Node 22 da
+  aplicação permanece inalterado.
+- O envio real de e-mail, backup/restauração e o aceite completo do MVP em uma
+  instalação Windows limpa ainda não estão concluídos. Confirme no GitHub as
+  PRs abertas antes de iniciar ou integrar qualquer trabalho.
 - Use somente dados sintéticos. Não copie banco, documento, senha, token ou
   `.env` de cliente para branch, PR, issue ou log.
 
@@ -30,6 +32,8 @@ PR #84**.
 - **#83:** inclusão do driver SQLite no sidecar instalado e smoke test cauteloso
   do instalador Windows.
 - **#84:** consulta autenticada de modelo por ID e cobertura HTTP do ciclo CRUD.
+- **#87:** atualização das GitHub Actions para runtime Node 24, preservando
+  versões, caches, permissões e comandos da aplicação.
 
 ## Bloqueios que não devem ser inventados
 
@@ -49,13 +53,18 @@ PR #84**.
 - **#26:** depende das decisões operacionais restantes e da entrega #44.
 - **#27:** permanece aberta até envio/histórico, backup/restauração e aceite em
   instalação Windows limpa.
+- **#88:** está pronta para desenvolvimento e deve tornar falhas de inicialização
+  do aplicativo Windows diagnosticáveis sem persistir segredos ou dados do
+  cliente. As falhas intermitentes observadas nas PRs #85/#87 passaram no
+  rerun, mas o código 101 isolado não informa sua causa.
 
 ## Próxima sequência segura
 
-1. Obter do cliente/time as decisões de #44 e #46.
-2. Implementar #25 somente após #46 e implementar #44 somente após definir o
+1. Implementar #88 e validar novamente o smoke test do instalador Windows.
+2. Obter do cliente/time as decisões de #24, #44 e #46.
+3. Implementar #25 somente após #46 e implementar #44 somente após definir o
    formato criptográfico e a recuperação da senha.
-3. Completar #26 e executar o aceite final de #27 em Windows limpo.
+4. Completar #26 e executar o aceite final de #27 em Windows limpo.
 
 ### Informações necessárias para destravar #46
 
