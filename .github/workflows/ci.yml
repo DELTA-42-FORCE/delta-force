@@ -16,8 +16,8 @@ jobs:
     name: Workspace integrity
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: extractions/setup-just@v2
+      - uses: actions/checkout@v7
+      - uses: extractions/setup-just@v4
       - name: Validate repository and local infrastructure definition
         run: just workspace-check
 
@@ -25,12 +25,12 @@ jobs:
     name: API — format and lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.1.0
         with:
           enable-cache: true
           cache-dependency-glob: apps/api/uv.lock
-      - uses: extractions/setup-just@v2
+      - uses: extractions/setup-just@v4
       - run: just api-install
       - run: just api-format-check
       - run: just api-lint
@@ -39,12 +39,12 @@ jobs:
     name: API — unit tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.1.0
         with:
           enable-cache: true
           cache-dependency-glob: apps/api/uv.lock
-      - uses: extractions/setup-just@v2
+      - uses: extractions/setup-just@v4
       - run: just api-install
       - run: just api-test
 
@@ -52,12 +52,12 @@ jobs:
     name: API — SQLite integration (obrigatório)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.1.0
         with:
           enable-cache: true
           cache-dependency-glob: apps/api/uv.lock
-      - uses: extractions/setup-just@v2
+      - uses: extractions/setup-just@v4
       - run: just api-install
       - run: just api-test-integration-sqlite
 
@@ -65,12 +65,12 @@ jobs:
     name: API — PostgreSQL integration (legado, ADR 0003)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.1.0
         with:
           enable-cache: true
           cache-dependency-glob: apps/api/uv.lock
-      - uses: extractions/setup-just@v2
+      - uses: extractions/setup-just@v4
       - name: Create local integration environment
         run: cp .env.example .env
       - run: just api-install
@@ -83,13 +83,13 @@ jobs:
     name: Web — format, lint, types and tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
-      - uses: extractions/setup-just@v2
+      - uses: extractions/setup-just@v4
       - run: just web-install
       - run: just web-check
 
@@ -97,12 +97,12 @@ jobs:
     name: Desktop Windows — sidecar and installer
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.1.0
         with:
           enable-cache: true
           cache-dependency-glob: apps/api/uv.lock
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -112,7 +112,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
-      - uses: extractions/setup-just@v2
+      - uses: extractions/setup-just@v4
       - run: just api-install
       - run: just web-install
       - run: just desktop-install
