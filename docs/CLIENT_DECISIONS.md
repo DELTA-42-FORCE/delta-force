@@ -90,3 +90,38 @@ A ADR 0002 e a issue #57 já definiram e implementaram o shell/empacotamento
 Windows, o diretório privado, a primeira execução e a estratégia de atualização
 manual. O formato criptográfico, a custódia/recuperação da senha do backup e o
 provedor de e-mail seguem pendentes.
+
+## Perguntas em aberto aguardando o cliente
+
+Enviadas ao cliente em 15/09/2026; **aguardando resposta**. Enquanto não forem
+respondidas, as issues abaixo permanecem bloqueadas. Nenhuma senha, credencial
+ou segredo deve ser registrado aqui — apenas as decisões escolhidas.
+
+### E-mail da mala direta (issue #46 — bloqueia #25)
+
+1. Endereço e nome de exibição do remetente.
+2. Forma de envio — proposta: usar o e-mail já contratado por SMTP; alternativa:
+   contratar um serviço de envio por API.
+3. Onde a credencial do e-mail fica guardada — proposta: arquivo protegido só na
+   máquina, fora do sistema e do backup; alternativa: gerenciador de senhas do
+   proprietário.
+4. Limite de destinatários por lote — proposta: 50 por vez; alternativa: outro
+   número informado pelo cliente.
+5. Comportamento em falha parcial — proposta: registrar quem falhou e reenviar
+   só para esses, sem duplicar; alternativa: reenviar a lista inteira.
+
+### Backup e restauração por HD externo (issue #44)
+
+Já confirmado: o backup poderá usar uma senha digitada pelo proprietário.
+
+1. Onde guardar a senha/chave de recuperação, fora do computador e do HD de
+   backup — proposta: local físico seguro (cofre/papel) sob responsabilidade do
+   proprietário; alternativa: gerenciador de senhas do proprietário.
+2. Quem pode restaurar o backup em um computador substituto — proposta: apenas o
+   proprietário; alternativa: proprietário mais uma pessoa de confiança indicada.
+3. Procedimento em caso de perda da senha/chave — proposta: aceitar o backup como
+   irrecuperável e recomeçar; alternativa: manter uma segunda cópia da senha em
+   outro local seguro.
+
+O formato criptográfico do backup (ex.: AES-256) é decisão técnica do time e não
+depende dessas respostas.
