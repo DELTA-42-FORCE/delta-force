@@ -438,8 +438,8 @@ function Root() {
                   <p className="eyebrow">Visão geral</p>
                   <h1>Bem-vindo, {user.full_name}</h1>
                   <p>
-                    Seu acesso está funcionando. A próxima etapa adicionará o
-                    cadastro e a organização de clientes.
+                    Clientes, documentos e modelos já estão disponíveis. O envio
+                    de e-mails aguarda a configuração segura do remetente.
                   </p>
                 </div>
                 <span className="status-pill">
