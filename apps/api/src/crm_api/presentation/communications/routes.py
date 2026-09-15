@@ -11,6 +11,7 @@ from crm_api.application.communications.list_recipient_candidates import (
 from crm_api.application.communications.templates import (
     CreateMessageTemplateUseCase,
     DeleteMessageTemplateUseCase,
+    GetMessageTemplateUseCase,
     ListMessageTemplatesUseCase,
     UpdateMessageTemplateUseCase,
 )
@@ -24,6 +25,7 @@ from crm_api.presentation.auth.dependencies import CurrentUser
 from crm_api.presentation.communications.dependencies import (
     get_create_message_template_use_case,
     get_delete_message_template_use_case,
+    get_get_message_template_use_case,
     get_list_message_templates_use_case,
     get_list_recipient_candidates_use_case,
     get_update_message_template_use_case,
@@ -85,6 +87,25 @@ async def list_message_templates(
 ) -> list[MessageTemplateResponse]:
     del current_user
     return [_to_response(item) for item in await use_case.execute()]
+
+
+@router.get("/message-templates/{template_id}", response_model=MessageTemplateResponse)
+async def get_message_template(
+    template_id: UUID,
+    current_user: CurrentUser,
+    use_case: Annotated[
+        GetMessageTemplateUseCase,
+        Depends(get_get_message_template_use_case),
+    ],
+) -> MessageTemplateResponse:
+    del current_user
+    try:
+        template = await use_case.execute(template_id=template_id)
+    except MessageTemplateNotFoundError:
+        raise HTTPException(
+            status_code=404, detail="message template not found"
+        ) from None
+    return _to_response(template)
 
 
 @router.put("/message-templates/{template_id}", response_model=MessageTemplateResponse)

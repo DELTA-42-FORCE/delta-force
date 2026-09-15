@@ -79,6 +79,17 @@ class ListMessageTemplatesUseCase:
 
 
 @dataclass(frozen=True, slots=True)
+class GetMessageTemplateUseCase:
+    repository: CommunicationRepository
+
+    async def execute(self, *, template_id: UUID) -> MessageTemplate:
+        template = await self.repository.get_template(id=template_id)
+        if template is None:
+            raise MessageTemplateNotFoundError
+        return template
+
+
+@dataclass(frozen=True, slots=True)
 class UpdateMessageTemplateUseCase:
     repository: CommunicationRepository
     audit: RecordAuditEventUseCase

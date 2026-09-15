@@ -7,6 +7,7 @@ from crm_api.application.communications.list_recipient_candidates import (
 from crm_api.application.communications.templates import (
     CreateMessageTemplateUseCase,
     DeleteMessageTemplateUseCase,
+    GetMessageTemplateUseCase,
     ListMessageTemplatesUseCase,
     UpdateMessageTemplateUseCase,
 )
@@ -36,6 +37,12 @@ def get_list_message_templates_use_case(
     session: DatabaseSession,
 ) -> ListMessageTemplatesUseCase:
     return ListMessageTemplatesUseCase(repository=_repository(session))
+
+
+def get_get_message_template_use_case(
+    session: DatabaseSession,
+) -> GetMessageTemplateUseCase:
+    return GetMessageTemplateUseCase(repository=_repository(session))
 
 
 def get_update_message_template_use_case(

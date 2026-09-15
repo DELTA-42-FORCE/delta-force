@@ -14,6 +14,8 @@ from crm_api.application.communications.list_recipient_candidates import (
 from crm_api.application.communications.templates import (
     CreateMessageTemplateUseCase,
     DeleteMessageTemplateUseCase,
+    GetMessageTemplateUseCase,
+    ListMessageTemplatesUseCase,
     UpdateMessageTemplateUseCase,
 )
 from crm_api.domain.audit.entities import AuditEvent
@@ -362,10 +364,154 @@ def test_candidate_http_cursor_reaches_items_after_the_first_hundred() -> None:
     assert all(event.context == {} for event in events.events)
 
 
+async def test_get_missing_template_raises_not_found() -> None:
+    repository, _events, _transaction = _dependencies()
+    use_case = GetMessageTemplateUseCase(
+        repository=repository,  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(MessageTemplateNotFoundError):
+        await use_case.execute(template_id=uuid4())
+
+
+def _wire_template_routes(
+    repository: _Repository,
+    events: _AuditRepository,
+    transaction: _Transaction,
+) -> None:
+    audit = RecordAuditEventUseCase(events=events)  # type: ignore[arg-type]
+    overrides = {
+        auth_dependencies.get_current_user: lambda: OWNER,
+        communication_dependencies.get_create_message_template_use_case: (
+            lambda: CreateMessageTemplateUseCase(
+                repository=repository,  # type: ignore[arg-type]
+                audit=audit,
+                transaction=transaction,
+            )
+        ),
+        communication_dependencies.get_get_message_template_use_case: (
+            lambda: GetMessageTemplateUseCase(
+                repository=repository,  # type: ignore[arg-type]
+            )
+        ),
+        communication_dependencies.get_list_message_templates_use_case: (
+            lambda: ListMessageTemplatesUseCase(
+                repository=repository,  # type: ignore[arg-type]
+            )
+        ),
+        communication_dependencies.get_update_message_template_use_case: (
+            lambda: UpdateMessageTemplateUseCase(
+                repository=repository,  # type: ignore[arg-type]
+                audit=audit,
+                transaction=transaction,
+            )
+        ),
+        communication_dependencies.get_delete_message_template_use_case: (
+            lambda: DeleteMessageTemplateUseCase(
+                repository=repository,  # type: ignore[arg-type]
+                audit=audit,
+                transaction=transaction,
+            )
+        ),
+    }
+    app.dependency_overrides.update(overrides)
+
+
+def test_template_crud_lifecycle_over_http() -> None:
+    repository, events, transaction = _dependencies()
+    _wire_template_routes(repository, events, transaction)
+    try:
+        with TestClient(app) as client:
+            created = client.post(
+                "/message-templates",
+                json={
+                    "name": "Pendência",
+                    "subject": "Documentos pendentes",
+                    "body": "Entre em contato conosco.",
+                },
+            )
+            assert created.status_code == 201
+            template_id = created.json()["id"]
+
+            fetched = client.get(f"/message-templates/{template_id}")
+            assert fetched.status_code == 200
+            assert fetched.json() == created.json()
+
+            listing = client.get("/message-templates")
+            assert listing.status_code == 200
+            assert [item["id"] for item in listing.json()] == [template_id]
+
+            updated = client.put(
+                f"/message-templates/{template_id}",
+                json={
+                    "name": "Incompleto",
+                    "subject": "Documento incompleto",
+                    "body": "Favor reenviar.",
+                },
+            )
+            assert updated.status_code == 200
+            assert updated.json()["name"] == "Incompleto"
+
+            refetched = client.get(f"/message-templates/{template_id}")
+            assert refetched.status_code == 200
+            assert refetched.json()["subject"] == "Documento incompleto"
+
+            deleted = client.delete(f"/message-templates/{template_id}")
+            assert deleted.status_code == 204
+            assert deleted.content == b""
+
+            gone = client.get(f"/message-templates/{template_id}")
+            assert gone.status_code == 404
+    finally:
+        app.dependency_overrides.clear()
+
+    assert transaction.commits == 3
+    assert [event.action.value for event in events.events] == [
+        "message_template.created",
+        "message_template.updated",
+        "message_template.deleted",
+    ]
+
+
+def test_template_http_mutations_reject_invalid_and_missing() -> None:
+    repository, events, transaction = _dependencies()
+    _wire_template_routes(repository, events, transaction)
+    missing_id = uuid4()
+    try:
+        with TestClient(app) as client:
+            invalid = client.post(
+                "/message-templates",
+                json={"name": "   ", "subject": "Assunto", "body": "Mensagem"},
+            )
+            assert invalid.status_code == 422
+
+            missing_get = client.get(f"/message-templates/{missing_id}")
+            assert missing_get.status_code == 404
+
+            missing_update = client.put(
+                f"/message-templates/{missing_id}",
+                json={
+                    "name": "Nome",
+                    "subject": "Assunto",
+                    "body": "Mensagem",
+                },
+            )
+            assert missing_update.status_code == 404
+
+            missing_delete = client.delete(f"/message-templates/{missing_id}")
+            assert missing_delete.status_code == 404
+    finally:
+        app.dependency_overrides.clear()
+
+    assert repository.templates == {}
+    assert events.events == []
+    assert transaction.commits == 0
+
+
 def test_every_communication_route_requires_the_authenticated_owner() -> None:
     routes = list(communications_router.routes)
 
-    assert len(routes) == 5
+    assert len(routes) == 6
     for route in routes:
         dependants = route.dependant.dependencies  # type: ignore[attr-defined]
         dependency_names = {
