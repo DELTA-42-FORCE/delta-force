@@ -11,6 +11,8 @@ $applicationExecutable = 'delta-force-desktop.exe'
 $sidecarExecutable = 'api-sidecar/delta-force-api/delta-force-api.exe'
 $uninstallRegistryRoot = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall'
 $desktopRoot = Split-Path -Parent $PSScriptRoot
+$diagnosticsEnvironmentVariable = 'DELTA_FORCE_DESKTOP_DIAGNOSTICS'
+$diagnosticsMaximumCharacters = 4096
 
 function Get-ProductRegistration {
   @(
@@ -31,6 +33,97 @@ function Get-SmokeSidecars([string]$InstallRoot) {
         }
       }
   )
+}
+
+function Start-DiagnosticApplication(
+  [string]$Executable,
+  [string]$StandardOutputPath,
+  [string]$StandardErrorPath
+) {
+  $previousDiagnostics = [Environment]::GetEnvironmentVariable(
+    $diagnosticsEnvironmentVariable,
+    [EnvironmentVariableTarget]::Process
+  )
+  try {
+    [Environment]::SetEnvironmentVariable(
+      $diagnosticsEnvironmentVariable,
+      '1',
+      [EnvironmentVariableTarget]::Process
+    )
+    Start-Process `
+      -FilePath $Executable `
+      -PassThru `
+      -WindowStyle Hidden `
+      -RedirectStandardOutput $StandardOutputPath `
+      -RedirectStandardError $StandardErrorPath
+  } finally {
+    [Environment]::SetEnvironmentVariable(
+      $diagnosticsEnvironmentVariable,
+      $previousDiagnostics,
+      [EnvironmentVariableTarget]::Process
+    )
+  }
+}
+
+function Get-SanitizedDiagnostics(
+  [string[]]$Paths,
+  [string[]]$SensitivePaths
+) {
+  $chunks = @(
+    foreach ($path in $Paths) {
+      if (Test-Path -LiteralPath $path -PathType Leaf) {
+        $content = [IO.File]::ReadAllText($path)
+        if (-not [string]::IsNullOrWhiteSpace($content)) {
+          $content
+        }
+      }
+    }
+  )
+  if ($chunks.Count -eq 0) {
+    return ''
+  }
+
+  $diagnostics = $chunks -join [Environment]::NewLine
+  foreach ($sensitivePath in $SensitivePaths) {
+    if (-not [string]::IsNullOrWhiteSpace($sensitivePath)) {
+      $diagnostics = [regex]::Replace(
+        $diagnostics,
+        [regex]::Escape($sensitivePath),
+        '<redacted-path>',
+        [Text.RegularExpressions.RegexOptions]::IgnoreCase
+      )
+    }
+  }
+
+  $sanitizedLines = @(
+    foreach ($line in ($diagnostics -split "`r?`n")) {
+      if ($line -match '(?i)secret|capability|authorization|bearer|token|password') {
+        '[redacted sensitive diagnostic line]'
+      } else {
+        $line
+      }
+    }
+  )
+  $sanitized = ($sanitizedLines -join [Environment]::NewLine).Trim()
+  if ($sanitized.Length -gt $diagnosticsMaximumCharacters) {
+    $start = $sanitized.Length - $diagnosticsMaximumCharacters
+    $sanitized = "[diagnostics truncated]`n" + $sanitized.Substring($start)
+  }
+  $sanitized
+}
+
+function Format-PrematureExitMessage(
+  [string]$Phase,
+  [int]$ExitCode,
+  [string[]]$DiagnosticPaths,
+  [string[]]$SensitivePaths
+) {
+  $message = "$Phase application exited before readiness with code $ExitCode."
+  $diagnostics = Get-SanitizedDiagnostics $DiagnosticPaths $SensitivePaths
+  if (-not [string]::IsNullOrWhiteSpace($diagnostics)) {
+    $message += "`nSanitized temporary diagnostics:`n$diagnostics"
+  }
+  $message
 }
 
 if ($env:OS -ne 'Windows_NT') {
@@ -54,6 +147,18 @@ $temporaryBase = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { [IO.Path]::Ge
 $temporaryBase = [IO.Path]::GetFullPath($temporaryBase)
 $smokeRoot = Join-Path $temporaryBase ("delta-force-installer-smoke-" + [guid]::NewGuid().ToString('N'))
 $installRoot = Join-Path $smokeRoot 'app'
+$initialStandardOutput = Join-Path $smokeRoot 'initial-stdout.log'
+$initialStandardError = Join-Path $smokeRoot 'initial-stderr.log'
+$reinstallStandardOutput = Join-Path $smokeRoot 'reinstall-stdout.log'
+$reinstallStandardError = Join-Path $smokeRoot 'reinstall-stderr.log'
+$sensitiveDiagnosticPaths = @(
+  $env:GITHUB_WORKSPACE,
+  $env:RUNNER_TEMP,
+  $env:USERPROFILE,
+  $dataRoot,
+  $installRoot,
+  $smokeRoot
+)
 $app = $null
 
 if (@(Get-ProductRegistration).Count -ne 0) {
@@ -103,10 +208,10 @@ try {
     throw 'The Start Menu shortcut was not created.'
   }
 
-  $app = Start-Process `
-    -FilePath (Join-Path $installRoot $applicationExecutable) `
-    -PassThru `
-    -WindowStyle Hidden
+  $app = Start-DiagnosticApplication `
+    (Join-Path $installRoot $applicationExecutable) `
+    $initialStandardOutput `
+    $initialStandardError
   $readyDeadline = [DateTime]::UtcNow.AddSeconds(30)
   do {
     Start-Sleep -Milliseconds 500
@@ -120,7 +225,11 @@ try {
   )
 
   if ($app.HasExited) {
-    throw "Installed application exited before readiness with code $($app.ExitCode)."
+    throw (Format-PrematureExitMessage `
+      'Installed' `
+      $app.ExitCode `
+      @($initialStandardOutput, $initialStandardError) `
+      $sensitiveDiagnosticPaths)
   }
   if (-not $databaseReady -or $sidecars.Count -ne 1) {
     throw 'Installed application did not create its database and one sidecar within 30 seconds.'
@@ -198,10 +307,10 @@ try {
     throw 'Reinstall did not preserve the synthetic application data sentinel.'
   }
 
-  $app = Start-Process `
-    -FilePath (Join-Path $installRoot $applicationExecutable) `
-    -PassThru `
-    -WindowStyle Hidden
+  $app = Start-DiagnosticApplication `
+    (Join-Path $installRoot $applicationExecutable) `
+    $reinstallStandardOutput `
+    $reinstallStandardError
   $reinstallReadyDeadline = [DateTime]::UtcNow.AddSeconds(30)
   do {
     Start-Sleep -Milliseconds 500
@@ -214,7 +323,11 @@ try {
   )
 
   if ($app.HasExited) {
-    throw "Reinstalled application exited before readiness with code $($app.ExitCode)."
+    throw (Format-PrematureExitMessage `
+      'Reinstalled' `
+      $app.ExitCode `
+      @($reinstallStandardOutput, $reinstallStandardError) `
+      $sensitiveDiagnosticPaths)
   }
   if ($sidecars.Count -ne 1) {
     throw 'Reinstalled application did not start exactly one sidecar within 30 seconds.'

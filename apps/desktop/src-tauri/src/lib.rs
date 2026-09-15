@@ -1,4 +1,5 @@
 use std::{
+    ffi::OsStr,
     fs,
     io::{BufRead, BufReader, Write},
     path::{Path, PathBuf},
@@ -17,6 +18,7 @@ const PRODUCTION_ORIGIN: &str = "http://tauri.localhost";
 const DEVELOPMENT_ORIGIN: &str = "http://127.0.0.1:5173";
 const SIDECAR_READY_TIMEOUT: Duration = Duration::from_secs(10);
 const SIDECAR_GRACEFUL_STOP_TIMEOUT: Duration = Duration::from_secs(5);
+const DESKTOP_DIAGNOSTICS_ENV: &str = "DELTA_FORCE_DESKTOP_DIAGNOSTICS";
 
 #[derive(Debug, Error)]
 enum DesktopError {
@@ -137,12 +139,17 @@ impl DesktopRuntime {
         let sidecar_path = sidecar_path(app)?;
         let secret = Zeroizing::new(generate_secret()?);
 
+        let sidecar_stderr = if desktop_diagnostics_enabled() {
+            Stdio::inherit()
+        } else {
+            Stdio::null()
+        };
         let mut child = Command::new(sidecar_path)
             .env("DELTA_FORCE_DATA_DIR", data_directory)
             .env("DELTA_FORCE_DESKTOP_ORIGIN", origin)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null())
+            .stderr(sidecar_stderr)
             .spawn()
             .map_err(|_| DesktopError::SidecarStart)?;
 
@@ -210,6 +217,14 @@ impl DesktopRuntime {
         *delivered = true;
         Ok(self.connection.clone())
     }
+}
+
+fn diagnostics_value_enabled(value: Option<&OsStr>) -> bool {
+    value == Some(OsStr::new("1"))
+}
+
+fn desktop_diagnostics_enabled() -> bool {
+    diagnostics_value_enabled(std::env::var_os(DESKTOP_DIAGNOSTICS_ENV).as_deref())
 }
 
 fn prepare_open_cache_directory(data_directory: &Path) -> Result<PathBuf, DesktopError> {
@@ -476,8 +491,14 @@ pub fn run() {
     }
     builder
         .setup(|app| {
-            let runtime =
-                DesktopRuntime::start(app.handle()).map_err(|_| DesktopError::SidecarStart)?;
+            let runtime = DesktopRuntime::start(app.handle()).map_err(|error| {
+                if desktop_diagnostics_enabled() {
+                    // As categorias de DesktopError são estáticas e não contêm
+                    // segredo, capability, caminho ou dado do cliente.
+                    eprintln!("desktop startup failed: {error}");
+                }
+                error
+            })?;
             app.manage(runtime);
             Ok(())
         })
@@ -489,6 +510,38 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![desktop_connection, open_document])
         .run(tauri::generate_context!())
         .expect("failed to run Delta Force CRM desktop shell");
+}
+
+#[cfg(test)]
+mod diagnostics_tests {
+    use std::ffi::OsStr;
+
+    use super::{diagnostics_value_enabled, DesktopError};
+
+    #[test]
+    fn diagnostics_require_the_explicit_enabled_value() {
+        assert!(diagnostics_value_enabled(Some(OsStr::new("1"))));
+        assert!(!diagnostics_value_enabled(None));
+        assert!(!diagnostics_value_enabled(Some(OsStr::new("0"))));
+        assert!(!diagnostics_value_enabled(Some(OsStr::new("true"))));
+    }
+
+    #[test]
+    fn startup_error_categories_remain_distinct_and_sanitized() {
+        let categories = [
+            DesktopError::SidecarStart.to_string(),
+            DesktopError::SidecarNotReady.to_string(),
+            DesktopError::BootstrapDenied.to_string(),
+            DesktopError::ResourcesUnavailable.to_string(),
+        ];
+
+        assert_eq!(categories.len(), 4);
+        for (index, category) in categories.iter().enumerate() {
+            assert!(!category.is_empty());
+            assert!(!category.contains('/') && !category.contains('\\'));
+            assert!(!categories[index + 1..].contains(category));
+        }
+    }
 }
 
 #[cfg(windows)]

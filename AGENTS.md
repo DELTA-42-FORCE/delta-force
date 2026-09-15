@@ -78,6 +78,10 @@ quando uma issue justificar seu uso e os lockfiles correspondentes devem ser atu
   `icons/icon.ico`: o `tauri-build` no Windows exige esse ícone. Se ele for
   alterado, regenere os formatos pelo comando oficial `tauri icon`; não use
   imagens ou dados reais.
+- `DELTA_FORCE_DESKTOP_DIAGNOSTICS=1` é reservado ao smoke test do instalador.
+  Não o habilite na execução normal. Qualquer saída de diagnóstico publicada
+  pelo CI deve ser temporária, limitada, sanitizada e removida na limpeza, sem
+  segredo, capability, caminho pessoal ou dado de cliente.
 
 Não há atualização automática de dependências por pull request. Execute `just audit` periodicamente ou antes de uma atualização: ele falha em vulnerabilidades de código/dependências e lista versões novas apenas para decisão explícita do time.
 
