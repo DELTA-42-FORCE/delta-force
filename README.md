@@ -16,7 +16,8 @@ Monorepo do CRM interno de gestão de clientes da Delta Force.
 Gestão de múltiplos usuários, PagBank, financeiro e emissão fiscal estão fora
 do MVP inicial. Consulte as [decisões do cliente](docs/CLIENT_DECISIONS.md),
 [o plano do MVP](docs/MVP_PLAN.md), [o guia do projeto](docs/PROJECT_GUIDE.md)
-e [o backlog](docs/BACKLOG.md).
+e [o backlog](docs/BACKLOG.md). Para retomar uma entrega em andamento, comece
+pelo [guia de continuação](docs/CONTINUATION.md).
 
 ## Estrutura
 
