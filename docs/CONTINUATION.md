@@ -2,12 +2,12 @@
 
 Este arquivo permite retomar o trabalho sem depender do histórico de uma
 conversa. Antes de agir, leia `AGENTS.md` e confirme o estado atual no GitHub;
-os dados abaixo são um retrato de **14 de setembro de 2026, após a integração da
-PR #87**.
+os dados abaixo são um retrato de **17 de setembro de 2026, após a integração da
+PR #92**.
 
 ## Estado confirmado
 
-- `origin/develop` estava em `a972a38`, após o merge da PR #87.
+- `origin/develop` estava em `923a6aa`, após o merge da PR #92.
 - Acesso local, clientes, documentos PDF/JPEG, status documental, ficha PDF,
   importação assistida, auditoria, modelos de mensagem e triagem estão
   integrados.
@@ -16,6 +16,9 @@ PR #87**.
   integrados.
 - As GitHub Actions obrigatórias usam versões com runtime Node 24; o Node 22 da
   aplicação permanece inalterado.
+- As falhas de inicialização do aplicativo instalado agora produzem diagnóstico
+  sanitizado, e a PR #92 reforça upload/download de documentos, auditoria da
+  importação, limites técnicos e auditoria de dependências.
 - O envio real de e-mail, backup/restauração e o aceite completo do MVP em uma
   instalação Windows limpa ainda não estão concluídos. Confirme no GitHub as
   PRs abertas antes de iniciar ou integrar qualquer trabalho.
@@ -34,6 +37,15 @@ PR #87**.
 - **#84:** consulta autenticada de modelo por ID e cobertura HTTP do ciclo CRUD.
 - **#87:** atualização das GitHub Actions para runtime Node 24, preservando
   versões, caches, permissões e comandos da aplicação.
+- **#89:** diagnóstico sanitizado para falhas de inicialização do desktop
+  empacotado; nenhum segredo, dado pessoal ou caminho privado é persistido.
+- **#90:** registro das confirmações do cliente sobre parcelamento futuro, sem
+  ampliar o MVP atual.
+- **#91:** registro objetivo das perguntas que ainda bloqueiam e-mail (#46) e
+  backup (#44).
+- **#92:** reforço de documentos, importação, limites de campos, dependências e
+  tolerância da primeira abertura no Windows; os sete checks passaram na revisão
+  integrada, inclusive o smoke test do instalador.
 
 ## Bloqueios que não devem ser inventados
 
@@ -53,18 +65,15 @@ PR #87**.
 - **#26:** depende das decisões operacionais restantes e da entrega #44.
 - **#27:** permanece aberta até envio/histórico, backup/restauração e aceite em
   instalação Windows limpa.
-- **#88:** está pronta para desenvolvimento e deve tornar falhas de inicialização
-  do aplicativo Windows diagnosticáveis sem persistir segredos ou dados do
-  cliente. As falhas intermitentes observadas nas PRs #85/#87 passaram no
-  rerun, mas o código 101 isolado não informa sua causa.
+- Não há outra PR aberta ou issue MVP com `status: ready` no retrato desta data.
+  Não retire `status: blocked` nem inicie implementação baseada em hipótese.
 
 ## Próxima sequência segura
 
-1. Implementar #88 e validar novamente o smoke test do instalador Windows.
-2. Obter do cliente/time as decisões de #24, #44 e #46.
-3. Implementar #25 somente após #46 e implementar #44 somente após definir o
+1. Obter do cliente/time as decisões de #24, #44 e #46.
+2. Implementar #25 somente após #46 e implementar #44 somente após definir o
    formato criptográfico e a recuperação da senha.
-4. Completar #26 e executar o aceite final de #27 em Windows limpo.
+3. Completar #26 e executar o aceite final de #27 em Windows limpo.
 
 ### Informações necessárias para destravar #46
 
@@ -97,6 +106,11 @@ Set-Location storage/worktrees/ISSUE-resumo
 just install
 just check
 ```
+
+Antes de aprovar ou mesclar uma PR, confirme que ela continua baseada no
+`origin/develop` atual, que o `headRefOid` não mudou desde a revisão e que todos
+os checks obrigatórios pertencem a esse mesmo commit. Para mudanças no desktop,
+o job **Desktop Windows — sidecar and installer** é obrigatório.
 
 Não altere nem apague arquivos não rastreados da worktree principal: eles podem
 pertencer ao desenvolvedor local.
