@@ -117,17 +117,12 @@ def test_audit_migration_round_trip_preserves_authentication_data() -> None:
                 (user_id,),
             ).fetchone()
             assert preserved_user == (user_id,)
-            index_names = {
-                str(row[0])
-                for row in connection.execute(
-                    """
+            index_names = {str(row[0]) for row in connection.execute("""
                     SELECT indexname
                     FROM pg_indexes
                     WHERE schemaname = current_schema()
                       AND tablename = 'audit_events'
-                    """
-                ).fetchall()
-            }
+                    """).fetchall()}
             assert {
                 "ix_audit_events_actor_user_id",
                 "ix_audit_events_occurred_at_id",

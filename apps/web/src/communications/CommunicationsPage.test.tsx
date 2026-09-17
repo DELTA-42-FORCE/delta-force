@@ -1,5 +1,6 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { ComponentProps } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { ApiError } from '../lib/apiClient'
@@ -44,13 +45,16 @@ afterEach(() => {
 })
 
 function renderPage(
-  overrides: {
-    loadTemplates?: ReturnType<typeof vi.fn>
-    createTemplate?: ReturnType<typeof vi.fn>
-    updateTemplate?: ReturnType<typeof vi.fn>
-    deleteTemplate?: ReturnType<typeof vi.fn>
-    loadCandidates?: ReturnType<typeof vi.fn>
-  } = {},
+  overrides: Partial<
+    Pick<
+      ComponentProps<typeof CommunicationsPage>,
+      | 'loadTemplates'
+      | 'createTemplate'
+      | 'updateTemplate'
+      | 'deleteTemplate'
+      | 'loadCandidates'
+    >
+  > = {},
 ) {
   const loadTemplates =
     overrides.loadTemplates ?? vi.fn().mockResolvedValue([TEMPLATE])

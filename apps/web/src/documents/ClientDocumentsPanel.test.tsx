@@ -1,5 +1,6 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { ComponentProps } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ClientFolder } from '../clients/clientsApi'
@@ -73,13 +74,16 @@ afterEach(() => {
 })
 
 function renderPanel(
-  overrides: {
-    loadPage?: (cursor: DocumentCursor | null) => Promise<ClientDocumentPage>
-    attachDocument?: ReturnType<typeof vi.fn>
-    exportDocument?: ReturnType<typeof vi.fn>
-    openDocument?: ReturnType<typeof vi.fn>
-    updateStatus?: ReturnType<typeof vi.fn>
-  } = {},
+  overrides: Partial<
+    Pick<
+      ComponentProps<typeof ClientDocumentsPanel>,
+      | 'loadPage'
+      | 'attachDocument'
+      | 'exportDocument'
+      | 'openDocument'
+      | 'updateStatus'
+    >
+  > = {},
 ) {
   const loadPage =
     overrides.loadPage ??

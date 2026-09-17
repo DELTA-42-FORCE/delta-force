@@ -44,6 +44,7 @@ class AuditAction(StrEnum):
     MESSAGE_TEMPLATE_UPDATED = "message_template.updated"
     MESSAGE_TEMPLATE_DELETED = "message_template.deleted"
     RECIPIENT_CANDIDATES_VIEWED = "recipient_candidates.viewed"
+    LEGACY_IMPORT_COMPLETED = "legacy_import.completed"
 
 
 class AuditResourceType(StrEnum):
@@ -56,6 +57,7 @@ class AuditResourceType(StrEnum):
     CLIENT_FOLDER = "client_folder"
     DOCUMENT = "document"
     MESSAGE_TEMPLATE = "message_template"
+    LEGACY_IMPORT = "legacy_import"
 
 
 @dataclass(frozen=True, slots=True)

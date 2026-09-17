@@ -22,6 +22,14 @@ _ALLOWED_CONTEXT_KEYS = frozenset(
         "reason_code",
         "previous_status",
         "new_status",
+        "total_count",
+        "imported_count",
+        "duplicate_count",
+        "skipped_count",
+        "unsupported_count",
+        "unreadable_count",
+        "insufficient_space_count",
+        "failed_count",
     }
 )
 _ALLOWED_HTTP_METHODS = frozenset(
@@ -33,6 +41,7 @@ _ALLOWED_REASON_CODES = frozenset(
         "invalid_session",
         "setup_already_completed",
         "document_content_unavailable",
+        "document_integrity_mismatch",
     }
 )
 _ROUTE_TEMPLATE_PATTERN = re.compile(r"^/[A-Za-z0-9_./{}-]{0,127}$")
@@ -135,3 +144,17 @@ class RecordAuditEventUseCase:
             route_template
         ):
             raise ValueError("context contains an invalid route_template")
+
+        for key in (
+            "total_count",
+            "imported_count",
+            "duplicate_count",
+            "skipped_count",
+            "unsupported_count",
+            "unreadable_count",
+            "insufficient_space_count",
+            "failed_count",
+        ):
+            count = context.get(key)
+            if count is not None and (not count.isascii() or not count.isdecimal()):
+                raise ValueError(f"context contains an invalid {key}")

@@ -43,15 +43,13 @@ def database_url() -> str:
 
 
 def primary_key_name(connection: psycopg.Connection[tuple[object, ...]]) -> str:
-    result = connection.execute(
-        """
+    result = connection.execute("""
         SELECT constraint_name
         FROM information_schema.table_constraints
         WHERE table_schema = current_schema()
           AND table_name = 'sessions'
           AND constraint_type = 'PRIMARY KEY'
-        """
-    ).fetchone()
+        """).fetchone()
     assert result is not None
     return str(result[0])
 

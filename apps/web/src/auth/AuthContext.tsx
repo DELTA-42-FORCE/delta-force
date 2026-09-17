@@ -40,7 +40,11 @@ interface AuthContextValue {
     path: string,
     options: { method: string; body?: unknown },
   ) => Promise<T>
-  authenticatedUpload: <T>(path: string, formData: FormData) => Promise<T>
+  authenticatedUpload: <T>(
+    path: string,
+    file: File,
+    metadataHeaders?: Record<string, string>,
+  ) => Promise<T>
   authenticatedDownload: (path: string) => Promise<DownloadedFile>
   authenticatedOpenDocument: (options: {
     path: string
@@ -171,11 +175,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const authenticatedUpload = useCallback(
-    async <T,>(path: string, formData: FormData): Promise<T> => {
+    async <T,>(
+      path: string,
+      file: File,
+      metadataHeaders?: Record<string, string>,
+    ): Promise<T> => {
       if (token === null) throw new ApiError(401, 'session is not available')
 
       try {
-        return await apiUpload<T>(path, { token, formData })
+        return await apiUpload<T>(path, { token, file, metadataHeaders })
       } catch (error) {
         if (error instanceof ApiError && error.status === 401) clearSession()
         throw error

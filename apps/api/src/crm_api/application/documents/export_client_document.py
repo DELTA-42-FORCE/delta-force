@@ -2,6 +2,7 @@
 
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+import hashlib
 from uuid import UUID
 
 from crm_api.application.audit.record_audit_event import RecordAuditEventUseCase
@@ -16,7 +17,10 @@ from crm_api.domain.audit.entities import (
     AuditResult,
 )
 from crm_api.domain.documents.entities import StoredDocument
-from crm_api.domain.documents.errors import DocumentContentUnavailableError
+from crm_api.domain.documents.errors import (
+    DocumentContentUnavailableError,
+    DocumentIntegrityError,
+)
 from crm_api.domain.documents.repositories import (
     DocumentMetadataRepository,
     DocumentStorage,
@@ -53,11 +57,32 @@ class ExportClientDocumentUseCase:
             document_id=document_id,
         )
 
-        stream = self.storage.open_stream(storage_key=document.storage_key)
         try:
-            # O primeiro bloco é lido aqui para que um arquivo ausente ou
-            # ilegível vire erro antes de a resposta começar a ser enviada.
-            first_chunk = await anext(stream, b"")
+            # Verifica tamanho e hash sem materializar o arquivo. O HTTP ainda
+            # não começou: um arquivo adulterado recebe erro, não download 200.
+            digest = hashlib.sha256()
+            byte_size = 0
+            async for chunk in self.storage.open_stream(
+                storage_key=document.storage_key
+            ):
+                digest.update(chunk)
+                byte_size += len(chunk)
+            if (
+                byte_size != document.byte_size
+                or digest.hexdigest() != document.checksum_sha256
+            ):
+                raise DocumentIntegrityError(
+                    "the stored document does not match its persisted integrity data"
+                )
+        except DocumentIntegrityError:
+            await self._record(
+                actor_user_id=actor_user_id,
+                document=document,
+                result=AuditResult.FAILURE,
+                reason_code="document_integrity_mismatch",
+            )
+            await self.transaction.commit()
+            raise
         except DocumentContentUnavailableError:
             await self._record(
                 actor_user_id=actor_user_id,
@@ -68,16 +93,14 @@ class ExportClientDocumentUseCase:
             await self.transaction.commit()
             raise
 
-        # O sucesso só é auditado quando o fluxo termina inteiro: se a leitura
-        # falhar depois deste primeiro bloco, a resposta já começou, mas a
-        # auditoria registra a falha em vez de um sucesso enganoso.
+        # A segunda leitura continua verificando a integridade para registrar
+        # adulteração concorrente e erros durante o envio; não carrega tudo em RAM.
         return DocumentExport(
             document=document,
             chunks=self._audited_stream(
                 actor_user_id=actor_user_id,
                 document=document,
-                first_chunk=first_chunk,
-                rest=stream,
+                stream=self.storage.open_stream(storage_key=document.storage_key),
             ),
         )
 
@@ -86,14 +109,31 @@ class ExportClientDocumentUseCase:
         *,
         actor_user_id: UUID,
         document: StoredDocument,
-        first_chunk: bytes,
-        rest: AsyncIterator[bytes],
+        stream: AsyncIterator[bytes],
     ) -> AsyncIterator[bytes]:
         try:
-            if first_chunk:
-                yield first_chunk
-            async for chunk in rest:
+            digest = hashlib.sha256()
+            byte_size = 0
+            async for chunk in stream:
+                digest.update(chunk)
+                byte_size += len(chunk)
                 yield chunk
+            if (
+                byte_size != document.byte_size
+                or digest.hexdigest() != document.checksum_sha256
+            ):
+                raise DocumentIntegrityError(
+                    "the stored document does not match its persisted integrity data"
+                )
+        except DocumentIntegrityError:
+            await self._record(
+                actor_user_id=actor_user_id,
+                document=document,
+                result=AuditResult.FAILURE,
+                reason_code="document_integrity_mismatch",
+            )
+            await self.transaction.commit()
+            raise
         except DocumentContentUnavailableError:
             await self._record(
                 actor_user_id=actor_user_id,

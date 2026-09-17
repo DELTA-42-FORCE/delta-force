@@ -29,6 +29,7 @@ PREVIOUS_DOCUMENT_REVISION = "20260901_0007"
 PREVIOUS_ANNOTATION_REVISION = "20260902_0008"
 PREVIOUS_DOCUMENT_STATUS_REVISION = "20260903_0010"
 PREVIOUS_MESSAGE_TEMPLATE_REVISION = "20260904_0011"
+PREVIOUS_LEGACY_IMPORT_AUDIT_REVISION = "20260904_0012"
 
 
 def run_alembic(command: str, revision: str) -> None:
@@ -741,3 +742,46 @@ def test_message_template_migration_round_trip_protects_data_and_audit() -> None
             assert "message_templates" not in _table_names(connection)
     finally:
         run_alembic("upgrade", "head")
+
+
+def test_legacy_import_audit_migration_round_trip_protects_events() -> None:
+    path = ensure_disposable_database()
+    event_id: str | None = None
+
+    run_alembic("downgrade", PREVIOUS_LEGACY_IMPORT_AUDIT_REVISION)
+    try:
+        with connect(path) as connection:
+            with pytest.raises(sqlite3.IntegrityError):
+                insert_audit_event(
+                    connection,
+                    actor_kind="anonymous",
+                    actor_user_id=None,
+                    action="legacy_import.completed",
+                    resource_type="legacy_import",
+                )
+
+        run_alembic("upgrade", "head")
+        with connect(path) as connection:
+            event_id = insert_audit_event(
+                connection,
+                actor_kind="anonymous",
+                actor_user_id=None,
+                action="legacy_import.completed",
+                resource_type="legacy_import",
+            )
+
+        with pytest.raises(subprocess.CalledProcessError):
+            run_alembic("downgrade", PREVIOUS_LEGACY_IMPORT_AUDIT_REVISION)
+
+        with connect(path) as connection:
+            connection.execute("DELETE FROM audit_events WHERE id = ?", (event_id,))
+            connection.commit()
+            event_id = None
+
+        run_alembic("downgrade", PREVIOUS_LEGACY_IMPORT_AUDIT_REVISION)
+    finally:
+        run_alembic("upgrade", "head")
+        if event_id is not None:
+            with connect(path) as connection:
+                connection.execute("DELETE FROM audit_events WHERE id = ?", (event_id,))
+                connection.commit()

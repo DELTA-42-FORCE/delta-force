@@ -40,7 +40,7 @@ Use Conventional Commits: `feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore
 | Comando | Finalidade |
 | --- | --- |
 | `just check` | Validação completa exigida no PR. |
-| `just audit` | Auditoria manual: Bandit, vulnerabilidades Python/JavaScript e relatório de versões novas. Não atualiza dependências. |
+| `just audit` | Auditoria manual: Bandit, pip-audit, npm audit (web/desktop) e cargo-audit, com relatório informativo de versões novas. Requer `cargo-audit` instalado (`cargo install cargo-audit --locked`). Não atualiza dependências. |
 | `just api-check` | Black, Flake8 e testes unitários da API. |
 | `just api-migrate` | Durante a transição, aplica migrations no banco atualmente configurado. O alvo final é SQLite em arquivo. |
 | `just api-rollback` | Reverte a última migration; use `just api-rollback base` somente em banco local descartável. |

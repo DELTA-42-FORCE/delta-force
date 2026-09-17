@@ -4,7 +4,9 @@ import bcrypt
 
 # Não é uma credencial real nem pertence a uma conta. O hash bcrypt válido e
 # pré-calculado evita gerar outro hash apenas quando o e-mail não existe.
-_DUMMY_PASSWORD_HASH = "$2b$12$TigD74cOBvAhvRpCtMpLIuEhzhLwHxwLnbvcERKV" "jI7q.Xqf9zriq"
+_DUMMY_PASSWORD_HASH = (  # nosec B105
+    "$2b$12$TigD74cOBvAhvRpCtMpLIuEhzhLwHxwLnbvcERKVjI7q.Xqf9zriq"
+)
 
 
 class BcryptPasswordHasher:

@@ -3,6 +3,7 @@
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+import hashlib
 from uuid import UUID, uuid4
 
 import pytest
@@ -20,15 +21,15 @@ FOLDER_ID = UUID("00000000-0000-0000-0000-0000000000f0")
 STORAGE_KEY = "01/23/0123456789abcdef0123456789abcdef.pdf"
 
 
-def _document() -> StoredDocument:
+def _document(payload: bytes = b"first-second") -> StoredDocument:
     return StoredDocument(
         id=uuid4(),
         client_folder_id=FOLDER_ID,
         original_filename="contrato.pdf",
         storage_key=STORAGE_KEY,
         media_type=DocumentMediaType.PDF,
-        byte_size=32,
-        checksum_sha256="a" * 64,
+        byte_size=len(payload),
+        checksum_sha256=hashlib.sha256(payload).hexdigest(),
         stored_at=datetime.now(UTC),
     )
 
@@ -105,9 +106,11 @@ class _StubStorage:
 
 
 def _use_case(
-    storage: _StubStorage,
+    storage: _StubStorage, *, expected_payload: bytes | None = None
 ) -> tuple[ExportClientDocumentUseCase, _RecordingAuditRepository, _SpyTransaction]:
-    document = _document()
+    document = _document(
+        b"".join(storage.chunks) if expected_payload is None else expected_payload
+    )
     audit_repository = _RecordingAuditRepository()
     transaction = _SpyTransaction()
     use_case = ExportClientDocumentUseCase(
@@ -134,7 +137,7 @@ async def test_success_is_audited_only_after_the_whole_stream_is_consumed() -> N
 
     export = await _run(use_case, document.id)
 
-    # Só ter lido o primeiro bloco (feito dentro de execute) não pode auditar nada.
+    # A validação prévia não deve auditar sucesso antes do envio completo.
     assert audit.events == []
     assert transaction.commit_calls == 0
 
@@ -149,21 +152,14 @@ async def test_success_is_audited_only_after_the_whole_stream_is_consumed() -> N
     assert transaction.commit_calls == 1
 
 
-async def test_a_read_failure_after_the_first_block_is_audited_as_failure() -> None:
-    # O primeiro bloco é lido dentro de execute; a falha ocorre no segundo.
+async def test_a_read_failure_before_response_is_audited_as_failure() -> None:
     storage = _StubStorage(chunks=[b"first-", b"second"], fail_before_index=1)
     use_case, audit, transaction = _use_case(storage)
     document = use_case.documents.document  # type: ignore[attr-defined]
 
-    export = await _run(use_case, document.id)
-    assert audit.events == []  # a resposta já começou, mas nada foi auditado ainda
-
-    collected = b""
     with pytest.raises(DocumentContentUnavailableError):
-        async for chunk in export.chunks:
-            collected += chunk
+        await _run(use_case, document.id)
 
-    assert collected == b"first-"  # só o bloco já emitido antes da falha
     assert len(audit.events) == 1
     assert audit.events[-1].result is AuditResult.FAILURE
     assert audit.events[-1].context["reason_code"] == "document_content_unavailable"
@@ -181,4 +177,20 @@ async def test_a_file_that_cannot_be_opened_is_audited_as_failure() -> None:
     assert len(audit.events) == 1
     assert audit.events[-1].result is AuditResult.FAILURE
     assert audit.events[-1].context["reason_code"] == "document_content_unavailable"
+    assert transaction.commit_calls == 1
+
+
+async def test_tampered_content_is_rejected_and_audited_as_failure() -> None:
+    storage = _StubStorage(chunks=[b"altered-content"])
+    use_case, audit, transaction = _use_case(
+        storage, expected_payload=b"original-content"
+    )
+    document = use_case.documents.document  # type: ignore[attr-defined]
+
+    with pytest.raises(DocumentContentUnavailableError):
+        await _run(use_case, document.id)
+
+    assert len(audit.events) == 1
+    assert audit.events[-1].result is AuditResult.FAILURE
+    assert audit.events[-1].context["reason_code"] == "document_integrity_mismatch"
     assert transaction.commit_calls == 1

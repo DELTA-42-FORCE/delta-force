@@ -57,14 +57,71 @@ class ImportLegacyArchiveUseCase:
     async def execute(
         self, *, actor_user_id: UUID, source_path: str
     ) -> LegacyImportResult:
-        entries = await self.scanner.scan(source_path=source_path)
+        try:
+            entries = await self.scanner.scan(source_path=source_path)
+        except Exception:
+            await self._audit_operation(
+                actor_user_id=actor_user_id,
+                summary={
+                    "total": 0,
+                    "imported": 0,
+                    "duplicate": 0,
+                    "skipped": 0,
+                    "unsupported_format": 0,
+                    "unreadable": 0,
+                    "insufficient_space": 0,
+                    "failed": 1,
+                },
+                result=AuditResult.FAILURE,
+            )
+            raise
         matches: dict[str, list[ClientFolder]] = {}
         items: list[LegacyImportResultItem] = []
         for entry in entries:
             items.append(
                 await self._import_entry(actor_user_id, source_path, entry, matches)
             )
-        return LegacyImportResult(source_path=source_path, items=tuple(items))
+        import_result = LegacyImportResult(source_path=source_path, items=tuple(items))
+        summary = import_result.summary
+        result = (
+            AuditResult.FAILURE
+            if any(
+                summary[key] > 0
+                for key in ("unreadable", "insufficient_space", "failed")
+            )
+            else AuditResult.SUCCESS
+        )
+        await self._audit_operation(
+            actor_user_id=actor_user_id, summary=summary, result=result
+        )
+        return import_result
+
+    async def _audit_operation(
+        self,
+        *,
+        actor_user_id: UUID,
+        summary: dict[str, int],
+        result: AuditResult,
+    ) -> None:
+        await self.audit.execute(
+            actor_kind=AuditActorKind.AUTHENTICATED,
+            actor_user_id=actor_user_id,
+            action=AuditAction.LEGACY_IMPORT_COMPLETED,
+            resource_type=AuditResourceType.LEGACY_IMPORT,
+            resource_id=None,
+            result=result,
+            context={
+                "total_count": str(summary["total"]),
+                "imported_count": str(summary["imported"]),
+                "duplicate_count": str(summary["duplicate"]),
+                "skipped_count": str(summary["skipped"]),
+                "unsupported_count": str(summary["unsupported_format"]),
+                "unreadable_count": str(summary["unreadable"]),
+                "insufficient_space_count": str(summary["insufficient_space"]),
+                "failed_count": str(summary["failed"]),
+            },
+        )
+        await self.transaction.commit()
 
     async def _import_entry(
         self,
