@@ -16,7 +16,9 @@ use zeroize::Zeroizing;
 
 const PRODUCTION_ORIGIN: &str = "http://tauri.localhost";
 const DEVELOPMENT_ORIGIN: &str = "http://127.0.0.1:5173";
-const SIDECAR_READY_TIMEOUT: Duration = Duration::from_secs(10);
+// A primeira abertura do sidecar empacotado também prepara e migra o SQLite.
+// No Windows, antivírus e carregamento do bundle podem tornar esse caminho mais lento.
+const SIDECAR_READY_TIMEOUT: Duration = Duration::from_secs(45);
 const SIDECAR_GRACEFUL_STOP_TIMEOUT: Duration = Duration::from_secs(5);
 const DESKTOP_DIAGNOSTICS_ENV: &str = "DELTA_FORCE_DESKTOP_DIAGNOSTICS";
 
