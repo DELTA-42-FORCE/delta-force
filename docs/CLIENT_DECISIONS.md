@@ -110,3 +110,54 @@ A ADR 0002 e a issue #57 já definiram e implementaram o shell/empacotamento
 Windows, o diretório privado, a primeira execução e a estratégia de atualização
 manual. O formato criptográfico, a custódia/recuperação da senha do backup e o
 provedor de e-mail seguem pendentes.
+
+## Perguntas em aberto aguardando o cliente
+
+Enviadas ao cliente em 15/09/2026; **aguardando resposta**. Enquanto não forem
+respondidas, as issues abaixo permanecem bloqueadas. Nenhuma senha, credencial
+ou segredo deve ser registrado aqui — apenas as decisões escolhidas.
+
+### E-mail da mala direta (issue #46 — bloqueia #25)
+
+1. Qual é o endereço e o nome de exibição do remetente? Informe apenas esses
+   dados públicos, nunca senha, token ou código de recuperação.
+2. Qual provedor/conta de e-mail já utiliza? A conta permite SMTP e senha de
+   aplicativo, ou o provedor oferece outro mecanismo de envio autorizado?
+3. Aproximadamente quantos destinatários espera alcançar por lote e com que
+   frequência? O limite técnico será definido conforme as regras do provedor.
+4. Confirma envio individual por destinatário, com registro das falhas e reenvio
+   somente dos que falharam, sem duplicar mensagens já enviadas?
+
+O time escolherá o adaptador SMTP ou API depois de conhecer o provedor. A
+credencial deve ficar fora de arquivos, banco, backup, logs e repositório: para
+o aplicativo Windows, avaliar Windows Credential Manager/DPAPI ou entrada a
+cada sessão. Nenhum segredo deve ser pedido ou registrado nesta issue.
+
+### Backup e restauração por HD externo (issue #44)
+
+Já confirmado: o backup poderá usar uma senha digitada pelo proprietário.
+
+1. Onde manterá uma cópia da senha de recuperação, separada do computador e do
+   HD externo (por exemplo, cofre físico ou gerenciador de senhas)? Não informe
+   a senha à equipe.
+2. Quem deverá poder restaurar o backup em um computador substituto: apenas o
+   proprietário ou também uma pessoa de confiança indicada por ele?
+3. Se a senha do backup for perdida, haverá uma segunda cópia guardada em outro
+   local seguro ou ele aceita que o backup se torne irrecuperável?
+4. Com que frequência pretende conectar o HD e fazer backup? Deseja lembrete no
+   aplicativo quando estiver há muito tempo sem uma cópia?
+5. Quantas versões anteriores deseja manter no HD, ou por quanto tempo? Isso é
+   diferente do prazo de guarda dos dados e documentos no CRM, que é indefinido.
+6. A restauração será usada apenas em uma instalação vazia ou também poderá
+   substituir dados já presentes? Na segunda hipótese, a operação exigirá
+   confirmação explícita e proteção contra perda dos dados atuais.
+7. O computador e o HD externo já usam senha do Windows e proteção de disco
+   (por exemplo, BitLocker)? Essa resposta ajuda a orientar a operação, mas não
+   substitui a criptografia do backup.
+8. Após trocar o computador, como espera recuperar o acesso à conta do CRM caso
+   também tenha esquecido a senha de login? A senha do backup não deve revelar
+   nem reutilizar a senha de login.
+
+O time definirá o formato criptográfico, o snapshot consistente de banco e
+documentos e a restauração atômica com validação antes de substituir dados. A
+senha do backup não será persistida pelo aplicativo nem incluída no backup.
