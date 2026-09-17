@@ -71,9 +71,29 @@ cliente prevalece sobre uma hipótese anterior.
 - Valores em BRL exigem precisão exata e não podem ser calculados com ponto
   flutuante binário. Vencimentos são datas civis, sem horário ou variação de
   fuso.
-- Permanecem pendentes antes da implementação: o evento que inicia/libera o
-  parcelamento; como definir o primeiro vencimento; a regra para vencimentos nos
-  dias 29, 30 e 31; e a alocação de eventual diferença de centavos da divisão.
+### Confirmado pelo cliente em 15/09/2026 (via Aglison)
+
+- **Evento que libera o parcelamento:** o parcelamento do saldo passa a contar a
+  partir do pagamento do sinal de R$ 2.000,00.
+- **Primeiro vencimento:** 30 dias após o sinal.
+- **Vencimento em dia sem expediente ou inexistente (ex.: 29, 30, 31):** ajustar
+  para o **último dia útil do mês**.
+
+### Ainda pendente antes de implementar
+
+- **Conciliar a regra de vencimento:** "30 dias após o sinal" e "último dia útil
+  do mês" precisam ser reconciliados — se o vencimento é *sinal + 30 dias, com as
+  parcelas seguintes no mesmo dia recuando para o último dia útil quando cair em
+  fim de semana/feriado ou dia inexistente*, ou se *toda parcela vence no último
+  dia útil de cada mês*.
+- **Calendário de dias úteis:** definir se "dia útil" considera apenas
+  sábados/domingos e feriados nacionais, ou também feriados municipais/estaduais.
+- **Sobra de centavos da divisão:** ainda não decidido (proposta: distribuir a
+  diferença nas primeiras parcelas, para que fiquem quase iguais e a soma feche).
+- **Sinal parcelado em 2x:** o cliente admitiu dividir o próprio sinal de
+  R$ 2.000,00 em duas parcelas iguais; falta definir o vencimento dessas duas
+  parcelas e se o parcelamento do saldo passa a contar após a quitação total do
+  sinal ou já a partir da primeira parcela.
 
 Essas decisões detalham a issue #29, mas não repriorizam o financeiro: contratos,
 cobranças e relatórios continuam fora do MVP. A issue #28 permanece bloqueada
