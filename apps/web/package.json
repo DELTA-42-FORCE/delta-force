@@ -33,6 +33,9 @@
     "prettier": "^3.6.0",
     "typescript": "^5.8.0",
     "typescript-eslint": "^8.35.0",
-    "vitest": "^3.2.0"
+    "vitest": "^4.1.11"
+  },
+  "overrides": {
+    "js-yaml": "4.3.2"
   }
 }

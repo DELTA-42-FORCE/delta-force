@@ -35,7 +35,15 @@ def create_app(desktop_runtime: DesktopRuntime | None = None) -> FastAPI:
             else get_settings().cors_allowed_origins_list
         ),
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type", "X-Delta-Desktop-Capability"],
+        allow_headers=[
+            "Authorization",
+            "Content-Type",
+            "X-Delta-Desktop-Capability",
+            "X-Delta-Document-Filename",
+            "X-Delta-Document-Title",
+            "X-Delta-Document-Category",
+            "X-Delta-Document-Notes",
+        ],
     )
     app.include_router(desktop_router)
     app.include_router(auth_router)

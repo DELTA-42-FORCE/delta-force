@@ -16,7 +16,9 @@ use zeroize::Zeroizing;
 
 const PRODUCTION_ORIGIN: &str = "http://tauri.localhost";
 const DEVELOPMENT_ORIGIN: &str = "http://127.0.0.1:5173";
-const SIDECAR_READY_TIMEOUT: Duration = Duration::from_secs(10);
+// A primeira abertura do sidecar empacotado também prepara e migra o SQLite.
+// No Windows, antivírus e carregamento do bundle podem tornar esse caminho mais lento.
+const SIDECAR_READY_TIMEOUT: Duration = Duration::from_secs(45);
 const SIDECAR_GRACEFUL_STOP_TIMEOUT: Duration = Duration::from_secs(5);
 const DESKTOP_DIAGNOSTICS_ENV: &str = "DELTA_FORCE_DESKTOP_DIAGNOSTICS";
 
@@ -63,6 +65,8 @@ struct OpenDocumentRequest {
 
 const OPEN_CACHE_DIRECTORY: &str = "open-cache";
 const ALLOWED_OPEN_EXTENSIONS: [&str; 3] = ["pdf", "jpg", "jpeg"];
+// A cópia é criada primeiro com a extensão `.partial`, mais longa que `.pdf`.
+const MAX_WINDOWS_FILENAME_UTF16_UNITS: usize = 251;
 
 struct SidecarProcess {
     child: Mutex<Option<Child>>,
@@ -405,7 +409,39 @@ fn unique_open_destination(
 ) -> Result<PathBuf, DesktopError> {
     let mut nonce = [0_u8; 16];
     getrandom::fill(&mut nonce).map_err(|_| DesktopError::DocumentOpenFailed)?;
-    Ok(cache_directory.join(format!("{}-{filename}", URL_SAFE_NO_PAD.encode(nonce))))
+    let prefix = format!("{}-", URL_SAFE_NO_PAD.encode(nonce));
+    let available_units = MAX_WINDOWS_FILENAME_UTF16_UNITS
+        .checked_sub(prefix.encode_utf16().count())
+        .ok_or(DesktopError::DocumentOpenFailed)?;
+    let bounded_filename = bounded_open_filename(filename, available_units)?;
+    Ok(cache_directory.join(format!("{prefix}{bounded_filename}")))
+}
+
+fn bounded_open_filename(filename: &str, max_utf16_units: usize) -> Result<String, DesktopError> {
+    let (stem, extension) = filename
+        .rsplit_once('.')
+        .ok_or(DesktopError::DocumentOpenFailed)?;
+    let suffix = format!(".{extension}");
+    let suffix_units = suffix.encode_utf16().count();
+    if stem.is_empty() || suffix_units >= max_utf16_units {
+        return Err(DesktopError::DocumentOpenFailed);
+    }
+
+    let mut bounded = String::new();
+    let mut used_units = 0;
+    for character in stem.chars() {
+        let character_units = character.len_utf16();
+        if used_units + character_units + suffix_units > max_utf16_units {
+            break;
+        }
+        bounded.push(character);
+        used_units += character_units;
+    }
+    if bounded.is_empty() {
+        return Err(DesktopError::DocumentOpenFailed);
+    }
+    bounded.push_str(&suffix);
+    Ok(bounded)
 }
 
 fn safe_open_filename(filename: &str) -> Result<String, DesktopError> {
@@ -450,7 +486,7 @@ fn launch_with_default_application(path: &Path) -> Result<(), DesktopError> {
 
 #[cfg(test)]
 mod document_open_tests {
-    use super::{safe_identifier, unique_open_destination};
+    use super::{safe_identifier, unique_open_destination, MAX_WINDOWS_FILENAME_UTF16_UNITS};
     use std::path::Path;
 
     #[test]
@@ -473,6 +509,21 @@ mod document_open_tests {
             .file_name()
             .and_then(|name| name.to_str())
             .is_some_and(|name| name.ends_with("-RG.pdf")));
+    }
+
+    #[test]
+    fn bounds_long_cache_names_using_windows_utf16_units() {
+        let cache = Path::new("C:/synthetic-open-cache");
+        let long_name = format!("{}{}.pdf", "a".repeat(240), "😀".repeat(20));
+
+        let destination = unique_open_destination(cache, &long_name).expect("bounded cache path");
+        let component = destination
+            .file_name()
+            .and_then(|name| name.to_str())
+            .expect("utf-8 filename");
+
+        assert!(component.encode_utf16().count() <= MAX_WINDOWS_FILENAME_UTF16_UNITS);
+        assert!(component.ends_with(".pdf"));
     }
 }
 

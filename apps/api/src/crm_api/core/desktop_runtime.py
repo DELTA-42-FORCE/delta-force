@@ -8,7 +8,8 @@ import secrets
 from dataclasses import InitVar, dataclass, field
 
 DESKTOP_CAPABILITY_HEADER = "X-Delta-Desktop-Capability"
-DESKTOP_BOOTSTRAP_SECRET_HEADER = "X-Delta-Desktop-Secret"
+# Nome público do header; não contém nem representa uma credencial.
+DESKTOP_BOOTSTRAP_SECRET_HEADER = "X-Delta-Desktop-Secret"  # nosec B105
 DESKTOP_ORIGIN = "http://tauri.localhost"
 
 

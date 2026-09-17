@@ -2,11 +2,12 @@
 
 from collections.abc import AsyncIterator
 from datetime import datetime
+import re
 from typing import Annotated
-from urllib.parse import quote
+from urllib.parse import quote, unquote_to_bytes
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi import status
 from fastapi.responses import StreamingResponse
 
@@ -57,6 +58,7 @@ router = APIRouter(prefix="/clients", tags=["documents"])
 _CLIENT_NOT_FOUND_DETAIL = "client folder not found"
 _DOCUMENT_NOT_FOUND_DETAIL = "document not found"
 _UPLOAD_CHUNK_BYTES = 1024 * 1024
+_INVALID_PERCENT_ESCAPE = re.compile(r"%(?![0-9A-Fa-f]{2})")
 
 
 def _to_response(document: StoredDocument) -> DocumentResponse:
@@ -75,13 +77,29 @@ def _to_response(document: StoredDocument) -> DocumentResponse:
     )
 
 
-async def _upload_chunks(upload: UploadFile) -> AsyncIterator[bytes]:
-    """Entrega o corpo em blocos: o arquivo nunca é materializado em memória."""
-    while True:
-        chunk = await upload.read(_UPLOAD_CHUNK_BYTES)
-        if not chunk:
-            return
-        yield chunk
+async def _upload_chunks(request: Request) -> AsyncIterator[bytes]:
+    """Entrega o corpo bruto sem o spool temporário criado pelo multipart."""
+    async for received in request.stream():
+        for start in range(0, len(received), _UPLOAD_CHUNK_BYTES):
+            end = start + _UPLOAD_CHUNK_BYTES
+            yield received[start:end]
+
+
+def _decode_upload_metadata(value: str | None) -> str | None:
+    if value is None:
+        return None
+    if not value.isascii() or _INVALID_PERCENT_ESCAPE.search(value):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="metadado do documento possui codificação inválida",
+        )
+    try:
+        return unquote_to_bytes(value).decode("utf-8", errors="strict")
+    except UnicodeDecodeError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="metadado do documento possui codificação inválida",
+        ) from None
 
 
 def _content_disposition(filename: str) -> str:
@@ -100,25 +118,38 @@ def _content_disposition(filename: str) -> str:
 )
 async def attach_document(
     client_id: UUID,
+    request: Request,
     current_user: CurrentUser,
     use_case: Annotated[StoreDocumentUseCase, Depends(get_store_document_use_case)],
-    file: Annotated[UploadFile, File()],
-    title: Annotated[str | None, Form()] = None,
-    category: Annotated[str | None, Form()] = None,
-    notes: Annotated[str | None, Form()] = None,
+    encoded_filename: Annotated[
+        str,
+        Header(alias="X-Delta-Document-Filename", min_length=1, max_length=3_000),
+    ],
+    encoded_title: Annotated[
+        str | None, Header(alias="X-Delta-Document-Title", max_length=1_500)
+    ] = None,
+    encoded_category: Annotated[
+        str | None, Header(alias="X-Delta-Document-Category", max_length=1_000)
+    ] = None,
+    encoded_notes: Annotated[
+        str | None, Header(alias="X-Delta-Document-Notes", max_length=24_000)
+    ] = None,
 ) -> DocumentResponse:
-    if not file.filename:
+    filename = _decode_upload_metadata(encoded_filename)
+    title = _decode_upload_metadata(encoded_title)
+    category = _decode_upload_metadata(encoded_category)
+    notes = _decode_upload_metadata(encoded_notes)
+    if filename is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="o arquivo enviado precisa ter um nome",
         )
-
     try:
         document = await use_case.execute(
             actor_user_id=current_user.id,
             client_folder_id=client_id,
-            original_filename=file.filename,
-            chunks=_upload_chunks(file),
+            original_filename=filename,
+            chunks=_upload_chunks(request),
             title=title,
             category=category,
             notes=notes,

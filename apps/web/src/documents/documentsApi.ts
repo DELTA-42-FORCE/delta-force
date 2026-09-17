@@ -46,7 +46,8 @@ export type AuthenticatedRequest = <T>(
 ) => Promise<T>
 export type AuthenticatedUpload = <T>(
   path: string,
-  formData: FormData,
+  file: File,
+  metadataHeaders?: Record<string, string>,
 ) => Promise<T>
 export type AuthenticatedDownload = (path: string) => Promise<DownloadedFile>
 export type AuthenticatedOpenDocument = (options: {
@@ -84,19 +85,27 @@ export async function attachClientDocument(
     annotations?: DocumentAnnotations
   },
 ): Promise<ClientDocument> {
-  const formData = new FormData()
-  formData.append('file', options.file)
-  // Anotações em branco não são enviadas: nenhuma delas é obrigatória e o
-  // servidor trata ausência como ausência, não como texto vazio.
+  const metadataHeaders: Record<string, string> = {
+    'X-Delta-Document-Filename': encodeURIComponent(options.file.name),
+  }
+  // Os valores ficam fora da URL e usam somente ASCII nos headers. Anotações em
+  // branco não são enviadas: nenhuma delas é obrigatória.
   for (const [field, value] of Object.entries(options.annotations ?? {})) {
     if (typeof value === 'string' && value.trim() !== '') {
-      formData.append(field, value)
+      const headerName =
+        field === 'title'
+          ? 'X-Delta-Document-Title'
+          : field === 'category'
+            ? 'X-Delta-Document-Category'
+            : 'X-Delta-Document-Notes'
+      metadataHeaders[headerName] = encodeURIComponent(value)
     }
   }
 
   return authenticatedUpload<ClientDocument>(
     `/clients/${options.clientId}/documents`,
-    formData,
+    options.file,
+    metadataHeaders,
   )
 }
 

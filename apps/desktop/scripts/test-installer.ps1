@@ -212,7 +212,7 @@ try {
     (Join-Path $installRoot $applicationExecutable) `
     $initialStandardOutput `
     $initialStandardError
-  $readyDeadline = [DateTime]::UtcNow.AddSeconds(30)
+  $readyDeadline = [DateTime]::UtcNow.AddSeconds(60)
   do {
     Start-Sleep -Milliseconds 500
     $app.Refresh()
@@ -232,7 +232,7 @@ try {
       $sensitiveDiagnosticPaths)
   }
   if (-not $databaseReady -or $sidecars.Count -ne 1) {
-    throw 'Installed application did not create its database and one sidecar within 30 seconds.'
+    throw 'Installed application did not create its database and one sidecar within 60 seconds.'
   }
 
   if (-not $app.CloseMainWindow() -or -not $app.WaitForExit(15000)) {
@@ -311,7 +311,7 @@ try {
     (Join-Path $installRoot $applicationExecutable) `
     $reinstallStandardOutput `
     $reinstallStandardError
-  $reinstallReadyDeadline = [DateTime]::UtcNow.AddSeconds(30)
+  $reinstallReadyDeadline = [DateTime]::UtcNow.AddSeconds(60)
   do {
     Start-Sleep -Milliseconds 500
     $app.Refresh()
@@ -330,7 +330,7 @@ try {
       $sensitiveDiagnosticPaths)
   }
   if ($sidecars.Count -ne 1) {
-    throw 'Reinstalled application did not start exactly one sidecar within 30 seconds.'
+    throw 'Reinstalled application did not start exactly one sidecar within 60 seconds.'
   }
   if (-not $app.CloseMainWindow() -or -not $app.WaitForExit(15000)) {
     throw 'Reinstalled application did not close gracefully within 15 seconds.'

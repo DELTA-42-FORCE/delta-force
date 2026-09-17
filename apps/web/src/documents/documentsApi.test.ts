@@ -62,16 +62,18 @@ describe('attachClientDocument', () => {
       annotations: { title: 'Contrato', category: '   ', notes: '' },
     })
 
-    const [path, formData] = authenticatedUpload.mock.calls[0] as [
+    const [path, file, headers] = authenticatedUpload.mock.calls[0] as [
       string,
-      FormData,
+      File,
+      Record<string, string>,
     ]
     expect(path).toBe(`/clients/${CLIENT_ID}/documents`)
-    expect((formData.get('file') as File).name).toBe('contrato.pdf')
-    expect(formData.get('title')).toBe('Contrato')
-    // Anotação em branco não vira string vazia no servidor: ela some do envio.
-    expect(formData.has('category')).toBe(false)
-    expect(formData.has('notes')).toBe(false)
+    expect(file.name).toBe('contrato.pdf')
+    expect(headers['X-Delta-Document-Filename']).toBe('contrato.pdf')
+    expect(headers['X-Delta-Document-Title']).toBe('Contrato')
+    // Anotação em branco não vira header vazio no servidor: ela some do envio.
+    expect(headers).not.toHaveProperty('X-Delta-Document-Category')
+    expect(headers).not.toHaveProperty('X-Delta-Document-Notes')
   })
 
   it('accepts a document without any annotation', async () => {
@@ -82,9 +84,15 @@ describe('attachClientDocument', () => {
       file: pdfFile(),
     })
 
-    const [, formData] = authenticatedUpload.mock.calls[0] as [string, FormData]
-    expect(formData.has('file')).toBe(true)
-    expect(formData.has('title')).toBe(false)
+    const [, file, headers] = authenticatedUpload.mock.calls[0] as [
+      string,
+      File,
+      Record<string, string>,
+    ]
+    expect(file.name).toBe('contrato.pdf')
+    expect(headers).toEqual({
+      'X-Delta-Document-Filename': 'contrato.pdf',
+    })
   })
 })
 

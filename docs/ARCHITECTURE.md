@@ -87,9 +87,13 @@ As regras de nome ficam em `domain/documents/naming.py` porque valem tanto para
 o arquivo quanto para os metadados: o caso de uso normaliza uma única vez na
 borda e passa exatamente o mesmo nome ao armazenamento e ao repositório.
 
-A #22 expõe essa fundação em `/clients/{client_id}/documents`: anexo por
-multipart, listagem paginada por cursor `(stored_at, id)`, consulta de metadados
-e exportação de cópia. Título, categoria e observação são anotações livres e
+A #22 expõe essa fundação em `/clients/{client_id}/documents`: anexo com corpo
+binário bruto por streaming e metadados percent-encoded em headers privados,
+sem spool multipart anterior à checagem de espaço; listagem paginada por cursor
+`(stored_at, id)`, consulta de metadados e exportação de cópia. A exportação
+confere tamanho e SHA-256 com os metadados antes de iniciar a resposta HTTP;
+repete a checagem durante o envio para detectar alterações concorrentes.
+Título, categoria e observação são anotações livres e
 opcionais — não existe tipo documental obrigatório. Um documento só é alcançável
 pela pasta a que pertence, e o acesso por outra pasta responde como inexistente
 para não revelar anexos de outro cliente. A cópia sai sempre como `attachment`,

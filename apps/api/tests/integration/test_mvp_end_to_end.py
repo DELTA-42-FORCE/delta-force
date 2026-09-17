@@ -135,9 +135,13 @@ async def test_owner_walks_the_core_mvp_flow(tmp_path: Path) -> None:
     # 4. Anexa e classifica um documento (PDF).
     attached = client.post(
         f"/clients/{client_id}/documents",
-        headers=auth,
-        files={"file": ("contrato.pdf", PDF_BYTES, "application/pdf")},
-        data={"title": "Contrato assinado", "category": "contrato"},
+        headers={
+            **auth,
+            "X-Delta-Document-Filename": "contrato.pdf",
+            "X-Delta-Document-Title": "Contrato%20assinado",
+            "X-Delta-Document-Category": "contrato",
+        },
+        content=PDF_BYTES,
     )
     assert attached.status_code == 201
     document_id = attached.json()["id"]

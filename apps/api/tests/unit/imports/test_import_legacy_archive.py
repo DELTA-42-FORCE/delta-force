@@ -220,7 +220,11 @@ async def test_imports_matched_files_deduplicates_and_audits(tmp_path: Path) -> 
     assert len(documents.documents) == 2
     assert len(_published(storage.root)) == 2
     assert sum(1 for e in audit.events if e.action == "document.stored") == 2
-    assert transaction.commit_calls == 2
+    operation = audit.events[-1]
+    assert operation.action == "legacy_import.completed"
+    assert operation.result.value == "success"
+    assert operation.context["total_count"] == "6"
+    assert transaction.commit_calls == 3
     # A origem permanece intacta.
     assert {p: p.read_bytes() for p in root.rglob("*") if p.is_file()} == before
 
@@ -239,8 +243,11 @@ async def test_insufficient_space_is_reported_without_importing(tmp_path: Path) 
 
     assert result.items[0].outcome is LegacyImportOutcome.INSUFFICIENT_SPACE
     assert documents.documents == {}
-    assert audit.events == []
-    assert transaction.commit_calls == 0
+    assert len(audit.events) == 1
+    assert audit.events[0].action == "legacy_import.completed"
+    assert audit.events[0].result.value == "failure"
+    assert audit.events[0].context["insufficient_space_count"] == "1"
+    assert transaction.commit_calls == 1
 
 
 async def test_a_read_error_is_reported_as_unreadable(tmp_path: Path) -> None:
@@ -277,5 +284,7 @@ async def test_an_unexpected_storage_failure_is_reported_and_does_not_stop_the_b
         LegacyImportOutcome.IMPORTED,
     ]
     assert len(documents.documents) == 1
-    assert len(audit.events) == 1
-    assert transaction.commit_calls == 1
+    assert len(audit.events) == 2
+    assert audit.events[-1].action == "legacy_import.completed"
+    assert audit.events[-1].result.value == "failure"
+    assert transaction.commit_calls == 2

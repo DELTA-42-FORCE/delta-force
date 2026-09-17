@@ -5,7 +5,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-
 _BCRYPT_PASSWORD_MAX_BYTES = 72
 
 

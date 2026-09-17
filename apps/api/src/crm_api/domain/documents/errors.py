@@ -23,3 +23,7 @@ class DocumentNotFoundError(Exception):
 
 class DocumentContentUnavailableError(DocumentStorageError):
     """Os metadados existem, mas o arquivo não pôde ser lido na área privada."""
+
+
+class DocumentIntegrityError(DocumentContentUnavailableError):
+    """O conteúdo lido não corresponde ao tamanho ou SHA-256 persistido."""

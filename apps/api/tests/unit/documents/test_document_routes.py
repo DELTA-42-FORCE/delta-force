@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Mapping
+from urllib.parse import quote
 from uuid import UUID, uuid4
 
 import pytest
@@ -259,10 +260,13 @@ def _attach(
     folder_id: UUID | None = None,
     data: dict[str, str] | None = None,
 ):
+    headers = {"X-Delta-Document-Filename": quote(filename, safe="")}
+    for key, value in (data or {}).items():
+        headers[f"X-Delta-Document-{key.title()}"] = quote(value, safe="")
     return harness.client.post(
         f"/clients/{folder_id or harness.folder_id}/documents",
-        files={"file": (filename, payload, "application/octet-stream")},
-        data=data or {},
+        content=payload,
+        headers=headers,
     )
 
 
@@ -282,6 +286,44 @@ def test_owner_attaches_a_pdf_to_a_client_folder(harness: _Harness) -> None:
 
     stored = harness.documents.documents[UUID(body["id"])]
     assert harness.storage.resolve_path(stored.storage_key).read_bytes() == PDF_BYTES
+
+
+def test_upload_preflight_allows_only_the_document_metadata_headers(
+    harness: _Harness,
+) -> None:
+    requested_headers = (
+        "authorization,content-type,x-delta-document-filename,"
+        "x-delta-document-title,x-delta-document-category,"
+        "x-delta-document-notes"
+    )
+    response = harness.client.options(
+        f"/clients/{harness.folder_id}/documents",
+        headers={
+            "Origin": "http://localhost:5173",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": requested_headers,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
+    allowed = response.headers["access-control-allow-headers"].lower()
+    for header in requested_headers.split(","):
+        assert header in allowed
+
+
+@pytest.mark.parametrize("encoded_name", ["invalid%", "%FF.pdf", "%C3%28.pdf"])
+def test_upload_rejects_malformed_encoded_metadata(
+    harness: _Harness, encoded_name: str
+) -> None:
+    response = harness.client.post(
+        f"/clients/{harness.folder_id}/documents",
+        content=PDF_BYTES,
+        headers={"X-Delta-Document-Filename": encoded_name},
+    )
+
+    assert response.status_code == 422
+    assert harness.documents.documents == {}
 
 
 def test_owner_attaches_a_jpeg_with_optional_annotations(harness: _Harness) -> None:
@@ -535,6 +577,22 @@ def test_export_reports_a_missing_file_and_audits_the_failure(
     assert harness.events[-1].action == "document.exported"
     assert harness.events[-1].result == "failure"
     assert harness.events[-1].context["reason_code"] == "document_content_unavailable"
+
+
+def test_export_rejects_a_tampered_file_before_sending_content(
+    harness: _Harness,
+) -> None:
+    body = _attach(harness).json()
+    stored = harness.documents.documents[UUID(body["id"])]
+    harness.storage.resolve_path(stored.storage_key).write_bytes(PDF_BYTES + b"altered")
+
+    response = harness.client.get(
+        f"/clients/{harness.folder_id}/documents/{body['id']}/content"
+    )
+
+    assert response.status_code == 500
+    assert response.headers["content-type"].startswith("application/json")
+    assert harness.events[-1].context["reason_code"] == "document_integrity_mismatch"
 
 
 def test_every_document_route_requires_the_authenticated_owner() -> None:

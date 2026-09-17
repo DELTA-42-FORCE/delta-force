@@ -137,3 +137,29 @@ async def test_create_folder_accepts_optional_flexible_profile_data() -> None:
         "telefone": "(92) 0000-0000",
         "anotação": "retornar depois",
     }
+
+
+@pytest.mark.parametrize(
+    "profile_data",
+    [
+        {f"campo-{index}": "valor" for index in range(101)},
+        {"campo": "x" * 4_001},
+        {"x" * 101: "valor"},
+        {"   ": "valor"},
+    ],
+)
+async def test_create_folder_rejects_unbounded_profile_data(
+    profile_data: dict[str, str],
+) -> None:
+    use_case, clients, events, transaction = _build_use_case()
+
+    with pytest.raises(ValueError, match="profile_data"):
+        await use_case.execute(
+            actor_user_id=uuid4(),
+            display_name="Cliente Sintético",
+            profile_data=profile_data,
+        )
+
+    assert clients.created == []
+    assert events.events == []
+    assert transaction.commit_calls == 0

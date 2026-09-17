@@ -82,15 +82,22 @@ export async function apiFetch<T>(
 
 export async function apiUpload<T>(
   path: string,
-  options: { token?: string; formData: FormData; method?: string },
+  options: {
+    token?: string
+    file: File
+    metadataHeaders?: Record<string, string>
+    method?: string
+  },
 ): Promise<T> {
   const { baseUrl, headers } = await resolveTarget(options.token)
-  // Content-Type é deixado para o navegador: ele precisa gerar o boundary do
-  // multipart, e defini-lo aqui quebraria a leitura do corpo pelo servidor.
+  // O corpo bruto chega por streaming ao servidor. Multipart faria o Starlette
+  // receber o arquivo inteiro em spool temporário antes das nossas verificações.
+  headers['Content-Type'] = options.file.type || 'application/octet-stream'
+  Object.assign(headers, options.metadataHeaders)
   const response = await fetch(`${baseUrl}${path}`, {
     method: options.method ?? 'POST',
     headers,
-    body: options.formData,
+    body: options.file,
   })
 
   if (!response.ok) {
