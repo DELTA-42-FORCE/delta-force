@@ -119,29 +119,45 @@ ou segredo deve ser registrado aqui — apenas as decisões escolhidas.
 
 ### E-mail da mala direta (issue #46 — bloqueia #25)
 
-1. Endereço e nome de exibição do remetente.
-2. Forma de envio — proposta: usar o e-mail já contratado por SMTP; alternativa:
-   contratar um serviço de envio por API.
-3. Onde a credencial do e-mail fica guardada — proposta: arquivo protegido só na
-   máquina, fora do sistema e do backup; alternativa: gerenciador de senhas do
-   proprietário.
-4. Limite de destinatários por lote — proposta: 50 por vez; alternativa: outro
-   número informado pelo cliente.
-5. Comportamento em falha parcial — proposta: registrar quem falhou e reenviar
-   só para esses, sem duplicar; alternativa: reenviar a lista inteira.
+1. Qual é o endereço e o nome de exibição do remetente? Informe apenas esses
+   dados públicos, nunca senha, token ou código de recuperação.
+2. Qual provedor/conta de e-mail já utiliza? A conta permite SMTP e senha de
+   aplicativo, ou o provedor oferece outro mecanismo de envio autorizado?
+3. Aproximadamente quantos destinatários espera alcançar por lote e com que
+   frequência? O limite técnico será definido conforme as regras do provedor.
+4. Confirma envio individual por destinatário, com registro das falhas e reenvio
+   somente dos que falharam, sem duplicar mensagens já enviadas?
+
+O time escolherá o adaptador SMTP ou API depois de conhecer o provedor. A
+credencial deve ficar fora de arquivos, banco, backup, logs e repositório: para
+o aplicativo Windows, avaliar Windows Credential Manager/DPAPI ou entrada a
+cada sessão. Nenhum segredo deve ser pedido ou registrado nesta issue.
 
 ### Backup e restauração por HD externo (issue #44)
 
 Já confirmado: o backup poderá usar uma senha digitada pelo proprietário.
 
-1. Onde guardar a senha/chave de recuperação, fora do computador e do HD de
-   backup — proposta: local físico seguro (cofre/papel) sob responsabilidade do
-   proprietário; alternativa: gerenciador de senhas do proprietário.
-2. Quem pode restaurar o backup em um computador substituto — proposta: apenas o
-   proprietário; alternativa: proprietário mais uma pessoa de confiança indicada.
-3. Procedimento em caso de perda da senha/chave — proposta: aceitar o backup como
-   irrecuperável e recomeçar; alternativa: manter uma segunda cópia da senha em
-   outro local seguro.
+1. Onde manterá uma cópia da senha de recuperação, separada do computador e do
+   HD externo (por exemplo, cofre físico ou gerenciador de senhas)? Não informe
+   a senha à equipe.
+2. Quem deverá poder restaurar o backup em um computador substituto: apenas o
+   proprietário ou também uma pessoa de confiança indicada por ele?
+3. Se a senha do backup for perdida, haverá uma segunda cópia guardada em outro
+   local seguro ou ele aceita que o backup se torne irrecuperável?
+4. Com que frequência pretende conectar o HD e fazer backup? Deseja lembrete no
+   aplicativo quando estiver há muito tempo sem uma cópia?
+5. Quantas versões anteriores deseja manter no HD, ou por quanto tempo? Isso é
+   diferente do prazo de guarda dos dados e documentos no CRM, que é indefinido.
+6. A restauração será usada apenas em uma instalação vazia ou também poderá
+   substituir dados já presentes? Na segunda hipótese, a operação exigirá
+   confirmação explícita e proteção contra perda dos dados atuais.
+7. O computador e o HD externo já usam senha do Windows e proteção de disco
+   (por exemplo, BitLocker)? Essa resposta ajuda a orientar a operação, mas não
+   substitui a criptografia do backup.
+8. Após trocar o computador, como espera recuperar o acesso à conta do CRM caso
+   também tenha esquecido a senha de login? A senha do backup não deve revelar
+   nem reutilizar a senha de login.
 
-O formato criptográfico do backup (ex.: AES-256) é decisão técnica do time e não
-depende dessas respostas.
+O time definirá o formato criptográfico, o snapshot consistente de banco e
+documentos e a restauração atômica com validação antes de substituir dados. A
+senha do backup não será persistida pelo aplicativo nem incluída no backup.
