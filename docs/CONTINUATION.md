@@ -2,8 +2,8 @@
 
 Este arquivo permite retomar o trabalho sem depender do histórico de uma
 conversa. Antes de agir, leia `AGENTS.md` e confirme o estado atual no GitHub;
-os dados abaixo são um retrato de **17 de setembro de 2026, após a integração da
-PR #92**.
+os dados abaixo são um retrato de **18 de setembro de 2026, após a abertura das
+PRs #94 e #95**.
 
 ## Estado confirmado
 
@@ -51,11 +51,17 @@ PR #92**.
 
 - **#24:** CRUD, triagem e interface estão integrados; faltam homologar as
   variáveis de modelo e onde cadastrar/validar o e-mail opcional do cliente.
-- **#46:** o cliente ainda precisa informar remetente, provedor SMTP/API,
-  autenticação, limites de envio e regra de falha/reenvio. Isso bloqueia #25.
+- **#46:** o cliente ainda precisa informar remetente, provedor/conta e os
+  mecanismos de envio autorizados pelo provedor, além do volume/frequência e da
+  confirmação do fluxo individual com reenvio só das falhas. O time escolhe o
+  adaptador e a guarda segura da credencial; isso não deve ser delegado ao
+  cliente. A proposta técnica está na PR #95 e ainda aguarda revisão.
 - **#44:** o HD externo e o uso de senha digitada pelo proprietário foram
-  confirmados; formato criptográfico, custódia e recuperação da senha ainda
-  precisam ser definidos. Não implemente backup desprotegido.
+  confirmados; ainda faltam decisões operacionais sobre custódia/recuperação da
+  senha, responsáveis, frequência, retenção, modo de restauração e proteção dos
+  equipamentos. O formato criptográfico, snapshot consistente e restauração
+  atômica são decisões do time; a proposta técnica está na PR #94 e ainda
+  aguarda revisão. Não implemente backup desprotegido.
 - **ADR 0002/#43:** a arquitetura está **Aceita** e a issue #43 está concluída.
   A PR #48 aprovou Tauri 2, React, FastAPI empacotada como sidecar e
   SQLite/filesystem privado; a integração essencial foi entregue pela #57.
@@ -65,25 +71,31 @@ PR #92**.
 - **#26:** depende das decisões operacionais restantes e da entrega #44.
 - **#27:** permanece aberta até envio/histórico, backup/restauração e aceite em
   instalação Windows limpa.
-- Não há outra PR aberta ou issue MVP com `status: ready` no retrato desta data.
-  Não retire `status: blocked` nem inicie implementação baseada em hipótese.
+- As PRs #94 e #95 propõem as decisões técnicas de backup e e-mail. Não trate
+  proposta como decisão aceita antes da revisão e do merge. Ainda não há issue
+  MVP de implementação com `status: ready`; não retire `status: blocked` nem
+  implemente baseado em hipótese.
 
 ## Próxima sequência segura
 
-1. Obter do cliente/time as decisões de #24, #44 e #46.
-2. Implementar #25 somente após #46 e implementar #44 somente após definir o
-   formato criptográfico e a recuperação da senha.
-3. Completar #26 e executar o aceite final de #27 em Windows limpo.
+1. Revisar as propostas técnicas das PRs #94 e #95 sem antecipar o aceite.
+2. Obter do cliente as decisões operacionais de #24, #44 e #46.
+3. Implementar #25 somente após #46 e implementar #44 somente após as decisões
+   técnica e operacional correspondentes serem aprovadas.
+4. Completar #26 e executar o aceite final de #27 em Windows limpo.
 
 ### Informações necessárias para destravar #46
 
 - endereço e nome de exibição do remetente;
-- provedor já contratado ou disponível e se a integração será SMTP ou API;
-- forma autorizada de armazenar a credencial fora do repositório e do backup;
-- limite esperado de destinatários por lote;
-- comportamento aprovado para falha parcial e reenvio.
+- provedor/conta já utilizada e se oferece SMTP com senha de aplicativo ou outro
+  mecanismo de envio autorizado;
+- volume aproximado de destinatários por lote e frequência esperada;
+- confirmação de envio individual, com registro das falhas e reenvio somente
+  dos destinatários que falharam.
 
-Não registre senha, token ou segredo em issue, PR ou arquivo versionado.
+O time escolherá SMTP ou API conforme o provedor e definirá a guarda por Windows
+Credential Manager/DPAPI ou entrada por sessão. Não registre senha, token ou
+segredo em issue, PR, banco, backup ou arquivo versionado.
 
 ### Informações necessárias para destravar #44
 
@@ -91,10 +103,18 @@ Não registre senha, token ou segredo em issue, PR ou arquivo versionado.
 - onde a senha ou chave de recuperação será guardada fora do computador e do HD
   de backup;
 - quem poderá executar a restauração em um computador substituto;
-- procedimento aceito para perda da senha/chave.
+- procedimento aceito para perda da senha/chave;
+- frequência do backup e necessidade de lembrete no aplicativo;
+- quantidade de versões ou período de retenção no HD;
+- uso da restauração apenas em instalação vazia ou também sobre dados existentes;
+- proteção atual do Windows e do HD, como senha e BitLocker;
+- forma esperada de recuperar a conta do CRM se a senha de login também for
+  perdida após a troca do computador.
 
 Não implemente um backup desprotegido nem uma chave vinculada somente ao
-computador perdido: ambos contrariam a recuperação por HD externo.
+computador perdido: ambos contrariam a recuperação por HD externo. Formato
+criptográfico, snapshot consistente e restauração atômica pertencem ao time e
+não são perguntas para o cliente.
 
 Para qualquer nova entrega, crie worktree/branch curta a partir de
 `origin/develop`, rode `just check`, abra PR para `develop` e solicite revisão:
