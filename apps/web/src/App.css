@@ -2003,6 +2003,197 @@ button.workspace-nav__item--active:hover {
   line-height: 1.5;
 }
 
+.contracts-panel {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.contract-form {
+  display: grid;
+  padding: 1.25rem 1.5rem;
+  grid-template-columns:
+    minmax(11rem, 1fr) minmax(10rem, 0.7fr) minmax(12rem, 0.8fr)
+    auto;
+  align-items: end;
+  gap: 0.9rem;
+  border: 1px solid var(--command-line);
+  border-radius: 0.9rem;
+  background: var(--command-surface);
+}
+
+.contract-form > div {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.contract-form label {
+  color: #425168;
+  font-size: 0.75rem;
+  font-weight: 750;
+}
+
+.contract-form input,
+.payment-action input {
+  min-height: 2.6rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #ced6e1;
+  border-radius: 0.6rem;
+  color: #24334a;
+  background: #fff;
+}
+
+.contract-form input:focus,
+.payment-action input:focus {
+  border-color: var(--signal-teal);
+  outline: none;
+  box-shadow: 0 0 0 0.2rem rgb(7 130 154 / 13%);
+}
+
+.contract-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.contract-card {
+  overflow: hidden;
+  border: 1px solid var(--command-line);
+  border-radius: 0.9rem;
+  background: var(--command-surface);
+  box-shadow: 0 0.8rem 2.5rem rgb(25 48 77 / 4%);
+}
+
+.contract-card > header {
+  display: flex;
+  padding: 1rem 1.25rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--command-line-soft);
+}
+
+.contract-card > header div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.contract-card > header strong {
+  color: #17263b;
+  font-size: 1rem;
+}
+
+.contract-card > header small,
+.contract-signal,
+.contract-installment small {
+  color: var(--command-muted);
+  font-size: 0.72rem;
+}
+
+.contract-status {
+  padding: 0.32rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.contract-status--active {
+  color: #1d6135;
+  background: #e9f7ed;
+}
+
+.contract-status--paid {
+  color: var(--signal-teal);
+  background: var(--signal-teal-soft);
+}
+
+.contract-status--cancelled,
+.contract-status--overdue {
+  color: var(--signal-danger);
+  background: var(--signal-danger-soft);
+}
+
+.contract-signal {
+  margin: 0;
+  padding: 0.75rem 1.25rem;
+  background: var(--command-inset);
+}
+
+.contract-installments {
+  display: grid;
+}
+
+.contract-installment {
+  display: flex;
+  min-height: 4rem;
+  padding: 0.75rem 1.25rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-top: 1px solid var(--command-line-soft);
+}
+
+.contract-installment > span:first-child {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.contract-installment strong {
+  color: #25344a;
+  font-size: 0.8rem;
+}
+
+.payment-action,
+.contract-cancel-confirmation {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.payment-action input {
+  min-height: 2.2rem;
+}
+
+.payment-recorded {
+  color: #1d6135;
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.payment-pending {
+  color: var(--command-muted);
+  font-size: 0.72rem;
+}
+
+.contract-card > footer {
+  display: flex;
+  padding: 0.75rem 1.25rem;
+  justify-content: flex-end;
+  border-top: 1px solid var(--command-line-soft);
+  background: var(--command-inset);
+}
+
+.contract-cancel-confirmation > span {
+  color: var(--signal-danger);
+  font-size: 0.72rem;
+}
+
+@media (max-width: 1000px) {
+  .contract-form {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 650px) {
+  .contract-form {
+    grid-template-columns: 1fr;
+  }
+
+  .contract-installment,
+  .payment-action {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
 @media (max-width: 600px) {
   .import-form,
   .import-review,

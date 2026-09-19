@@ -30,6 +30,7 @@ PREVIOUS_ANNOTATION_REVISION = "20260902_0008"
 PREVIOUS_DOCUMENT_STATUS_REVISION = "20260903_0010"
 PREVIOUS_MESSAGE_TEMPLATE_REVISION = "20260904_0011"
 PREVIOUS_LEGACY_IMPORT_AUDIT_REVISION = "20260904_0012"
+PREVIOUS_CONTRACT_REVISION = "20260915_0013"
 
 
 def run_alembic(command: str, revision: str) -> None:
@@ -785,3 +786,117 @@ def test_legacy_import_audit_migration_round_trip_protects_events() -> None:
             with connect(path) as connection:
                 connection.execute("DELETE FROM audit_events WHERE id = ?", (event_id,))
                 connection.commit()
+
+
+def test_contract_migration_round_trip_protects_financial_data_and_audit() -> None:
+    path = ensure_disposable_database()
+    folder_id = uuid.uuid4().hex
+    contract_id = uuid.uuid4().hex
+    installment_id = uuid.uuid4().hex
+    event_id: str | None = None
+
+    run_alembic("downgrade", PREVIOUS_CONTRACT_REVISION)
+    try:
+        with connect(path) as connection:
+            assert "contracts" not in _table_names(connection)
+            assert "contract_installments" not in _table_names(connection)
+            with pytest.raises(sqlite3.IntegrityError):
+                insert_audit_event(
+                    connection,
+                    actor_kind="anonymous",
+                    actor_user_id=None,
+                    action="contract.created",
+                    resource_type="contract",
+                )
+
+        run_alembic("upgrade", "head")
+        with connect(path) as connection:
+            assert {"contracts", "contract_installments"} <= _table_names(connection)
+            connection.execute(
+                "INSERT INTO client_folders (id, display_name, profile_data) "
+                "VALUES (?, ?, ?)",
+                (folder_id, "Cliente financeiro sintético", "{}"),
+            )
+            with pytest.raises(sqlite3.IntegrityError):
+                connection.execute(
+                    "INSERT INTO contracts ("
+                    "id, client_folder_id, total_amount_cents, "
+                    "deposit_amount_cents, balance_amount_cents, "
+                    "installment_count, signal_paid_on, status"
+                    ") VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        uuid.uuid4().hex,
+                        folder_id,
+                        200_000,
+                        200_000,
+                        0,
+                        1,
+                        "2026-09-01",
+                        "active",
+                    ),
+                )
+            connection.execute(
+                "INSERT INTO contracts ("
+                "id, client_folder_id, total_amount_cents, deposit_amount_cents, "
+                "balance_amount_cents, installment_count, signal_paid_on, status"
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    contract_id,
+                    folder_id,
+                    300_000,
+                    200_000,
+                    100_000,
+                    1,
+                    "2026-09-01",
+                    "active",
+                ),
+            )
+            connection.execute(
+                "INSERT INTO contract_installments ("
+                "id, contract_id, number, amount_cents, due_date"
+                ") VALUES (?, ?, ?, ?, ?)",
+                (installment_id, contract_id, 1, 100_000, "2026-10-01"),
+            )
+            connection.commit()
+
+        with pytest.raises(subprocess.CalledProcessError):
+            run_alembic("downgrade", PREVIOUS_CONTRACT_REVISION)
+
+        with connect(path) as connection:
+            connection.execute(
+                "DELETE FROM contract_installments WHERE id = ?", (installment_id,)
+            )
+            connection.execute("DELETE FROM contracts WHERE id = ?", (contract_id,))
+            connection.commit()
+            event_id = insert_audit_event(
+                connection,
+                actor_kind="anonymous",
+                actor_user_id=None,
+                action="contract.created",
+                resource_type="contract",
+            )
+
+        with pytest.raises(subprocess.CalledProcessError):
+            run_alembic("downgrade", PREVIOUS_CONTRACT_REVISION)
+
+        with connect(path) as connection:
+            connection.execute("DELETE FROM audit_events WHERE id = ?", (event_id,))
+            connection.commit()
+            event_id = None
+
+        run_alembic("downgrade", PREVIOUS_CONTRACT_REVISION)
+        with connect(path) as connection:
+            assert "contracts" not in _table_names(connection)
+            assert "contract_installments" not in _table_names(connection)
+    finally:
+        run_alembic("upgrade", "head")
+        with connect(path) as connection:
+            if event_id is not None:
+                connection.execute("DELETE FROM audit_events WHERE id = ?", (event_id,))
+            connection.execute(
+                "DELETE FROM contract_installments WHERE contract_id = ?",
+                (contract_id,),
+            )
+            connection.execute("DELETE FROM contracts WHERE id = ?", (contract_id,))
+            connection.execute("DELETE FROM client_folders WHERE id = ?", (folder_id,))
+            connection.commit()

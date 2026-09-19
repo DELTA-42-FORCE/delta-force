@@ -45,6 +45,10 @@ class AuditAction(StrEnum):
     MESSAGE_TEMPLATE_DELETED = "message_template.deleted"
     RECIPIENT_CANDIDATES_VIEWED = "recipient_candidates.viewed"
     LEGACY_IMPORT_COMPLETED = "legacy_import.completed"
+    CONTRACT_CREATED = "contract.created"
+    CONTRACT_VIEWED = "contract.viewed"
+    CONTRACT_INSTALLMENT_PAID = "contract.installment_paid"
+    CONTRACT_CANCELLED = "contract.cancelled"
 
 
 class AuditResourceType(StrEnum):
@@ -58,6 +62,7 @@ class AuditResourceType(StrEnum):
     DOCUMENT = "document"
     MESSAGE_TEMPLATE = "message_template"
     LEGACY_IMPORT = "legacy_import"
+    CONTRACT = "contract"
 
 
 @dataclass(frozen=True, slots=True)
