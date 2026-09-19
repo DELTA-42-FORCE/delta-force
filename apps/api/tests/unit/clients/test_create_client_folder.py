@@ -53,11 +53,16 @@ class FakeClientFolderRepository:
     created: list[ClientFolder] = field(default_factory=list)
 
     async def create(
-        self, *, display_name: str, profile_data: Mapping[str, str]
+        self,
+        *,
+        display_name: str,
+        email: str | None,
+        profile_data: Mapping[str, str],
     ) -> ClientFolder:
         folder = ClientFolder(
             id=uuid4(),
             display_name=display_name,
+            email=email,
             profile_data=profile_data,
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
@@ -137,6 +142,31 @@ async def test_create_folder_accepts_optional_flexible_profile_data() -> None:
         "telefone": "(92) 0000-0000",
         "anotação": "retornar depois",
     }
+
+
+async def test_create_folder_normalizes_optional_email() -> None:
+    use_case, _, _, _ = _build_use_case()
+
+    folder = await use_case.execute(
+        actor_user_id=uuid4(),
+        display_name="Cliente Sintético",
+        email="  CLIENTE@Example.COM ",
+    )
+
+    assert folder.email == "CLIENTE@example.com"
+
+
+async def test_create_folder_rejects_invalid_email() -> None:
+    use_case, clients, _, _ = _build_use_case()
+
+    with pytest.raises(ValueError, match="email is invalid"):
+        await use_case.execute(
+            actor_user_id=uuid4(),
+            display_name="Cliente Sintético",
+            email="não-é-email",
+        )
+
+    assert clients.created == []
 
 
 @pytest.mark.parametrize(

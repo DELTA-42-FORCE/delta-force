@@ -37,6 +37,7 @@ function folder(id: string, displayName: string): ClientFolder {
   return {
     id,
     display_name: displayName,
+    email: null,
     profile_data: {},
     created_at: '2026-08-22T18:30:00Z',
     updated_at: '2026-08-22T18:30:00Z',
@@ -193,6 +194,7 @@ describe('ClientsPage', () => {
     await waitFor(() =>
       expect(createFolder).toHaveBeenCalledWith({
         display_name: 'Ana Souza',
+        email: null,
         profile_data: {},
       }),
     )
@@ -235,6 +237,7 @@ describe('ClientsPage', () => {
     await waitFor(() =>
       expect(updateFolder).toHaveBeenCalledWith(ANA_ID, {
         display_name: 'Ana Souza Lima',
+        email: null,
         profile_data: {},
       }),
     )

@@ -101,15 +101,22 @@ function Root() {
   )
 
   const createClient = useCallback(
-    (input: { display_name: string; profile_data: Record<string, string> }) =>
-      createClientFolder(authenticatedRequest, input),
+    (input: {
+      display_name: string
+      email: string | null
+      profile_data: Record<string, string>
+    }) => createClientFolder(authenticatedRequest, input),
     [authenticatedRequest],
   )
 
   const updateClient = useCallback(
     (
       id: string,
-      input: { display_name: string; profile_data: Record<string, string> },
+      input: {
+        display_name: string
+        email: string | null
+        profile_data: Record<string, string>
+      },
     ) => updateClientFolder(authenticatedRequest, id, input),
     [authenticatedRequest],
   )

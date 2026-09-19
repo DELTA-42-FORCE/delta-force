@@ -3,12 +3,13 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 
 
 class ClientFolderResponse(BaseModel):
     id: UUID
     display_name: str
+    email: EmailStr | None
     profile_data: dict[str, str]
     created_at: datetime
     updated_at: datetime
@@ -27,9 +28,11 @@ class ClientFolderListResponse(BaseModel):
 
 class CreateClientFolderRequest(BaseModel):
     display_name: str = Field(min_length=1, max_length=200)
+    email: EmailStr | None = None
     profile_data: dict[str, str] | None = None
 
 
 class UpdateClientFolderRequest(BaseModel):
     display_name: str = Field(min_length=1, max_length=200)
+    email: EmailStr | None = None
     profile_data: dict[str, str] | None = None

@@ -31,7 +31,11 @@ class ClientProfileDocument:
         cls, client: ClientFolder, *, heading: str = "Ficha cadastral"
     ) -> "ClientProfileDocument":
         """Monta a ficha a partir da pasta, ignorando campos em branco."""
-        fields = tuple(
+        fields = (
+            (ClientProfileField(label="E-mail", value=client.email),)
+            if client.email is not None
+            else ()
+        ) + tuple(
             ClientProfileField(label=key.strip(), value=value.strip())
             for key, value in client.profile_data.items()
             if key.strip() and value.strip()

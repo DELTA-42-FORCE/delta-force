@@ -4,6 +4,9 @@ from crm_api.application.audit.record_audit_event import RecordAuditEventUseCase
 from crm_api.application.communications.list_recipient_candidates import (
     ListRecipientCandidatesUseCase,
 )
+from crm_api.application.communications.render_template import (
+    RenderMessageTemplateUseCase,
+)
 from crm_api.application.communications.templates import (
     CreateMessageTemplateUseCase,
     DeleteMessageTemplateUseCase,
@@ -13,6 +16,7 @@ from crm_api.application.communications.templates import (
 )
 from crm_api.infrastructure.audit.repositories import SqlAlchemyAuditEventRepository
 from crm_api.infrastructure.audit.transactions import SqlAlchemyTransaction
+from crm_api.infrastructure.clients.repositories import SqlAlchemyClientFolderRepository
 from crm_api.infrastructure.communications.repositories import (
     SqlAlchemyCommunicationRepository,
 )
@@ -72,4 +76,13 @@ def get_list_recipient_candidates_use_case(
         repository=_repository(session),
         audit=RecordAuditEventUseCase(SqlAlchemyAuditEventRepository(session)),
         transaction=SqlAlchemyTransaction(session),
+    )
+
+
+def get_render_message_template_use_case(
+    session: DatabaseSession,
+) -> RenderMessageTemplateUseCase:
+    return RenderMessageTemplateUseCase(
+        templates=_repository(session),
+        clients=SqlAlchemyClientFolderRepository(session),
     )

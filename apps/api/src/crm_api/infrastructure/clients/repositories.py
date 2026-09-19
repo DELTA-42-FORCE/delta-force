@@ -16,6 +16,7 @@ def _to_client_folder(model: ClientFolderModel) -> ClientFolder:
     return ClientFolder(
         id=model.id,
         display_name=model.display_name,
+        email=model.email,
         profile_data=dict(model.profile_data),
         created_at=as_utc(model.created_at),
         updated_at=as_utc(model.updated_at),
@@ -29,10 +30,15 @@ class SqlAlchemyClientFolderRepository:
     session: AsyncSession
 
     async def create(
-        self, *, display_name: str, profile_data: Mapping[str, str]
+        self,
+        *,
+        display_name: str,
+        profile_data: Mapping[str, str],
+        email: str | None = None,
     ) -> ClientFolder:
         model = ClientFolderModel(
             display_name=display_name,
+            email=email,
             profile_data=dict(profile_data),
         )
         self.session.add(model)
@@ -87,13 +93,19 @@ class SqlAlchemyClientFolderRepository:
         return [_to_client_folder(model) for model in models]
 
     async def update(
-        self, *, id: UUID, display_name: str, profile_data: Mapping[str, str]
+        self,
+        *,
+        id: UUID,
+        display_name: str,
+        profile_data: Mapping[str, str],
+        email: str | None = None,
     ) -> ClientFolder | None:
         model = await self.session.get(ClientFolderModel, id)
         if model is None:
             return None
 
         model.display_name = display_name
+        model.email = email
         model.profile_data = dict(profile_data)
         await self.session.flush()
         await self.session.refresh(model)

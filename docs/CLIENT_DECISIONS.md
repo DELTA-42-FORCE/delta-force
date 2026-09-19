@@ -58,6 +58,9 @@ cliente prevalece sobre uma hipótese anterior.
   atender eventual solicitação legítima do titular.
 - O e-mail remetente da mala direta ainda será informado pelo cliente. Nenhuma
   credencial, conta de teste real ou segredo deve ser adicionado ao repositório.
+- O e-mail opcional de cada cliente será um campo próprio, validado, da pasta
+  digital; não será inferido de campos livres. Modelos aceitam somente a
+  variável `{{nome}}` no MVP. Outras variáveis exigem decisão e teste próprios.
 
 ## Contratos e parcelamento — etapa posterior ao MVP
 

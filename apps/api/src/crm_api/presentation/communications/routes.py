@@ -8,6 +8,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from crm_api.application.communications.list_recipient_candidates import (
     ListRecipientCandidatesUseCase,
 )
+from crm_api.application.communications.render_template import (
+    RenderMessageTemplateUseCase,
+)
 from crm_api.application.communications.templates import (
     CreateMessageTemplateUseCase,
     DeleteMessageTemplateUseCase,
@@ -20,6 +23,7 @@ from crm_api.domain.communications.entities import (
     RecipientCandidateCursor,
 )
 from crm_api.domain.communications.errors import MessageTemplateNotFoundError
+from crm_api.domain.clients.errors import ClientFolderNotFoundError
 from crm_api.domain.documents.entities import DocumentStatus
 from crm_api.presentation.auth.dependencies import CurrentUser
 from crm_api.presentation.communications.dependencies import (
@@ -28,10 +32,13 @@ from crm_api.presentation.communications.dependencies import (
     get_get_message_template_use_case,
     get_list_message_templates_use_case,
     get_list_recipient_candidates_use_case,
+    get_render_message_template_use_case,
     get_update_message_template_use_case,
 )
 from crm_api.presentation.communications.schemas import (
     MessageTemplatePayload,
+    MessageTemplatePreviewRequest,
+    MessageTemplatePreviewResponse,
     MessageTemplateResponse,
     RecipientCandidateCursorResponse,
     RecipientCandidateListResponse,
@@ -75,6 +82,38 @@ async def create_message_template(
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from None
     return _to_response(template)
+
+
+@router.post(
+    "/message-templates/{template_id}/preview",
+    response_model=MessageTemplatePreviewResponse,
+)
+async def preview_message_template(
+    template_id: UUID,
+    payload: MessageTemplatePreviewRequest,
+    current_user: CurrentUser,
+    use_case: Annotated[
+        RenderMessageTemplateUseCase,
+        Depends(get_render_message_template_use_case),
+    ],
+) -> MessageTemplatePreviewResponse:
+    del current_user
+    try:
+        preview = await use_case.execute(
+            template_id=template_id,
+            client_id=payload.client_id,
+        )
+    except MessageTemplateNotFoundError:
+        raise HTTPException(
+            status_code=404, detail="message template not found"
+        ) from None
+    except ClientFolderNotFoundError:
+        raise HTTPException(status_code=404, detail="client folder not found") from None
+    return MessageTemplatePreviewResponse(
+        client_id=preview.client_id,
+        subject=preview.subject,
+        body=preview.body,
+    )
 
 
 @router.get("/message-templates", response_model=list[MessageTemplateResponse])

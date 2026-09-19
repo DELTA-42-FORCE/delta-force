@@ -70,7 +70,12 @@ class FakeClientFolderRepository:
         return []
 
     async def update(
-        self, *, id: UUID, display_name: str, profile_data: Mapping[str, str]
+        self,
+        *,
+        id: UUID,
+        display_name: str,
+        email: str | None,
+        profile_data: Mapping[str, str],
     ) -> ClientFolder | None:
         self.update_calls += 1
         existing = self.folders.get(id)
@@ -79,6 +84,7 @@ class FakeClientFolderRepository:
         updated = ClientFolder(
             id=existing.id,
             display_name=display_name,
+            email=email,
             profile_data=profile_data,
             created_at=existing.created_at,
             updated_at=datetime.now(UTC),

@@ -13,11 +13,16 @@ interface ClientsPageProps {
   ) => Promise<ClientFolderPage>
   createFolder: (input: {
     display_name: string
+    email: string | null
     profile_data: Record<string, string>
   }) => Promise<ClientFolder>
   updateFolder: (
     id: string,
-    input: { display_name: string; profile_data: Record<string, string> },
+    input: {
+      display_name: string
+      email: string | null
+      profile_data: Record<string, string>
+    },
   ) => Promise<ClientFolder>
   onOpenDocuments: (folder: ClientFolder) => void
   onOpenContracts?: (folder: ClientFolder) => void
@@ -115,6 +120,7 @@ export function ClientsPage({
 
   async function handleCreate(input: {
     display_name: string
+    email: string | null
     profile_data: Record<string, string>
   }) {
     await createFolder(input)
@@ -124,7 +130,11 @@ export function ClientsPage({
 
   async function handleUpdate(
     folderId: string,
-    input: { display_name: string; profile_data: Record<string, string> },
+    input: {
+      display_name: string
+      email: string | null
+      profile_data: Record<string, string>
+    },
   ) {
     await updateFolder(folderId, input)
     setView({ mode: 'list' })
