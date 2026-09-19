@@ -20,6 +20,16 @@ class MessageTemplateResponse(MessageTemplatePayload):
     updated_at: datetime
 
 
+class MessageTemplatePreviewRequest(BaseModel):
+    client_id: UUID
+
+
+class MessageTemplatePreviewResponse(BaseModel):
+    client_id: UUID
+    subject: str
+    body: str
+
+
 class RecipientCandidateResponse(BaseModel):
     client_id: UUID
     display_name: str

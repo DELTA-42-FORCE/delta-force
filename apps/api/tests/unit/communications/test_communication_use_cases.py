@@ -511,7 +511,7 @@ def test_template_http_mutations_reject_invalid_and_missing() -> None:
 def test_every_communication_route_requires_the_authenticated_owner() -> None:
     routes = list(communications_router.routes)
 
-    assert len(routes) == 6
+    assert len(routes) == 7
     for route in routes:
         dependants = route.dependant.dependencies  # type: ignore[attr-defined]
         dependency_names = {

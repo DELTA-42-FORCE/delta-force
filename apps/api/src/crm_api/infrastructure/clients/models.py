@@ -18,12 +18,17 @@ class ClientFolderModel(Base):
             "length(trim(display_name)) > 0",
             name="ck_client_folders_display_name_not_blank",
         ),
+        CheckConstraint(
+            "email IS NULL OR length(trim(email)) > 0",
+            name="ck_client_folders_email_not_blank",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     display_name: Mapped[str] = mapped_column(String(), nullable=False)
+    email: Mapped[str | None] = mapped_column(String(320), nullable=True)
     profile_data: Mapped[dict[str, str]] = mapped_column(
         JSON(), nullable=False, default=dict
     )

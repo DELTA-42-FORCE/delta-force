@@ -72,7 +72,11 @@ class MemoryClientFolderRepository:
         return self.folders.get(id)
 
     async def create(
-        self, *, display_name: str, profile_data: Mapping[str, str]
+        self,
+        *,
+        display_name: str,
+        email: str | None,
+        profile_data: Mapping[str, str],
     ) -> ClientFolder:
         raise AssertionError("document routes must not create client folders")
 

@@ -1,6 +1,7 @@
 """Manutenção transacional e auditada de modelos de mensagem."""
 
 from dataclasses import dataclass
+import re
 from uuid import UUID
 
 from crm_api.application.audit.record_audit_event import RecordAuditEventUseCase
@@ -14,6 +15,9 @@ from crm_api.domain.audit.entities import (
 from crm_api.domain.communications.entities import MessageTemplate
 from crm_api.domain.communications.errors import MessageTemplateNotFoundError
 from crm_api.domain.communications.repositories import CommunicationRepository
+
+_VARIABLE_PATTERN = re.compile(r"{{\s*([^{}]+?)\s*}}")
+_ALLOWED_VARIABLES = frozenset({"nome"})
 
 
 def normalize_template_fields(
@@ -31,6 +35,16 @@ def normalize_template_fields(
         if len(cleaned) > limits[field_name]:
             raise ValueError(f"message template {field_name} is too long")
         normalized[field_name] = cleaned
+    used_variables = {
+        match.group(1)
+        for value in normalized.values()
+        for match in _VARIABLE_PATTERN.finditer(value)
+    }
+    unsupported = sorted(used_variables - _ALLOWED_VARIABLES)
+    if unsupported:
+        raise ValueError(
+            "message template contains unsupported variables: " + ", ".join(unsupported)
+        )
     return normalized["name"], normalized["subject"], normalized["body"]
 
 

@@ -48,11 +48,16 @@ class MemoryClientFolderRepository:
     folders: dict[UUID, ClientFolder] = field(default_factory=dict)
 
     async def create(
-        self, *, display_name: str, profile_data: Mapping[str, str]
+        self,
+        *,
+        display_name: str,
+        email: str | None,
+        profile_data: Mapping[str, str],
     ) -> ClientFolder:
         folder = ClientFolder(
             id=uuid4(),
             display_name=display_name,
+            email=email,
             profile_data=profile_data,
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
@@ -88,7 +93,12 @@ class MemoryClientFolderRepository:
         return ordered[:limit]
 
     async def update(
-        self, *, id: UUID, display_name: str, profile_data: Mapping[str, str]
+        self,
+        *,
+        id: UUID,
+        display_name: str,
+        email: str | None,
+        profile_data: Mapping[str, str],
     ) -> ClientFolder | None:
         existing = self.folders.get(id)
         if existing is None:
@@ -96,6 +106,7 @@ class MemoryClientFolderRepository:
         updated = ClientFolder(
             id=existing.id,
             display_name=display_name,
+            email=email,
             profile_data=profile_data,
             created_at=existing.created_at,
             updated_at=datetime.now(UTC),

@@ -68,6 +68,7 @@ def _to_response(client: ClientFolder) -> ClientFolderResponse:
     return ClientFolderResponse(
         id=client.id,
         display_name=client.display_name,
+        email=client.email,
         profile_data=dict(client.profile_data),
         created_at=client.created_at,
         updated_at=client.updated_at,
@@ -88,6 +89,7 @@ async def create_client_folder(
         client = await use_case.execute(
             actor_user_id=current_user.id,
             display_name=payload.display_name,
+            email=str(payload.email) if payload.email is not None else None,
             profile_data=payload.profile_data,
         )
     except ValueError as error:
@@ -208,6 +210,7 @@ async def update_client_folder(
             actor_user_id=current_user.id,
             client_id=client_id,
             display_name=payload.display_name,
+            email=str(payload.email) if payload.email is not None else None,
             profile_data=payload.profile_data,
         )
     except ClientFolderNotFoundError:

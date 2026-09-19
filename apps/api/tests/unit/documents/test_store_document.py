@@ -80,7 +80,11 @@ class FakeClientFolderRepository:
         return None
 
     async def create(
-        self, *, display_name: str, profile_data: Mapping[str, str]
+        self,
+        *,
+        display_name: str,
+        email: str | None,
+        profile_data: Mapping[str, str],
     ) -> ClientFolder:
         raise AssertionError("storing a document must not create a client folder")
 

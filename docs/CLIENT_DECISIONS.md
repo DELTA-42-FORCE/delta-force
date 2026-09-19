@@ -58,6 +58,9 @@ cliente prevalece sobre uma hipótese anterior.
   atender eventual solicitação legítima do titular.
 - O e-mail remetente da mala direta ainda será informado pelo cliente. Nenhuma
   credencial, conta de teste real ou segredo deve ser adicionado ao repositório.
+- O e-mail opcional de cada cliente será um campo próprio, validado, da pasta
+  digital; não será inferido de campos livres. Modelos aceitam somente a
+  variável `{{nome}}` no MVP. Outras variáveis exigem decisão e teste próprios.
 
 ## Contratos e parcelamento — etapa posterior ao MVP
 
@@ -111,11 +114,11 @@ Windows, o diretório privado, a primeira execução e a estratégia de atualiza
 manual. O formato criptográfico, a custódia/recuperação da senha do backup e o
 provedor de e-mail seguem pendentes.
 
-## Perguntas em aberto aguardando o cliente
+## Configurações operacionais feitas no próprio aplicativo
 
-Enviadas ao cliente em 15/09/2026; **aguardando resposta**. Enquanto não forem
-respondidas, as issues abaixo permanecem bloqueadas. Nenhuma senha, credencial
-ou segredo deve ser registrado aqui — apenas as decisões escolhidas.
+As informações públicas do remetente e as preferências operacionais serão
+preenchidas pelo proprietário no aplicativo. Nenhuma senha, credencial ou
+segredo deve ser registrado aqui, em issue ou em pull request.
 
 ### E-mail da mala direta (issue #46 — bloqueia #25)
 

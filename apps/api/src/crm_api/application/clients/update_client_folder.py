@@ -7,6 +7,7 @@ from uuid import UUID
 from crm_api.application.audit.record_audit_event import RecordAuditEventUseCase
 from crm_api.application.clients.normalization import (
     normalize_display_name,
+    normalize_email,
     normalize_profile_data,
 )
 from crm_api.application.transactions import Transaction
@@ -35,14 +36,17 @@ class UpdateClientFolderUseCase:
         actor_user_id: UUID,
         client_id: UUID,
         display_name: str,
+        email: str | None = None,
         profile_data: Mapping[str, str] | None = None,
     ) -> ClientFolder:
         normalized_name = normalize_display_name(display_name)
+        normalized_email = normalize_email(email)
         normalized_profile = normalize_profile_data(profile_data)
 
         client = await self.clients.update(
             id=client_id,
             display_name=normalized_name,
+            email=normalized_email,
             profile_data=normalized_profile,
         )
         if client is None:

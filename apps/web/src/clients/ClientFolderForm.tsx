@@ -13,6 +13,7 @@ interface ClientFolderFormProps {
   initialFolder?: ClientFolder
   onSubmit: (input: {
     display_name: string
+    email: string | null
     profile_data: Record<string, string>
   }) => Promise<void>
   onCancel: () => void
@@ -34,6 +35,7 @@ export function ClientFolderForm({
   const [displayName, setDisplayName] = useState(
     initialFolder?.display_name ?? '',
   )
+  const [email, setEmail] = useState(initialFolder?.email ?? '')
   const [entries, setEntries] = useState<ProfileEntry[]>(
     toProfileEntries(initialFolder?.profile_data),
   )
@@ -68,7 +70,11 @@ export function ClientFolderForm({
           .map(({ key, value }) => [key.trim(), value] as const)
           .filter(([key]) => key !== ''),
       )
-      await onSubmit({ display_name: displayName, profile_data: profileData })
+      await onSubmit({
+        display_name: displayName,
+        email: email.trim() || null,
+        profile_data: profileData,
+      })
     } catch (submitError) {
       if (submitError instanceof ApiError && submitError.status === 422) {
         setError('Verifique o nome informado e tente novamente.')
@@ -91,6 +97,20 @@ export function ClientFolderForm({
           value={displayName}
           onChange={(event) => setDisplayName(event.target.value)}
           placeholder="Nome de identificação"
+        />
+      </div>
+
+      <div className="field">
+        <label htmlFor="client-email">
+          E-mail para comunicações (opcional)
+        </label>
+        <input
+          id="client-email"
+          type="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          placeholder="cliente@exemplo.com"
+          autoComplete="email"
         />
       </div>
 

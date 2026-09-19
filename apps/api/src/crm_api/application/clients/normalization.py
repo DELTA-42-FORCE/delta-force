@@ -2,10 +2,24 @@
 
 from typing import Mapping
 
+from email_validator import EmailNotValidError, validate_email
+
 MAX_PROFILE_FIELDS = 100
 MAX_PROFILE_KEY_LENGTH = 100
 MAX_PROFILE_VALUE_LENGTH = 4_000
 MAX_PROFILE_TOTAL_LENGTH = 64 * 1024
+
+
+def normalize_email(value: str | None) -> str | None:
+    """Normaliza o endereço opcional usado pela mala direta."""
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return None
+    if not isinstance(value, str):
+        raise ValueError("client folder email must be a string or null")
+    try:
+        return validate_email(value.strip(), check_deliverability=False).normalized
+    except EmailNotValidError:
+        raise ValueError("client folder email is invalid") from None
 
 
 def normalize_display_name(value: str) -> str:

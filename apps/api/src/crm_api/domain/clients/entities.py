@@ -30,6 +30,7 @@ class ClientFolder:
     profile_data: Mapping[str, str]
     created_at: datetime
     updated_at: datetime
+    email: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.id, UUID):
@@ -41,6 +42,10 @@ class ClientFolder:
             for key, value in self.profile_data.items()
         ):
             raise ValueError("client folder profile_data must map strings to strings")
+        if self.email is not None and (
+            not isinstance(self.email, str) or not self.email.strip()
+        ):
+            raise ValueError("client folder email must be null or non-blank")
         object.__setattr__(
             self, "profile_data", MappingProxyType(dict(self.profile_data))
         )
