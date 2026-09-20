@@ -2,12 +2,12 @@
 
 Este arquivo permite retomar o trabalho sem depender do histórico de uma
 conversa. Antes de agir, leia `AGENTS.md` e confirme o estado atual no GitHub;
-os dados abaixo são um retrato de **18 de setembro de 2026, após a abertura das
-PRs #94 e #95**.
+os dados abaixo são um retrato de **20 de setembro de 2026, após a integração da
+PR #101**.
 
 ## Estado confirmado
 
-- `origin/develop` estava em `923a6aa`, após o merge da PR #92.
+- `origin/develop` estava em `70e5619`, após o merge da PR #101.
 - Acesso local, clientes, documentos PDF/JPEG, status documental, ficha PDF,
   importação assistida, auditoria, modelos de mensagem e triagem estão
   integrados.
@@ -46,16 +46,23 @@ PRs #94 e #95**.
 - **#92:** reforço de documentos, importação, limites de campos, dependências e
   tolerância da primeira abertura no Windows; os sete checks passaram na revisão
   integrada, inclusive o smoke test do instalador.
+- **#96:** contratos e parcelamento da etapa posterior ao MVP, com valores em
+  centavos, vencimentos civis, pagamentos, cancelamento, auditoria e interface.
+- **#101:** `just audit` portátil para Linux e PowerShell, executando todos os
+  scanners obrigatórios e agregando falhas sem atualizar dependências.
+- **#102:** decisões do time sobre envio individual, resultado SMTP desconhecido,
+  lembrete de backup e restauração com proteção dos dados existentes.
 
 ## Bloqueios que não devem ser inventados
 
 - **#24:** CRUD, triagem e interface estão integrados; faltam homologar as
   variáveis de modelo e onde cadastrar/validar o e-mail opcional do cliente.
 - **#46:** o cliente ainda precisa informar remetente, provedor/conta e os
-  mecanismos de envio autorizados pelo provedor, além do volume/frequência e da
-  confirmação do fluxo individual com reenvio só das falhas. O time escolhe o
-  adaptador e a guarda segura da credencial; isso não deve ser delegado ao
-  cliente. A proposta técnica está na PR #95 e ainda aguarda revisão.
+  mecanismos de envio autorizados pelo provedor, além do volume/frequência. O
+  envio individual, o tratamento de falhas e resultados desconhecidos já foram
+  decididos na #102. O time escolhe o adaptador e a guarda segura da credencial;
+  isso não deve ser delegado ao cliente. A proposta técnica está na PR #95 e
+  ainda aguarda correções.
 - **#44:** o HD externo e o uso de senha digitada pelo proprietário foram
   confirmados; ainda faltam decisões operacionais sobre custódia/recuperação da
   senha, responsáveis, frequência, retenção, modo de restauração e proteção dos
@@ -71,18 +78,20 @@ PRs #94 e #95**.
 - **#26:** depende das decisões operacionais restantes e da entrega #44.
 - **#27:** permanece aberta até envio/histórico, backup/restauração e aceite em
   instalação Windows limpa.
-- As PRs #94 e #95 propõem as decisões técnicas de backup e e-mail. Não trate
-  proposta como decisão aceita antes da revisão e do merge. Ainda não há issue
-  MVP de implementação com `status: ready`; não retire `status: blocked` nem
-  implemente baseado em hipótese.
+- As PRs #94 e #95 propõem as decisões técnicas de backup e e-mail, mas continuam
+  com correções solicitadas. As PRs funcionais #97–#100 estão empilhadas e não
+  podem ser integradas antes de rebase, revisão e checks próprios. Não retire
+  `status: blocked` nem feche issue com base apenas na existência dessas branches.
 
 ## Próxima sequência segura
 
-1. Revisar as propostas técnicas das PRs #94 e #95 sem antecipar o aceite.
-2. Obter do cliente as decisões operacionais de #24, #44 e #46.
-3. Implementar #25 somente após #46 e implementar #44 somente após as decisões
-   técnica e operacional correspondentes serem aprovadas.
-4. Completar #26 e executar o aceite final de #27 em Windows limpo.
+1. Corrigir, revisar e decidir as propostas técnicas das PRs #94 e #95.
+2. Rebasear e revisar #97 isoladamente; depois retargetear #98, #99 e #100, uma
+   por vez, sempre sobre a `develop` atual e com checks próprios.
+3. Obter do cliente as decisões operacionais ainda pendentes de #44 e #46.
+4. Manter #25 e #44 abertas até configuração/teste real, mesmo que a fundação de
+   código seja integrada.
+5. Completar #26 e executar o aceite final de #27 em Windows limpo e HD real.
 
 ### Informações necessárias para destravar #46
 
@@ -90,12 +99,12 @@ PRs #94 e #95**.
 - provedor/conta já utilizada e se oferece SMTP com senha de aplicativo ou outro
   mecanismo de envio autorizado;
 - volume aproximado de destinatários por lote e frequência esperada;
-- confirmação de envio individual, com registro das falhas e reenvio somente
-  dos destinatários que falharam.
 
-O time escolherá SMTP ou API conforme o provedor e definirá a guarda por Windows
-Credential Manager/DPAPI ou entrada por sessão. Não registre senha, token ou
-segredo em issue, PR, banco, backup ou arquivo versionado.
+O envio individual e o reenvio automático somente de falhas comprovadas já são
+decisões do time. Resultado desconhecido exige confirmação do proprietário. O
+time escolherá SMTP ou API conforme o provedor e definirá a guarda segura da
+credencial. Não registre senha, token ou segredo em issue, PR, banco, backup ou
+arquivo versionado.
 
 ### Informações necessárias para destravar #44
 
