@@ -7,6 +7,8 @@ import {
 import type {
   MessageTemplate,
   MessageTemplatePayload,
+  EmailDispatch,
+  EmailSenderSettings,
   RecipientCandidate,
   RecipientCandidateCursor,
   RecipientCandidatePage,
@@ -25,6 +27,17 @@ interface CommunicationsPageProps {
     status: RecipientDocumentStatus,
     cursor: RecipientCandidateCursor | null,
   ) => Promise<RecipientCandidatePage>
+  loadSenderSettings: () => Promise<EmailSenderSettings>
+  saveSenderSettings: (
+    settings: EmailSenderSettings,
+  ) => Promise<EmailSenderSettings>
+  sendBatch: (input: {
+    template_id: string
+    client_ids: string[]
+    credential: string | null
+    confirm_repeat: boolean
+  }) => Promise<EmailDispatch[]>
+  loadDispatches: () => Promise<EmailDispatch[]>
   onBack: () => void
 }
 
@@ -46,12 +59,25 @@ function formatUpdatedAt(value: string): string {
     : `Atualizado em ${DATE_FORMATTER.format(date)}`
 }
 
-function CandidateList({ items }: { items: RecipientCandidate[] }) {
+function CandidateList({
+  items,
+  selected,
+  onToggle,
+}: {
+  items: RecipientCandidate[]
+  selected: Set<string>
+  onToggle: (clientId: string) => void
+}) {
   return (
     <ul className="recipient-list">
       {items.map((candidate) => (
         <li className="recipient-list__item" key={candidate.client_id}>
-          <span className="recipient-list__marker" aria-hidden="true" />
+          <input
+            type="checkbox"
+            aria-label={`Selecionar ${candidate.display_name}`}
+            checked={selected.has(candidate.client_id)}
+            onChange={() => onToggle(candidate.client_id)}
+          />
           <div>
             <strong>{candidate.display_name}</strong>
             <small>
@@ -78,6 +104,10 @@ export function CommunicationsPage({
   updateTemplate,
   deleteTemplate,
   loadCandidates,
+  loadSenderSettings,
+  saveSenderSettings,
+  sendBatch,
+  loadDispatches,
   onBack,
 }: CommunicationsPageProps) {
   const [templates, setTemplates] = useState<MessageTemplate[]>([])
@@ -117,6 +147,27 @@ export function CommunicationsPage({
     key: string
     request: Promise<RecipientCandidatePage>
   } | null>(null)
+  const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set())
+  const [selectedTemplateId, setSelectedTemplateId] = useState('')
+  const [credential, setCredential] = useState('')
+  const [confirmRepeat, setConfirmRepeat] = useState(false)
+  const [sendState, setSendState] = useState<'idle' | 'sending'>('idle')
+  const [sendNotice, setSendNotice] = useState<string | null>(null)
+  const [sendError, setSendError] = useState<string | null>(null)
+  const [dispatches, setDispatches] = useState<EmailDispatch[]>([])
+  const [senderState, setSenderState] = useState<
+    'loading' | 'unconfigured' | 'ready' | 'saving'
+  >('loading')
+  const [senderError, setSenderError] = useState<string | null>(null)
+  const [senderSettings, setSenderSettings] = useState<EmailSenderSettings>({
+    sender_name: '',
+    sender_email: '',
+    smtp_host: '',
+    smtp_port: 587,
+    security: 'starttls',
+    username: null,
+    max_recipients: 50,
+  })
 
   useEffect(() => {
     let active = true
@@ -171,6 +222,27 @@ export function CommunicationsPage({
       active = false
     }
   }, [candidateSequence, candidateStatus, loadCandidates])
+
+  useEffect(() => {
+    let active = true
+    void loadSenderSettings()
+      .then((settings) => {
+        if (!active) return
+        setSenderSettings(settings)
+        setSenderState('ready')
+      })
+      .catch(() => {
+        if (active) setSenderState('unconfigured')
+      })
+    void loadDispatches()
+      .then((items) => {
+        if (active) setDispatches(items)
+      })
+      .catch(() => undefined)
+    return () => {
+      active = false
+    }
+  }, [loadDispatches, loadSenderSettings])
 
   const refreshTemplates = useCallback(() => {
     templatesRequestRef.current = null
@@ -279,8 +351,59 @@ export function CommunicationsPage({
     setCandidateCursor(null)
     setCandidateMoreState('idle')
     setCandidateError(null)
+    setSelectedClients(new Set())
     setCandidateState('loading')
     setCandidateStatus(status)
+  }
+
+  function toggleCandidate(clientId: string) {
+    setSelectedClients((current) => {
+      const next = new Set(current)
+      if (next.has(clientId)) next.delete(clientId)
+      else next.add(clientId)
+      return next
+    })
+  }
+
+  async function handleSaveSender(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setSenderError(null)
+    setSenderState('saving')
+    try {
+      const saved = await saveSenderSettings(senderSettings)
+      setSenderSettings(saved)
+      setSenderState('ready')
+    } catch {
+      setSenderError('Não foi possível salvar a configuração do remetente.')
+      setSenderState('unconfigured')
+    }
+  }
+
+  async function handleSend(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setSendError(null)
+    setSendNotice(null)
+    if (!selectedTemplateId || selectedClients.size === 0) {
+      setSendError('Escolha um modelo e pelo menos um cliente.')
+      return
+    }
+    setSendState('sending')
+    try {
+      const results = await sendBatch({
+        template_id: selectedTemplateId,
+        client_ids: [...selectedClients],
+        credential: credential || null,
+        confirm_repeat: confirmRepeat,
+      })
+      const sent = results.filter((item) => item.status === 'sent').length
+      setSendNotice(`${sent} de ${results.length} mensagem(ns) enviada(s).`)
+      setCredential('')
+      setDispatches(await loadDispatches())
+    } catch {
+      setSendError('Não foi possível concluir o envio. Revise a configuração.')
+    } finally {
+      setSendState('idle')
+    }
   }
 
   async function loadMoreCandidates() {
@@ -319,12 +442,15 @@ export function CommunicationsPage({
           <p className="eyebrow">Comunicações</p>
           <h1 id="communications-title">Preparação de e-mails</h1>
           <p>
-            Mantenha textos reutilizáveis e consulte clientes por situação
-            documental. Nenhuma mensagem é enviada nesta etapa.
+            Mantenha textos reutilizáveis, selecione clientes por situação
+            documental e acompanhe cada envio.
           </p>
         </div>
         <span className="status-pill status-pill--waiting">
-          <span aria-hidden="true">●</span> Envio desativado
+          <span aria-hidden="true">●</span>{' '}
+          {senderState === 'ready'
+            ? 'Envio configurado'
+            : 'Configure o remetente'}
         </span>
       </div>
 
@@ -346,14 +472,183 @@ export function CommunicationsPage({
             <small>Disponível</small>
           </div>
         </li>
-        <li className="communication-readiness__step">
+        <li
+          className={`communication-readiness__step${senderState === 'ready' ? ' communication-readiness__step--active' : ''}`}
+        >
           <span>03</span>
           <div>
             <strong>Envio e histórico</strong>
-            <small>Aguardando remetente</small>
+            <small>
+              {senderState === 'ready'
+                ? 'Disponível'
+                : 'Configuração necessária'}
+            </small>
           </div>
         </li>
       </ol>
+
+      <div className="communication-workspace">
+        <form
+          className="communication-card"
+          aria-labelledby="sender-settings-title"
+          onSubmit={handleSaveSender}
+        >
+          <div className="communication-card__heading">
+            <div>
+              <p className="eyebrow">Remetente</p>
+              <h2 id="sender-settings-title">Configuração SMTP</h2>
+              <p>A senha não é salva; ela será pedida somente no envio.</p>
+            </div>
+          </div>
+          <div className="message-template-form__field">
+            <label htmlFor="sender-name">Nome do remetente</label>
+            <input
+              id="sender-name"
+              required
+              value={senderSettings.sender_name}
+              onChange={(event) =>
+                setSenderSettings((current) => ({
+                  ...current,
+                  sender_name: event.target.value,
+                }))
+              }
+            />
+          </div>
+          <div className="message-template-form__field">
+            <label htmlFor="sender-email">E-mail do remetente</label>
+            <input
+              id="sender-email"
+              type="email"
+              required
+              value={senderSettings.sender_email}
+              onChange={(event) =>
+                setSenderSettings((current) => ({
+                  ...current,
+                  sender_email: event.target.value,
+                  username: event.target.value,
+                }))
+              }
+            />
+          </div>
+          <div className="message-template-form__field">
+            <label htmlFor="smtp-host">Servidor SMTP</label>
+            <input
+              id="smtp-host"
+              required
+              placeholder="smtp.exemplo.com"
+              value={senderSettings.smtp_host}
+              onChange={(event) =>
+                setSenderSettings((current) => ({
+                  ...current,
+                  smtp_host: event.target.value,
+                }))
+              }
+            />
+          </div>
+          <div className="message-template-form__field">
+            <label htmlFor="smtp-port">Porta</label>
+            <input
+              id="smtp-port"
+              type="number"
+              min={1}
+              max={65535}
+              required
+              value={senderSettings.smtp_port}
+              onChange={(event) =>
+                setSenderSettings((current) => ({
+                  ...current,
+                  smtp_port: Number(event.target.value),
+                }))
+              }
+            />
+          </div>
+          <div className="message-template-form__field">
+            <label htmlFor="smtp-security">Segurança</label>
+            <select
+              id="smtp-security"
+              value={senderSettings.security}
+              onChange={(event) =>
+                setSenderSettings((current) => ({
+                  ...current,
+                  security: event.target
+                    .value as EmailSenderSettings['security'],
+                }))
+              }
+            >
+              <option value="starttls">STARTTLS</option>
+              <option value="tls">TLS direto</option>
+              <option value="none_dev">Sem TLS (somente Mailpit local)</option>
+            </select>
+          </div>
+          {senderError !== null && <p role="alert">{senderError}</p>}
+          <button
+            className="primary-button compact-button"
+            type="submit"
+            disabled={senderState === 'saving'}
+          >
+            {senderState === 'saving' ? 'Salvando…' : 'Salvar configuração'}
+          </button>
+        </form>
+
+        <form
+          className="communication-card"
+          aria-labelledby="batch-send-title"
+          onSubmit={handleSend}
+        >
+          <div className="communication-card__heading">
+            <div>
+              <p className="eyebrow">Disparo</p>
+              <h2 id="batch-send-title">Enviar selecionados</h2>
+              <p>O envio é individual e o resultado fica no histórico.</p>
+            </div>
+          </div>
+          <div className="message-template-form__field">
+            <label htmlFor="send-template">Modelo</label>
+            <select
+              id="send-template"
+              value={selectedTemplateId}
+              onChange={(event) => setSelectedTemplateId(event.target.value)}
+            >
+              <option value="">Selecione um modelo</option>
+              {templates.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="message-template-form__field">
+            <label htmlFor="smtp-credential">
+              Senha ou senha de aplicativo
+            </label>
+            <input
+              id="smtp-credential"
+              type="password"
+              autoComplete="off"
+              value={credential}
+              onChange={(event) => setCredential(event.target.value)}
+            />
+          </div>
+          <label>
+            <input
+              type="checkbox"
+              checked={confirmRepeat}
+              onChange={(event) => setConfirmRepeat(event.target.checked)}
+            />{' '}
+            Confirmo o reenvio para quem já recebeu este modelo
+          </label>
+          <p>{selectedClients.size} cliente(s) selecionado(s).</p>
+          {sendError !== null && <p role="alert">{sendError}</p>}
+          {sendNotice !== null && <p role="status">{sendNotice}</p>}
+          <button
+            className="primary-button compact-button"
+            type="submit"
+            disabled={senderState !== 'ready' || sendState === 'sending'}
+          >
+            {sendState === 'sending' ? 'Enviando…' : 'Enviar mensagens'}
+          </button>
+        </form>
+      </div>
 
       <div className="communication-workspace">
         <section
@@ -637,7 +932,11 @@ export function CommunicationsPage({
 
           {candidateState === 'ready' && candidates.length > 0 && (
             <>
-              <CandidateList items={candidates} />
+              <CandidateList
+                items={candidates}
+                selected={selectedClients}
+                onToggle={toggleCandidate}
+              />
               {(candidateCursor !== null || candidateMoreState === 'error') && (
                 <div className="candidate-more">
                   {candidateMoreState === 'error' && (
@@ -670,6 +969,31 @@ export function CommunicationsPage({
           </div>
         </aside>
       </div>
+
+      <section
+        className="communication-card"
+        aria-labelledby="dispatch-history-title"
+      >
+        <div className="communication-card__heading">
+          <div>
+            <p className="eyebrow">Rastreabilidade</p>
+            <h2 id="dispatch-history-title">Histórico de envios</h2>
+          </div>
+        </div>
+        {dispatches.length === 0 ? (
+          <p>Nenhum envio registrado.</p>
+        ) : (
+          <ul className="message-template-list">
+            {dispatches.map((dispatch) => (
+              <li className="message-template-list__item" key={dispatch.id}>
+                <strong>{dispatch.subject}</strong>
+                <span>{dispatch.recipient_email ?? 'Cliente sem e-mail'}</span>
+                <small>{dispatch.status}</small>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </section>
   )
 }

@@ -4,6 +4,12 @@ from crm_api.application.audit.record_audit_event import RecordAuditEventUseCase
 from crm_api.application.communications.list_recipient_candidates import (
     ListRecipientCandidatesUseCase,
 )
+from crm_api.application.communications.email_delivery import (
+    ConfigureEmailSenderUseCase,
+    GetEmailSenderSettingsUseCase,
+    ListEmailDispatchesUseCase,
+    SendEmailBatchUseCase,
+)
 from crm_api.application.communications.render_template import (
     RenderMessageTemplateUseCase,
 )
@@ -20,6 +26,8 @@ from crm_api.infrastructure.clients.repositories import SqlAlchemyClientFolderRe
 from crm_api.infrastructure.communications.repositories import (
     SqlAlchemyCommunicationRepository,
 )
+from crm_api.infrastructure.communications.smtp_sender import SmtpEmailSender
+from crm_api.core.config import get_settings
 from crm_api.presentation.dependencies import DatabaseSession
 
 
@@ -85,6 +93,50 @@ def get_render_message_template_use_case(
     return RenderMessageTemplateUseCase(
         templates=_repository(session),
         clients=SqlAlchemyClientFolderRepository(session),
+        audit=RecordAuditEventUseCase(SqlAlchemyAuditEventRepository(session)),
+        transaction=SqlAlchemyTransaction(session),
+    )
+
+
+def get_configure_email_sender_use_case(
+    session: DatabaseSession,
+) -> ConfigureEmailSenderUseCase:
+    return ConfigureEmailSenderUseCase(
+        repository=_repository(session),
+        audit=RecordAuditEventUseCase(SqlAlchemyAuditEventRepository(session)),
+        transaction=SqlAlchemyTransaction(session),
+    )
+
+
+def get_email_sender_settings_use_case(
+    session: DatabaseSession,
+) -> GetEmailSenderSettingsUseCase:
+    return GetEmailSenderSettingsUseCase(
+        repository=_repository(session),
+        audit=RecordAuditEventUseCase(SqlAlchemyAuditEventRepository(session)),
+        transaction=SqlAlchemyTransaction(session),
+    )
+
+
+def get_send_email_batch_use_case(
+    session: DatabaseSession,
+) -> SendEmailBatchUseCase:
+    return SendEmailBatchUseCase(
+        communications=_repository(session),
+        clients=SqlAlchemyClientFolderRepository(session),
+        sender=SmtpEmailSender(
+            allow_insecure_local_smtp=get_settings().allow_insecure_local_smtp
+        ),
+        audit=RecordAuditEventUseCase(SqlAlchemyAuditEventRepository(session)),
+        transaction=SqlAlchemyTransaction(session),
+    )
+
+
+def get_list_email_dispatches_use_case(
+    session: DatabaseSession,
+) -> ListEmailDispatchesUseCase:
+    return ListEmailDispatchesUseCase(
+        repository=_repository(session),
         audit=RecordAuditEventUseCase(SqlAlchemyAuditEventRepository(session)),
         transaction=SqlAlchemyTransaction(session),
     )

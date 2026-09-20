@@ -56,8 +56,9 @@ cliente prevalece sobre uma hipótese anterior.
 - Dados e documentos devem ser guardados, sem prazo de descarte definido.
   Isso não elimina a necessidade de proteger backup, documentar restauração e
   atender eventual solicitação legítima do titular.
-- O e-mail remetente da mala direta ainda será informado pelo cliente. Nenhuma
-  credencial, conta de teste real ou segredo deve ser adicionado ao repositório.
+- O proprietário cadastrará no próprio aplicativo o nome, endereço e servidor
+  SMTP do remetente. Nenhuma credencial, conta de teste real ou segredo deve ser
+  adicionado ao repositório, banco, backup ou logs.
 - O e-mail opcional de cada cliente será um campo próprio, validado, da pasta
   digital; não será inferido de campos livres. Modelos aceitam somente a
   variável `{{nome}}` no MVP. Outras variáveis exigem decisão e teste próprios.
@@ -102,8 +103,9 @@ continuam fora desta entrega e exigem suas próprias issues.
 
 A ADR 0002 e a issue #57 já definiram e implementaram o shell/empacotamento
 Windows, o diretório privado, a primeira execução e a estratégia de atualização
-manual. O formato criptográfico, a custódia/recuperação da senha do backup e o
-provedor de e-mail seguem pendentes.
+manual. A validação final ainda precisa comprovar instalação limpa, assinatura
+do instalador, envio com a conta real escolhida pelo proprietário e restauração
+em outro computador. Esses são gates de aceite, não novas regras do cliente.
 
 ## Decisões do time para e-mail (#46) e backup (#44)
 
@@ -136,7 +138,7 @@ informações e preferências que apenas o proprietário pode definir. Enquanto 
 forem respondidas, as issues abaixo permanecem bloqueadas. Nenhuma senha,
 credencial ou segredo deve ser registrado aqui — apenas as decisões escolhidas.
 
-### E-mail da mala direta (issue #46 — bloqueia #25)
+### E-mail da mala direta (issues #25 e #46)
 
 1. Qual é o endereço e o nome de exibição do remetente? Informe apenas esses
    dados públicos, nunca senha, token ou código de recuperação.
@@ -155,7 +157,9 @@ segredo deve ser pedido ou registrado nesta issue.
 
 ### Backup e restauração por HD externo (issue #44)
 
-Já confirmado: o backup poderá usar uma senha digitada pelo proprietário.
+Já confirmado pelo cliente: o destino é um HD externo e a proteção usa senha
+digitada pelo proprietário. Por autorização do responsável pelo produto, o MVP
+adota ainda estas decisões conservadoras:
 
 1. Onde manterá uma cópia da senha de recuperação, separada do computador e do
    HD externo (por exemplo, cofre físico ou gerenciador de senhas)? Não informe
@@ -180,6 +184,5 @@ Já confirmado: o backup poderá usar uma senha digitada pelo proprietário.
    também tenha esquecido a senha de login? A senha do backup não deve revelar
    nem reutilizar a senha de login.
 
-O time definirá o formato criptográfico, o snapshot consistente de banco e
-documentos e a restauração atômica com validação antes de substituir dados. A
-senha do backup não será persistida pelo aplicativo nem incluída no backup.
+A ADR da #44 deve registrar o formato, os limites, a consistência do snapshot e
+o procedimento atômico antes da integração da implementação.

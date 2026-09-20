@@ -1,28 +1,49 @@
-"""E2E parcial do MVP (#27): encadeia pela API HTTP os fluxos já entregues.
+"""E2E do fluxo operacional do MVP (#27), encadeado pela API HTTP.
 
 Cobre primeiro acesso, login, cadastro de cliente, anexo/consulta/exportação de
 documento, ficha cadastral em PDF, importação do acervo legado, classificação
-documental, modelos, triagem e a trilha de auditoria — validando o critério de
-aceite ponta a ponta do #27 nas partes disponíveis. O envio da mala direta
-depende de #25/#46 e fica explicitamente pendente em
-``test_batch_email_sending_step_is_pending``.
+documental, modelos, triagem, envio individual, histórico e auditoria com dados
+sintéticos. O transporte é substituído por um falso: nenhum e-mail sai do teste.
 """
 
 import uuid
 from collections.abc import AsyncIterator
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, select
 
+from crm_api.application.audit.record_audit_event import RecordAuditEventUseCase
+from crm_api.application.communications.email_delivery import SendEmailBatchUseCase
+from crm_api.domain.communications.entities import (
+    EmailDeliveryResult,
+    EmailDeliveryStatus,
+    EmailSenderSettings,
+    OutboundEmail,
+)
+from crm_api.infrastructure.audit.repositories import SqlAlchemyAuditEventRepository
+from crm_api.infrastructure.audit.transactions import SqlAlchemyTransaction
 from crm_api.infrastructure.audit.models import AuditEventModel
 from crm_api.infrastructure.auth.models import OwnerSlotModel, SessionModel, UserModel
 from crm_api.infrastructure.clients.models import ClientFolderModel
-from crm_api.infrastructure.communications.models import MessageTemplateModel
+from crm_api.infrastructure.clients.repositories import SqlAlchemyClientFolderRepository
+from crm_api.infrastructure.communications.models import (
+    EmailDispatchModel,
+    EmailSenderSettingsModel,
+    MessageTemplateModel,
+)
+from crm_api.infrastructure.communications.repositories import (
+    SqlAlchemyCommunicationRepository,
+)
 from crm_api.infrastructure.database import get_engine, get_session_factory
 from crm_api.infrastructure.documents.models import DocumentModel
 from crm_api.main import app
+from crm_api.presentation.communications.dependencies import (
+    get_send_email_batch_use_case,
+)
+from crm_api.presentation.dependencies import DatabaseSession
 
 pytestmark = pytest.mark.integration
 
@@ -55,6 +76,8 @@ async def _clear_e2e_rows() -> None:
     if not _is_disposable_sqlite():
         return
     async with get_session_factory()() as session:
+        await session.execute(delete(EmailDispatchModel))
+        await session.execute(delete(EmailSenderSettingsModel))
         await session.execute(delete(DocumentModel))
         await session.execute(delete(AuditEventModel))
         await session.execute(delete(SessionModel))
@@ -63,6 +86,38 @@ async def _clear_e2e_rows() -> None:
         await session.execute(delete(UserModel))
         await session.execute(delete(OwnerSlotModel))
         await session.commit()
+
+
+@dataclass
+class _SyntheticEmailSender:
+    recipients: list[str] = field(default_factory=list)
+
+    async def send(
+        self,
+        *,
+        settings: EmailSenderSettings,
+        message: OutboundEmail,
+        credential: str | None,
+    ) -> EmailDeliveryResult:
+        assert settings.sender_email == "sender@example.com"
+        assert credential == "synthetic-session-secret"
+        self.recipients.append(message.recipient)
+        return EmailDeliveryResult(EmailDeliveryStatus.SENT)
+
+
+_SYNTHETIC_SENDER = _SyntheticEmailSender()
+
+
+def _get_synthetic_send_use_case(
+    session: DatabaseSession,
+) -> SendEmailBatchUseCase:
+    return SendEmailBatchUseCase(
+        communications=SqlAlchemyCommunicationRepository(session),
+        clients=SqlAlchemyClientFolderRepository(session),
+        sender=_SYNTHETIC_SENDER,
+        audit=RecordAuditEventUseCase(SqlAlchemyAuditEventRepository(session)),
+        transaction=SqlAlchemyTransaction(session),
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -126,6 +181,7 @@ async def test_owner_walks_the_core_mvp_flow(tmp_path: Path) -> None:
         headers=auth,
         json={
             "display_name": folder_name,
+            "email": "recipient@example.com",
             "profile_data": {"telefone": "(11) 90000-0000"},
         },
     )
@@ -201,8 +257,8 @@ async def test_owner_walks_the_core_mvp_flow(tmp_path: Path) -> None:
         headers=auth,
         json={
             "name": "Pendência documental E2E",
-            "subject": "Documento pendente",
-            "body": "Mensagem estática sintética para o teste ponta a ponta.",
+            "subject": "Documento pendente de {{nome}}",
+            "body": "Olá, {{nome}}. Mensagem sintética para o teste ponta a ponta.",
         },
     )
     assert template.status_code == 201
@@ -227,7 +283,54 @@ async def test_owner_walks_the_core_mvp_flow(tmp_path: Path) -> None:
         "matching_documents": 1,
     }
 
-    # 10. Consulta o histórico pela própria API.
+    # 10. Configura dados públicos do remetente; a credencial não é persistida.
+    sender_settings = client.put(
+        "/email-sender-settings",
+        headers=auth,
+        json={
+            "sender_name": "Escritório Sintético",
+            "sender_email": "sender@example.com",
+            "smtp_host": "smtp.example.com",
+            "smtp_port": 587,
+            "security": "starttls",
+            "username": "sender@example.com",
+            "max_recipients": 20,
+        },
+    )
+    assert sender_settings.status_code == 200
+    sender_settings_read = client.get("/email-sender-settings", headers=auth)
+    assert sender_settings_read.status_code == 200
+    assert sender_settings_read.json()["username"] == "sender@example.com"
+
+    # 11. Envia individualmente pelo adaptador falso e consulta o histórico.
+    _SYNTHETIC_SENDER.recipients.clear()
+    app.dependency_overrides[get_send_email_batch_use_case] = (
+        _get_synthetic_send_use_case
+    )
+    try:
+        sent = client.post(
+            "/email-dispatches",
+            headers=auth,
+            json={
+                "template_id": template.json()["id"],
+                "client_ids": [client_id],
+                "credential": "synthetic-session-secret",
+                "confirm_repeat": False,
+            },
+        )
+    finally:
+        app.dependency_overrides.pop(get_send_email_batch_use_case, None)
+    assert sent.status_code == 200
+    assert sent.json()[0]["status"] == "sent"
+    assert _SYNTHETIC_SENDER.recipients == ["recipient@example.com"]
+
+    dispatch_history = client.get(
+        "/email-dispatches", headers=auth, params={"limit": 20}
+    )
+    assert dispatch_history.status_code == 200
+    assert dispatch_history.json()["items"][0]["client_id"] == client_id
+
+    # 12. Consulta o histórico de auditoria pela própria API.
     audit = client.get("/audit/events", headers=auth, params={"limit": 50})
     assert audit.status_code == 200
     assert audit.json()["items"]
@@ -245,10 +348,8 @@ async def test_owner_walks_the_core_mvp_flow(tmp_path: Path) -> None:
         "client_folder.profile_exported",
         "message_template.created",
         "recipient_candidates.viewed",
+        "email_sender_settings.updated",
+        "email_sender_settings.viewed",
+        "email_dispatch.batch_sent",
+        "email_dispatch.history_viewed",
     } <= actions
-
-
-async def test_batch_email_sending_step_is_pending() -> None:
-    # Classificação, modelo e seleção já são exercitados acima. O envio e seu
-    # histórico dependem da #25 e da definição segura do remetente na #46.
-    pytest.skip("envio da mala direta pendente: depende de #25/#46")

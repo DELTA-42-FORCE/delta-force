@@ -1,10 +1,18 @@
 """Rotas autenticadas para modelos e candidatos, ainda sem envio."""
 
+from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
+from crm_api.application.communications.email_delivery import (
+    ConfigureEmailSenderUseCase,
+    EmailSenderNotConfiguredError,
+    GetEmailSenderSettingsUseCase,
+    ListEmailDispatchesUseCase,
+    SendEmailBatchUseCase,
+)
 from crm_api.application.communications.list_recipient_candidates import (
     ListRecipientCandidatesUseCase,
 )
@@ -19,6 +27,9 @@ from crm_api.application.communications.templates import (
     UpdateMessageTemplateUseCase,
 )
 from crm_api.domain.communications.entities import (
+    EmailDispatch,
+    EmailDispatchCursor,
+    EmailSenderSettings,
     MessageTemplate,
     RecipientCandidateCursor,
 )
@@ -28,14 +39,23 @@ from crm_api.domain.documents.entities import DocumentStatus
 from crm_api.presentation.auth.dependencies import CurrentUser
 from crm_api.presentation.communications.dependencies import (
     get_create_message_template_use_case,
+    get_configure_email_sender_use_case,
     get_delete_message_template_use_case,
     get_get_message_template_use_case,
+    get_email_sender_settings_use_case,
+    get_list_email_dispatches_use_case,
     get_list_message_templates_use_case,
     get_list_recipient_candidates_use_case,
     get_render_message_template_use_case,
+    get_send_email_batch_use_case,
     get_update_message_template_use_case,
 )
 from crm_api.presentation.communications.schemas import (
+    EmailDispatchCursorResponse,
+    EmailDispatchListResponse,
+    EmailDispatchResponse,
+    EmailSenderSettingsPayload,
+    EmailSenderSettingsResponse,
     MessageTemplatePayload,
     MessageTemplatePreviewRequest,
     MessageTemplatePreviewResponse,
@@ -43,6 +63,7 @@ from crm_api.presentation.communications.schemas import (
     RecipientCandidateCursorResponse,
     RecipientCandidateListResponse,
     RecipientCandidateResponse,
+    SendEmailBatchRequest,
 )
 
 router = APIRouter(tags=["communications"])
@@ -56,6 +77,160 @@ def _to_response(template: MessageTemplate) -> MessageTemplateResponse:
         body=template.body,
         created_at=template.created_at,
         updated_at=template.updated_at,
+    )
+
+
+def _settings_response(settings: EmailSenderSettings) -> EmailSenderSettingsResponse:
+    return EmailSenderSettingsResponse(
+        sender_name=settings.sender_name,
+        sender_email=settings.sender_email,
+        smtp_host=settings.smtp_host,
+        smtp_port=settings.smtp_port,
+        security=settings.security,
+        username=settings.username,
+        max_recipients=settings.max_recipients,
+    )
+
+
+def _dispatch_response(dispatch: EmailDispatch) -> EmailDispatchResponse:
+    return EmailDispatchResponse(
+        id=dispatch.id,
+        template_id=dispatch.template_id,
+        client_id=dispatch.client_id,
+        recipient_email=dispatch.recipient_email,
+        subject=dispatch.subject,
+        body=dispatch.body,
+        message_id=dispatch.message_id,
+        status=dispatch.status,
+        detail=dispatch.detail,
+        attempted_at=dispatch.attempted_at,
+    )
+
+
+@router.get(
+    "/email-sender-settings",
+    response_model=EmailSenderSettingsResponse,
+)
+async def get_email_sender_settings(
+    current_user: CurrentUser,
+    use_case: Annotated[
+        GetEmailSenderSettingsUseCase,
+        Depends(get_email_sender_settings_use_case),
+    ],
+) -> EmailSenderSettingsResponse:
+    try:
+        return _settings_response(await use_case.execute(actor_user_id=current_user.id))
+    except EmailSenderNotConfiguredError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="email sender is not configured",
+        ) from None
+
+
+@router.put(
+    "/email-sender-settings",
+    response_model=EmailSenderSettingsResponse,
+)
+async def configure_email_sender(
+    payload: EmailSenderSettingsPayload,
+    current_user: CurrentUser,
+    use_case: Annotated[
+        ConfigureEmailSenderUseCase,
+        Depends(get_configure_email_sender_use_case),
+    ],
+) -> EmailSenderSettingsResponse:
+    try:
+        settings = await use_case.execute(
+            actor_user_id=current_user.id,
+            sender_name=payload.sender_name,
+            sender_email=str(payload.sender_email),
+            smtp_host=payload.smtp_host,
+            smtp_port=payload.smtp_port,
+            security=payload.security,
+            username=payload.username,
+            max_recipients=payload.max_recipients,
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from None
+    return _settings_response(settings)
+
+
+@router.post(
+    "/email-dispatches",
+    response_model=list[EmailDispatchResponse],
+)
+async def send_email_batch(
+    payload: SendEmailBatchRequest,
+    current_user: CurrentUser,
+    use_case: Annotated[
+        SendEmailBatchUseCase,
+        Depends(get_send_email_batch_use_case),
+    ],
+) -> list[EmailDispatchResponse]:
+    try:
+        dispatches = await use_case.execute(
+            actor_user_id=current_user.id,
+            template_id=payload.template_id,
+            client_ids=payload.client_ids,
+            credential=(
+                payload.credential.get_secret_value()
+                if payload.credential is not None
+                else None
+            ),
+            confirm_repeat=payload.confirm_repeat,
+        )
+    except EmailSenderNotConfiguredError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="email sender is not configured",
+        ) from None
+    except MessageTemplateNotFoundError:
+        raise HTTPException(
+            status_code=404, detail="message template not found"
+        ) from None
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from None
+    return [_dispatch_response(item) for item in dispatches]
+
+
+@router.get(
+    "/email-dispatches",
+    response_model=EmailDispatchListResponse,
+)
+async def list_email_dispatches(
+    current_user: CurrentUser,
+    use_case: Annotated[
+        ListEmailDispatchesUseCase,
+        Depends(get_list_email_dispatches_use_case),
+    ],
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    before_attempted_at: Annotated[datetime | None, Query()] = None,
+    before_id: Annotated[UUID | None, Query()] = None,
+) -> EmailDispatchListResponse:
+    if (before_attempted_at is None) != (before_id is None):
+        raise HTTPException(
+            status_code=422,
+            detail="before_attempted_at and before_id must be provided together",
+        )
+    cursor = (
+        EmailDispatchCursor(attempted_at=before_attempted_at, id=before_id)
+        if before_attempted_at is not None and before_id is not None
+        else None
+    )
+    page = await use_case.execute(
+        actor_user_id=current_user.id, limit=limit, before=cursor
+    )
+    return EmailDispatchListResponse(
+        items=[_dispatch_response(item) for item in page.items],
+        limit=limit,
+        next_cursor=(
+            EmailDispatchCursorResponse(
+                attempted_at=page.next_cursor.attempted_at,
+                id=page.next_cursor.id,
+            )
+            if page.next_cursor is not None
+            else None
+        ),
     )
 
 
