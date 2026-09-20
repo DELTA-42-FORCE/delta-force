@@ -18,11 +18,7 @@ check:
 # Auditoria manual: falha para vulnerabilidades e apenas informa versões novas.
 # Não faz atualização automática de dependências.
 audit:
-    @status=0; \
-    just api-audit || status=1; \
-    just web-audit || status=1; \
-    just desktop-audit || status=1; \
-    exit "$status"
+    cd apps/api; uv run python scripts/run_workspace_audit.py all
 
 workspace-check:
     git diff --check
@@ -76,14 +72,7 @@ api-check:
     just api-test-integration-sqlite
 
 api-audit:
-    @status=0; \
-    echo "Running Bandit (API code security)..."; \
-    (cd apps/api && uv run bandit -r src) || status=1; \
-    echo "Running pip-audit (Python dependency vulnerabilities)..."; \
-    (cd apps/api && uv run pip-audit) || status=1; \
-    echo "Available Python dependency updates (informational only):"; \
-    (cd apps/api && uv run pip list --outdated) || true; \
-    exit "$status"
+    cd apps/api; uv run python scripts/run_workspace_audit.py api
 
 # --- Web (React / TypeScript) ---
 web-install:
@@ -114,12 +103,7 @@ web-check:
     just web-test
 
 web-audit:
-    @status=0; \
-    echo "Running npm audit (web dependency vulnerabilities)..."; \
-    npm --prefix apps/web audit || status=1; \
-    echo "Available web dependency updates (informational only):"; \
-    npm --prefix apps/web outdated || true; \
-    exit "$status"
+    cd apps/api; uv run python scripts/run_workspace_audit.py web
 
 # --- Aplicativo Windows (Tauri + FastAPI sidecar) ---
 # Estes alvos devem ser executados no Windows. O sidecar é gerado como PyInstaller
@@ -149,19 +133,7 @@ desktop-test:
     cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 
 desktop-audit:
-    @status=0; \
-    echo "Running npm audit (desktop tooling vulnerabilities)..."; \
-    npm --prefix apps/desktop audit || status=1; \
-    echo "Running cargo-audit (Rust dependency vulnerabilities)..."; \
-    if command -v cargo-audit >/dev/null 2>&1; then \
-        cargo audit --file apps/desktop/src-tauri/Cargo.lock || status=1; \
-    else \
-        echo "cargo-audit is required; install it with: cargo install cargo-audit --locked"; \
-        status=1; \
-    fi; \
-    echo "Available desktop npm updates (informational only):"; \
-    npm --prefix apps/desktop outdated || true; \
-    exit "$status"
+    cd apps/api; uv run python scripts/run_workspace_audit.py desktop
 
 # --- Infraestrutura local ---
 infra-up:
