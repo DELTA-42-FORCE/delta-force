@@ -4,6 +4,17 @@ Use dados, documentos, conta SMTP e destinatário **exclusivamente sintéticos e
 autorizados**. O aceite final deve ocorrer numa instalação Windows limpa e num
 HD externo de teste; a automação local/CI não substitui esta evidência.
 
+## Evidência técnica já executada
+
+Em 19 de setembro de 2026, no commit `c997b3b`, `just desktop-build` gerou o
+instalador local `Delta Force CRM_0.1.0_x64-setup.exe` com SHA-256
+`A1534C62BCA9FDD9363C0D4484C3CC572DDD3D8338F808764C77D2293AF1C609`. O comando
+`just desktop-installer-smoke` comprovou instalação, inicialização, encerramento,
+desinstalação, reinstalação e preservação de dados sintéticos. Ao terminar, não
+restaram registro de produto, processo nem pasta de dados. Esta evidência usa a
+máquina de desenvolvimento e, portanto, não marca os itens de aceite manual em
+Windows limpo ou HD externo real.
+
 ## Identificação da execução
 
 - Data e responsável:
