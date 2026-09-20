@@ -1,6 +1,6 @@
 # Decisões confirmadas com o cliente
 
-**Atualizado em 19 de setembro de 2026.** Este registro complementa o levantamento
+**Atualizado em 20 de setembro de 2026.** Este registro complementa o levantamento
 de requisitos. Em caso de divergência, uma decisão posterior confirmada pelo
 cliente prevalece sobre uma hipótese anterior.
 
@@ -102,11 +102,36 @@ Windows, o diretório privado, a primeira execução e a estratégia de atualiza
 manual. O formato criptográfico, a custódia/recuperação da senha do backup e o
 provedor de e-mail seguem pendentes.
 
+## Decisões do time para e-mail (#46) e backup (#44)
+
+Decididas pelo time em 20/09/2026, com autorização do responsável pelo produto,
+para não sobrecarregar o cliente com pontos técnicos que não dependem dele. Não
+exigem confirmação do cliente e complementam — não substituem — as respostas
+ainda pendentes na seção seguinte. Nenhum segredo é definido aqui.
+
+- **Envio da mala direta (#46):** o disparo é feito individualmente por
+  destinatário. Falhas comprovadas são registradas e podem ser reenviadas sem
+  duplicar mensagens já confirmadas como entregues ao provedor. Resultado
+  desconhecido — por exemplo, conexão perdida depois do envio — exige
+  confirmação do proprietário antes de nova tentativa. A escolha do adaptador
+  (SMTP ou API) e a guarda segura da credencial permanecem com o time, conforme
+  a seção seguinte.
+- **Lembrete de backup (#44):** o aplicativo alertará o proprietário quando
+  estiver há muito tempo sem uma cópia; a periodicidade-alvo do alerta será
+  calibrada com a resposta do cliente sobre frequência.
+- **Restauração que substitui dados (#44):** substituir dados já presentes é
+  suportado, porém exige confirmação explícita e proteção contra perda dos dados
+  atuais (restauração em nova geração e troca de ponteiro durável, conforme a
+  ADR 0002). Restaurar em instalação vazia permanece o caminho padrão.
+
 ## Perguntas em aberto aguardando o cliente
 
-Enviadas ao cliente em 15/09/2026; **aguardando resposta**. Enquanto não forem
-respondidas, as issues abaixo permanecem bloqueadas. Nenhuma senha, credencial
-ou segredo deve ser registrado aqui — apenas as decisões escolhidas.
+Enviadas ao cliente em 15/09/2026 e reforçadas em 20/09/2026; **aguardando
+resposta**. Os pontos técnicos e operacionais que não dependem do cliente já
+foram decididos pelo time (seção acima); permanecem abaixo somente as
+informações e preferências que apenas o proprietário pode definir. Enquanto não
+forem respondidas, as issues abaixo permanecem bloqueadas. Nenhuma senha,
+credencial ou segredo deve ser registrado aqui — apenas as decisões escolhidas.
 
 ### E-mail da mala direta (issue #46 — bloqueia #25)
 
@@ -116,13 +141,14 @@ ou segredo deve ser registrado aqui — apenas as decisões escolhidas.
    aplicativo, ou o provedor oferece outro mecanismo de envio autorizado?
 3. Aproximadamente quantos destinatários espera alcançar por lote e com que
    frequência? O limite técnico será definido conforme as regras do provedor.
-4. Confirma envio individual por destinatário, com registro das falhas e reenvio
-   somente dos que falharam, sem duplicar mensagens já enviadas?
 
-O time escolherá o adaptador SMTP ou API depois de conhecer o provedor. A
-credencial deve ficar fora de arquivos, banco, backup, logs e repositório: para
-o aplicativo Windows, avaliar Windows Credential Manager/DPAPI ou entrada a
-cada sessão. Nenhum segredo deve ser pedido ou registrado nesta issue.
+O envio individual por destinatário e o reenvio automático somente de falhas
+comprovadas já foram decididos pelo time (seção anterior); resultados
+desconhecidos exigem confirmação para evitar duplicidade. O time escolherá o
+adaptador SMTP ou API depois de conhecer o provedor. A credencial deve ficar
+fora de arquivos, banco, backup, logs e repositório: para o aplicativo Windows,
+avaliar Windows Credential Manager/DPAPI ou entrada a cada sessão. Nenhum
+segredo deve ser pedido ou registrado nesta issue.
 
 ### Backup e restauração por HD externo (issue #44)
 
@@ -135,13 +161,15 @@ Já confirmado: o backup poderá usar uma senha digitada pelo proprietário.
    proprietário ou também uma pessoa de confiança indicada por ele?
 3. Se a senha do backup for perdida, haverá uma segunda cópia guardada em outro
    local seguro ou ele aceita que o backup se torne irrecuperável?
-4. Com que frequência pretende conectar o HD e fazer backup? Deseja lembrete no
-   aplicativo quando estiver há muito tempo sem uma cópia?
+4. Com que frequência pretende conectar o HD e fazer backup? (O lembrete no
+   aplicativo já está decidido pelo time; aqui basta a periodicidade que você
+   pretende manter.)
 5. Quantas versões anteriores deseja manter no HD, ou por quanto tempo? Isso é
    diferente do prazo de guarda dos dados e documentos no CRM, que é indefinido.
 6. A restauração será usada apenas em uma instalação vazia ou também poderá
-   substituir dados já presentes? Na segunda hipótese, a operação exigirá
-   confirmação explícita e proteção contra perda dos dados atuais.
+   substituir dados já presentes? (A proteção — confirmação explícita e resguardo
+   dos dados atuais — já está decidida pelo time; aqui basta você indicar se
+   prevê esse uso.)
 7. O computador e o HD externo já usam senha do Windows e proteção de disco
    (por exemplo, BitLocker)? Essa resposta ajuda a orientar a operação, mas não
    substitui a criptografia do backup.
