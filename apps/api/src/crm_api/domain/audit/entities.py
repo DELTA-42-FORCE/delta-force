@@ -50,6 +50,8 @@ class AuditAction(StrEnum):
     EMAIL_BATCH_COMPLETED = "email_dispatch.batch_completed"
     EMAIL_BATCH_FAILED = "email_dispatch.batch_failed"
     EMAIL_DISPATCH_HISTORY_VIEWED = "email_dispatch.history_viewed"
+    BACKUP_CREATED = "backup.created"
+    BACKUP_RESTORE_APPLIED = "backup.restore_applied"
     LEGACY_IMPORT_COMPLETED = "legacy_import.completed"
     CONTRACT_CREATED = "contract.created"
     CONTRACT_VIEWED = "contract.viewed"
@@ -69,6 +71,7 @@ class AuditResourceType(StrEnum):
     MESSAGE_TEMPLATE = "message_template"
     EMAIL_SENDER_SETTINGS = "email_sender_settings"
     EMAIL_DISPATCH = "email_dispatch"
+    BACKUP = "backup"
     LEGACY_IMPORT = "legacy_import"
     CONTRACT = "contract"
 

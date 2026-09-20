@@ -45,14 +45,15 @@ class AuditEventModel(Base):
             "'contract.installment_paid', 'contract.cancelled', "
             "'email_sender_settings.updated', 'email_sender_settings.viewed', "
             "'email_dispatch.batch_started', 'email_dispatch.batch_completed', "
-            "'email_dispatch.batch_failed', 'email_dispatch.history_viewed')",
+            "'email_dispatch.batch_failed', 'email_dispatch.history_viewed', "
+            "'backup.created', 'backup.restore_applied')",
             name="ck_audit_events_action",
         ),
         CheckConstraint(
             "resource_type IN ('owner_account', 'session', 'route', "
             "'audit_log', 'client_folder', 'document', 'message_template', "
             "'legacy_import', 'contract', 'email_sender_settings', "
-            "'email_dispatch')",
+            "'email_dispatch', 'backup')",
             name="ck_audit_events_resource_type",
         ),
         CheckConstraint(

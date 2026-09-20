@@ -7,6 +7,10 @@ import {
 } from 'react'
 
 import { ApiError } from '../lib/apiClient'
+import { RestoreBackupPanel } from '../backups/RestoreBackupPanel'
+import { stageBackupRestore } from '../backups/backupsApi'
+import type { RestoreStagingResult } from '../backups/backupsApi'
+import { isTauriRuntime, pickBackupFile } from '../lib/desktopShell'
 import { AuthLayout } from './AuthLayout'
 import { useAuth } from './AuthContext'
 
@@ -41,6 +45,8 @@ export function SetupPage() {
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [invalidFields, setInvalidFields] = useState(EMPTY_INVALID_FIELDS)
+  const [restoreStaged, setRestoreStaged] =
+    useState<RestoreStagingResult | null>(null)
   const fullNameRef = useRef<HTMLInputElement>(null)
   const emailRef = useRef<HTMLInputElement>(null)
   const passwordRef = useRef<HTMLInputElement>(null)
@@ -153,6 +159,29 @@ export function SetupPage() {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  if (restoreStaged !== null) {
+    return (
+      <AuthLayout
+        eyebrow="Restauração verificada"
+        title="Reabra o aplicativo"
+        description="O backup está pronto para ser ativado com segurança."
+      >
+        <div className="auth-form">
+          <p className="feedback feedback--success" role="status">
+            Backup validado com {restoreStaged.document_count} documento(s).
+          </p>
+          <p>
+            Feche completamente o CRM e abra-o novamente. Depois, entre com a
+            conta e a senha que existiam no computador anterior.
+          </p>
+          <p className="privacy-note">
+            O arquivo original continua no HD externo e não foi apagado.
+          </p>
+        </div>
+      </AuthLayout>
+    )
   }
 
   return (
@@ -280,6 +309,11 @@ export function SetupPage() {
           Sua senha não é enviada para serviços externos.
         </p>
       </form>
+      <RestoreBackupPanel
+        stageRestore={stageBackupRestore}
+        pickFile={isTauriRuntime() ? pickBackupFile : undefined}
+        onStaged={setRestoreStaged}
+      />
     </AuthLayout>
   )
 }

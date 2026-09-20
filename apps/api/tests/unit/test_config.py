@@ -76,6 +76,7 @@ def test_documents_root_defaults_to_a_directory_next_to_the_database(
     # Banco e documentos na mesma árvore para o backup conjunto da #44.
     expected = database_path.resolve().parent / "documents"
     assert get_settings().documents_root_path == expected
+    assert get_settings().database_path == database_path.resolve()
     get_settings.cache_clear()
 
 
@@ -102,5 +103,8 @@ def test_documents_root_requires_configuration_without_a_local_database_file(
 
     with pytest.raises(ValueError, match="DOCUMENTS_ROOT is required"):
         get_settings().documents_root_path
+
+    with pytest.raises(ValueError, match="local backup requires"):
+        get_settings().database_path
 
     get_settings.cache_clear()

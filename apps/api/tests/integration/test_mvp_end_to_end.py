@@ -2,7 +2,7 @@
 
 Cobre primeiro acesso, login, cadastro de cliente, anexo/consulta/exportação de
 documento, ficha cadastral em PDF, importação do acervo legado, classificação
-documental, modelos, triagem, envio individual, histórico e auditoria com dados
+documental, modelos, triagem, envio individual, backup e auditoria com dados
 sintéticos. O transporte é substituído por um falso: nenhum e-mail sai do teste.
 """
 
@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import delete, select
 
 from crm_api.application.audit.record_audit_event import RecordAuditEventUseCase
+from crm_api.application.backups.manage_backups import CreateBackupUseCase
 from crm_api.application.communications.email_delivery import SendEmailBatchUseCase
 from crm_api.domain.communications.entities import (
     EmailDeliveryResult,
@@ -27,6 +28,8 @@ from crm_api.infrastructure.audit.repositories import SqlAlchemyAuditEventReposi
 from crm_api.infrastructure.audit.transactions import SqlAlchemyTransaction
 from crm_api.infrastructure.audit.models import AuditEventModel
 from crm_api.infrastructure.auth.models import OwnerSlotModel, SessionModel, UserModel
+from crm_api.infrastructure.backups.media import BackupMediaPolicy
+from crm_api.infrastructure.backups.service import EncryptedBackupService
 from crm_api.infrastructure.clients.models import ClientFolderModel
 from crm_api.infrastructure.clients.repositories import SqlAlchemyClientFolderRepository
 from crm_api.infrastructure.communications.models import (
@@ -38,11 +41,13 @@ from crm_api.infrastructure.communications.repositories import (
     SqlAlchemyCommunicationRepository,
 )
 from crm_api.infrastructure.database import get_engine, get_session_factory
+from crm_api.core.config import get_settings
 from crm_api.infrastructure.documents.models import DocumentModel
 from crm_api.main import app
 from crm_api.presentation.communications.dependencies import (
     get_send_email_batch_use_case,
 )
+from crm_api.presentation.backups.dependencies import get_create_backup_use_case
 from crm_api.presentation.dependencies import DatabaseSession
 
 pytestmark = pytest.mark.integration
@@ -115,6 +120,26 @@ def _get_synthetic_send_use_case(
         communications=SqlAlchemyCommunicationRepository(session),
         clients=SqlAlchemyClientFolderRepository(session),
         sender=_SYNTHETIC_SENDER,
+        audit=RecordAuditEventUseCase(SqlAlchemyAuditEventRepository(session)),
+        transaction=SqlAlchemyTransaction(session),
+    )
+
+
+def _get_synthetic_backup_use_case(
+    session: DatabaseSession,
+) -> CreateBackupUseCase:
+    settings = get_settings()
+    database_path = settings.database_path
+    data_root = database_path.parent
+    return CreateBackupUseCase(
+        service=EncryptedBackupService(
+            data_root=data_root,
+            database_path=database_path,
+            documents_root=settings.documents_root_path,
+            media_policy=BackupMediaPolicy(
+                data_root=data_root, allow_local_destination=True
+            ),
+        ),
         audit=RecordAuditEventUseCase(SqlAlchemyAuditEventRepository(session)),
         transaction=SqlAlchemyTransaction(session),
     )
@@ -330,7 +355,30 @@ async def test_owner_walks_the_core_mvp_flow(tmp_path: Path) -> None:
     assert dispatch_history.status_code == 200
     assert dispatch_history.json()["items"][0]["client_id"] == client_id
 
-    # 12. Consulta o histórico de auditoria pela própria API.
+    # 12. Cria um backup cifrado sintético sem usar mídia ou senha real.
+    backup_destination = tmp_path / "external-backup"
+    backup_destination.mkdir()
+    app.dependency_overrides[get_create_backup_use_case] = (
+        _get_synthetic_backup_use_case
+    )
+    try:
+        backup = client.post(
+            "/backups",
+            headers=auth,
+            json={
+                "destination_directory": str(backup_destination),
+                "passphrase": "senha-sintetica-backup",
+            },
+        )
+    finally:
+        app.dependency_overrides.pop(get_create_backup_use_case, None)
+    assert backup.status_code == 201
+    backup_file = backup_destination / backup.json()["filename"]
+    assert backup_file.exists()
+    assert b"senha-sintetica-backup" not in backup_file.read_bytes()
+    assert not list(backup_destination.glob("*.partial"))
+
+    # 13. Consulta o histórico de auditoria pela própria API.
     audit = client.get("/audit/events", headers=auth, params={"limit": 50})
     assert audit.status_code == 200
     assert audit.json()["items"]
@@ -353,4 +401,5 @@ async def test_owner_walks_the_core_mvp_flow(tmp_path: Path) -> None:
         "email_dispatch.batch_started",
         "email_dispatch.batch_completed",
         "email_dispatch.history_viewed",
+        "backup.created",
     } <= actions

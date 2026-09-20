@@ -15,6 +15,8 @@ const ACTION_LABELS: Readonly<Record<string, string>> = {
   'email_dispatch.batch_completed': 'Envio em lote concluído',
   'email_dispatch.batch_failed': 'Envio em lote interrompido',
   'email_dispatch.history_viewed': 'Histórico de envios consultado',
+  'backup.created': 'Backup criptografado criado',
+  'backup.restore_applied': 'Backup restaurado no primeiro acesso',
 }
 
 const RESULT_LABELS: Readonly<Record<string, string>> = {

@@ -25,11 +25,13 @@ PR continua curto, nasce de `develop`, referencia uma issue e volta para
 A ADR 0002 já é a decisão de produção. A integração essencial foi entregue pela
 #57; os próximos passos específicos da entrega Windows são:
 
-1. decidir na #44 a proteção e a recuperação do backup em HD externo;
+1. revisar e integrar a #44, cuja ADR 0004 e implementação de backup cifrado já
+   estão prontas em branch própria;
 2. validar instalação, atualização manual, desinstalação e restauração na #27.
 
-Versão/edição do Windows, proteção do disco, assinatura/custódia e recuperação do
-backup permanecem pendentes. O plano não antecipa essas escolhas como aprovadas.
+Versão/edição do Windows, assinatura/custódia e o aceite em HD externo real
+permanecem gates operacionais. O formato e a recuperação do backup já não são
+decisões pendentes.
 
 ## Marco 1 — aplicação local segura
 
@@ -39,9 +41,10 @@ backup permanecem pendentes. O plano não antecipa essas escolhas como aprovadas
 2. **#17 — concluída:** a auditoria append-only e sua consulta autenticada estão
    integradas. A transição SQLite (#54) e a futura issue desktop devem provar
    esses eventos no arquivo local, inclusive negações do bootstrap/capability.
-3. Executar **#44** após a persistência SQLite e #43: backup protegido conforme
-   a decisão da própria issue, restauração testada por HD externo e proteção
-   contra alvo errado, arquivo corrompido e falta de espaço.
+3. **#44 — em revisão:** backup AES-256-GCM versionado, senha efêmera,
+   validação de mídia externa, snapshot consistente e restauração validada em
+   instalação vazia foram implementados. O aceite final ainda deve exercitar um
+   HD externo real e uma instalação Windows limpa.
 
 ## Marco 2 — clientes e documentos
 

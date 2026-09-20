@@ -18,6 +18,7 @@ from alembic.script import ScriptDirectory
 
 from crm_api.core.config import DOCUMENTS_DIRECTORY_NAME, get_settings
 from crm_api.core.desktop_runtime import DesktopRuntime
+from crm_api.infrastructure.backups.service import activate_pending_restore
 from crm_api.infrastructure.documents.storage import provision_document_storage
 
 _DATABASE_FILENAME = "crm.sqlite3"
@@ -170,6 +171,9 @@ def main() -> None:
 
     secret = _read_bootstrap_secret()
     data_directory = Path(data_directory_value)
+    # A ativação ocorre antes de abrir o SQLite. O endpoint de restauração só
+    # prepara um candidato validado e exige fechar/reabrir o aplicativo.
+    activate_pending_restore(data_directory)
     database_path = provision_desktop_database(data_directory)
     # Documentos ficam ao lado do banco, na mesma árvore privada, para que o
     # backup em HD externo (#44) trate banco e arquivos como uma unidade.

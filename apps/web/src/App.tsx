@@ -7,6 +7,8 @@ import { RecentActivity } from './audit/RecentActivity'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import { LoginPage } from './auth/LoginPage'
 import { SetupPage } from './auth/SetupPage'
+import { BackupPage } from './backups/BackupPage'
+import { createBackup, getBackupStatus } from './backups/backupsApi'
 import {
   createClientFolder,
   exportClientProfile,
@@ -62,7 +64,11 @@ import type {
 } from './documents/documentsApi'
 import { LegacyImportPanel } from './imports/LegacyImportPanel'
 import { importLegacyArchive, previewLegacyImport } from './imports/importsApi'
-import { isTauriRuntime, pickImportFolder } from './lib/desktopShell'
+import {
+  isTauriRuntime,
+  pickBackupFolder,
+  pickImportFolder,
+} from './lib/desktopShell'
 import { Brand } from './ui/Brand'
 
 function Root() {
@@ -79,7 +85,7 @@ function Root() {
   } = useAuth()
   const [logoutNotice, setLogoutNotice] = useState<string | null>(null)
   const [activeView, setActiveView] = useState<
-    'overview' | 'audit' | 'clients' | 'imports' | 'communications'
+    'overview' | 'audit' | 'clients' | 'imports' | 'communications' | 'backups'
   >('overview')
   const [documentsFolder, setDocumentsFolder] = useState<ClientFolder | null>(
     null,
@@ -333,8 +339,27 @@ function Root() {
     [authenticatedGet],
   )
 
+  const loadBackupStatus = useCallback(
+    () => getBackupStatus(authenticatedGet),
+    [authenticatedGet],
+  )
+
+  const runBackup = useCallback(
+    (input: { destination_directory: string; passphrase: string }) =>
+      createBackup(authenticatedRequest, input),
+    [authenticatedRequest],
+  )
+
   const goTo = useCallback(
-    (view: 'overview' | 'audit' | 'clients' | 'imports' | 'communications') => {
+    (
+      view:
+        | 'overview'
+        | 'audit'
+        | 'clients'
+        | 'imports'
+        | 'communications'
+        | 'backups',
+    ) => {
       // Trocar de seção fecha a pasta aberta: os documentos pertencem ao cliente
       // que estava em tela, não à navegação seguinte.
       setDocumentsFolder(null)
@@ -419,6 +444,18 @@ function Root() {
             </li>
             <li>
               <button
+                className={`workspace-nav__item${activeView === 'backups' ? ' workspace-nav__item--active' : ''}`}
+                type="button"
+                aria-current={activeView === 'backups' ? 'page' : undefined}
+                onClick={() => goTo('backups')}
+              >
+                <span aria-hidden="true">⛁</span>
+                <span>Backup</span>
+                <small>HD externo</small>
+              </button>
+            </li>
+            <li>
+              <button
                 className={`workspace-nav__item${activeView === 'audit' ? ' workspace-nav__item--active' : ''}`}
                 type="button"
                 aria-current={activeView === 'audit' ? 'page' : undefined}
@@ -465,7 +502,7 @@ function Root() {
               >
                 <span aria-hidden="true">✉</span>
                 <span>E-mails</span>
-                <small>preparação</small>
+                <small>envio e histórico</small>
               </button>
             </li>
           </ul>
@@ -537,6 +574,13 @@ function Root() {
               cancelContract={cancelContract}
               onBack={() => setContractsFolder(null)}
             />
+          ) : activeView === 'backups' ? (
+            <BackupPage
+              loadStatus={loadBackupStatus}
+              createBackup={runBackup}
+              pickFolder={isTauriRuntime() ? pickBackupFolder : undefined}
+              onBack={() => setActiveView('overview')}
+            />
           ) : activeView === 'clients' && documentsFolder !== null ? (
             <ClientDocumentsPanel
               folder={documentsFolder}
@@ -569,9 +613,8 @@ function Root() {
                   <p className="eyebrow">Visão geral</p>
                   <h1>Bem-vindo, {user.full_name}</h1>
                   <p>
-                    Clientes, documentos, contratos e modelos já estão
-                    disponíveis. O envio de e-mails aguarda a configuração
-                    segura do remetente.
+                    Clientes, documentos, contratos, e-mails e backup
+                    criptografado já estão disponíveis neste computador.
                   </p>
                 </div>
                 <span className="status-pill">
@@ -605,7 +648,7 @@ function Root() {
                     <p className="eyebrow">Construção do MVP</p>
                     <h2 id="modules-title">Próximos módulos</h2>
                   </div>
-                  <span>4 completos · 1 em preparação</span>
+                  <span>6 módulos disponíveis</span>
                 </div>
                 <div className="module-grid">
                   {[
@@ -636,8 +679,14 @@ function Root() {
                     [
                       '05',
                       'Comunicação',
-                      'Modelos e triagem; envio aguarda remetente.',
-                      'Preparação disponível',
+                      'Modelos, envio individual e histórico.',
+                      'Disponível',
+                    ],
+                    [
+                      '05',
+                      'Backup',
+                      'Cópia criptografada para HD externo.',
+                      'Disponível',
                     ],
                   ].map(([number, title, description, state], index) => (
                     <article

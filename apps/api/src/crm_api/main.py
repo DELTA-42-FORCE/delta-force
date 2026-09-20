@@ -8,6 +8,7 @@ from crm_api.core.desktop_runtime import DesktopRuntime
 from crm_api.infrastructure.database import check_database_connection
 from crm_api.presentation.audit.routes import router as audit_router
 from crm_api.presentation.auth.routes import router as auth_router
+from crm_api.presentation.backups.routes import router as backups_router
 from crm_api.presentation.clients.routes import router as clients_router
 from crm_api.presentation.communications.routes import router as communications_router
 from crm_api.presentation.contracts.routes import router as contracts_router
@@ -48,6 +49,7 @@ def create_app(desktop_runtime: DesktopRuntime | None = None) -> FastAPI:
     )
     app.include_router(desktop_router)
     app.include_router(auth_router)
+    app.include_router(backups_router)
     app.include_router(audit_router)
     app.include_router(clients_router)
     app.include_router(contracts_router)

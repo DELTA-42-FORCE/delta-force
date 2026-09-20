@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     cors_allowed_origins: str = "http://localhost:5173"
     documents_root: str | None = None
     allow_insecure_local_smtp: bool = False
+    allow_local_backup_destination: bool = False
 
     @field_validator("database_url")
     @classmethod
@@ -67,6 +68,16 @@ class Settings(BaseSettings):
             )
         parent = Path(database_path).expanduser().resolve().parent
         return parent / DOCUMENTS_DIRECTORY_NAME
+
+    @property
+    def database_path(self) -> Path:
+        """Resolve o arquivo SQLite usado pelos fluxos locais de manutenção."""
+        if not self.database_url.startswith(SQLITE_FILE_URL_PREFIX):
+            raise ValueError("local backup requires a SQLite file database")
+        value = self.database_url.removeprefix(SQLITE_FILE_URL_PREFIX)
+        if not value or value.startswith(":memory:"):
+            raise ValueError("local backup requires a SQLite file database")
+        return Path(value).expanduser().resolve()
 
 
 @lru_cache
