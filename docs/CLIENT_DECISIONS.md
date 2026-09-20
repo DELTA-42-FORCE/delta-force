@@ -110,9 +110,12 @@ exigem confirmação do cliente e complementam — não substituem — as respos
 ainda pendentes na seção seguinte. Nenhum segredo é definido aqui.
 
 - **Envio da mala direta (#46):** o disparo é feito individualmente por
-  destinatário, registrando as falhas e reenviando apenas as mensagens que
-  falharam, sem duplicar as já enviadas. A escolha do adaptador (SMTP ou API) e a
-  guarda segura da credencial permanecem com o time, conforme a seção seguinte.
+  destinatário. Falhas comprovadas são registradas e podem ser reenviadas sem
+  duplicar mensagens já confirmadas como entregues ao provedor. Resultado
+  desconhecido — por exemplo, conexão perdida depois do envio — exige
+  confirmação do proprietário antes de nova tentativa. A escolha do adaptador
+  (SMTP ou API) e a guarda segura da credencial permanecem com o time, conforme
+  a seção seguinte.
 - **Lembrete de backup (#44):** o aplicativo alertará o proprietário quando
   estiver há muito tempo sem uma cópia; a periodicidade-alvo do alerta será
   calibrada com a resposta do cliente sobre frequência.
@@ -139,12 +142,13 @@ credencial ou segredo deve ser registrado aqui — apenas as decisões escolhida
 3. Aproximadamente quantos destinatários espera alcançar por lote e com que
    frequência? O limite técnico será definido conforme as regras do provedor.
 
-O envio individual por destinatário, com registro e reenvio apenas das falhas, já
-foi decidido pelo time (seção anterior). O time escolherá o adaptador SMTP ou API
-depois de conhecer o provedor. A credencial deve ficar fora de arquivos, banco,
-backup, logs e repositório: para o aplicativo Windows, avaliar Windows Credential
-Manager/DPAPI ou entrada a cada sessão. Nenhum segredo deve ser pedido ou
-registrado nesta issue.
+O envio individual por destinatário e o reenvio automático somente de falhas
+comprovadas já foram decididos pelo time (seção anterior); resultados
+desconhecidos exigem confirmação para evitar duplicidade. O time escolherá o
+adaptador SMTP ou API depois de conhecer o provedor. A credencial deve ficar
+fora de arquivos, banco, backup, logs e repositório: para o aplicativo Windows,
+avaliar Windows Credential Manager/DPAPI ou entrada a cada sessão. Nenhum
+segredo deve ser pedido ou registrado nesta issue.
 
 ### Backup e restauração por HD externo (issue #44)
 
