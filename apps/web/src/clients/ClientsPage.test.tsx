@@ -268,6 +268,28 @@ describe('ClientsPage', () => {
     expect(onOpenDocuments).toHaveBeenCalledWith(folder(ANA_ID, 'Ana Souza'))
   })
 
+  it('opens the contracts of the chosen folder', async () => {
+    const loadPage = vi.fn().mockResolvedValue(page(ANA_ID, 'Ana Souza', null))
+    const onOpenContracts = vi.fn()
+    const user = userEvent.setup()
+
+    render(
+      <ClientsPage
+        onOpenDocuments={vi.fn()}
+        onOpenContracts={onOpenContracts}
+        exportProfile={vi.fn()}
+        loadPage={loadPage}
+        createFolder={vi.fn()}
+        updateFolder={vi.fn()}
+      />,
+    )
+    expect(await screen.findByText('Ana Souza')).toBeVisible()
+
+    await user.click(screen.getByRole('button', { name: 'Contratos' }))
+
+    expect(onOpenContracts).toHaveBeenCalledWith(folder(ANA_ID, 'Ana Souza'))
+  })
+
   it('generates the profile PDF for the chosen folder', async () => {
     const loadPage = vi.fn().mockResolvedValue(page(ANA_ID, 'Ana Souza', null))
     const exportProfile = vi.fn().mockResolvedValue({

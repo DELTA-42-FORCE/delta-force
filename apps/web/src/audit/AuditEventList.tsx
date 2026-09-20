@@ -7,6 +7,10 @@ const ACTION_LABELS: Readonly<Record<string, string>> = {
   'auth.logout': 'Saída realizada',
   'auth.access_denied': 'Acesso negado',
   'audit.log_view': 'Atividades consultadas',
+  'contract.created': 'Contrato cadastrado',
+  'contract.viewed': 'Contratos consultados',
+  'contract.installment_paid': 'Pagamento de parcela registrado',
+  'contract.cancelled': 'Contrato cancelado',
 }
 
 const RESULT_LABELS: Readonly<Record<string, string>> = {

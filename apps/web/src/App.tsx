@@ -23,6 +23,18 @@ import {
   listRecipientCandidates,
   updateMessageTemplate,
 } from './communications/communicationsApi'
+import { ContractsPanel } from './contracts/ContractsPanel'
+import {
+  cancelClientContract,
+  createClientContract,
+  listClientContracts,
+  recordInstallmentPayment,
+} from './contracts/contractsApi'
+import type {
+  ClientContract,
+  ContractInstallment,
+  CreateContractInput,
+} from './contracts/contractsApi'
 import type {
   MessageTemplate,
   MessageTemplatePayload,
@@ -67,6 +79,9 @@ function Root() {
   const [documentsFolder, setDocumentsFolder] = useState<ClientFolder | null>(
     null,
   )
+  const [contractsFolder, setContractsFolder] = useState<ClientFolder | null>(
+    null,
+  )
 
   const loadRecentActivity = useCallback(
     () => listRecentAuditEvents(authenticatedGet),
@@ -97,6 +112,62 @@ function Root() {
       input: { display_name: string; profile_data: Record<string, string> },
     ) => updateClientFolder(authenticatedRequest, id, input),
     [authenticatedRequest],
+  )
+
+  const contractsFolderId = contractsFolder?.id ?? null
+
+  const loadContracts = useCallback(() => {
+    if (contractsFolderId === null) {
+      return Promise.reject(new Error('no client folder is open'))
+    }
+    return listClientContracts(authenticatedGet, contractsFolderId)
+  }, [authenticatedGet, contractsFolderId])
+
+  const createContract = useCallback(
+    (input: CreateContractInput) => {
+      if (contractsFolderId === null) {
+        return Promise.reject(new Error('no client folder is open'))
+      }
+      return createClientContract(
+        authenticatedRequest,
+        contractsFolderId,
+        input,
+      )
+    },
+    [authenticatedRequest, contractsFolderId],
+  )
+
+  const recordContractPayment = useCallback(
+    (
+      contract: ClientContract,
+      installment: ContractInstallment,
+      paidOn: string,
+    ) => {
+      if (contractsFolderId === null) {
+        return Promise.reject(new Error('no client folder is open'))
+      }
+      return recordInstallmentPayment(authenticatedRequest, {
+        clientId: contractsFolderId,
+        contractId: contract.id,
+        installmentId: installment.id,
+        paidOn,
+      })
+    },
+    [authenticatedRequest, contractsFolderId],
+  )
+
+  const cancelContract = useCallback(
+    (contract: ClientContract) => {
+      if (contractsFolderId === null) {
+        return Promise.reject(new Error('no client folder is open'))
+      }
+      return cancelClientContract(
+        authenticatedRequest,
+        contractsFolderId,
+        contract.id,
+      )
+    },
+    [authenticatedRequest, contractsFolderId],
   )
 
   const exportProfile = useCallback(
@@ -229,6 +300,7 @@ function Root() {
       // Trocar de seção fecha a pasta aberta: os documentos pertencem ao cliente
       // que estava em tela, não à navegação seguinte.
       setDocumentsFolder(null)
+      setContractsFolder(null)
       setActiveView(view)
     },
     [],
@@ -238,6 +310,7 @@ function Root() {
     setLogoutNotice(null)
     setActiveView('overview')
     setDocumentsFolder(null)
+    setContractsFolder(null)
     try {
       await logout()
     } catch {
@@ -413,6 +486,15 @@ function Root() {
               loadCandidates={loadCandidates}
               onBack={() => setActiveView('overview')}
             />
+          ) : activeView === 'clients' && contractsFolder !== null ? (
+            <ContractsPanel
+              folder={contractsFolder}
+              loadContracts={loadContracts}
+              createContract={createContract}
+              recordPayment={recordContractPayment}
+              cancelContract={cancelContract}
+              onBack={() => setContractsFolder(null)}
+            />
           ) : activeView === 'clients' && documentsFolder !== null ? (
             <ClientDocumentsPanel
               folder={documentsFolder}
@@ -428,7 +510,14 @@ function Root() {
               loadPage={loadClientsPage}
               createFolder={createClient}
               updateFolder={updateClient}
-              onOpenDocuments={setDocumentsFolder}
+              onOpenDocuments={(folder) => {
+                setContractsFolder(null)
+                setDocumentsFolder(folder)
+              }}
+              onOpenContracts={(folder) => {
+                setDocumentsFolder(null)
+                setContractsFolder(folder)
+              }}
               exportProfile={exportProfile}
             />
           ) : (
@@ -438,8 +527,9 @@ function Root() {
                   <p className="eyebrow">Visão geral</p>
                   <h1>Bem-vindo, {user.full_name}</h1>
                   <p>
-                    Clientes, documentos e modelos já estão disponíveis. O envio
-                    de e-mails aguarda a configuração segura do remetente.
+                    Clientes, documentos, contratos e modelos já estão
+                    disponíveis. O envio de e-mails aguarda a configuração
+                    segura do remetente.
                   </p>
                 </div>
                 <span className="status-pill">
@@ -473,7 +563,7 @@ function Root() {
                     <p className="eyebrow">Construção do MVP</p>
                     <h2 id="modules-title">Próximos módulos</h2>
                   </div>
-                  <span>3 completos · 1 em preparação</span>
+                  <span>4 completos · 1 em preparação</span>
                 </div>
                 <div className="module-grid">
                   {[
@@ -497,13 +587,19 @@ function Root() {
                     ],
                     [
                       '04',
+                      'Contratos',
+                      'Parcelas, vencimentos e pagamentos.',
+                      'Disponível',
+                    ],
+                    [
+                      '05',
                       'Comunicação',
                       'Modelos e triagem; envio aguarda remetente.',
                       'Preparação disponível',
                     ],
                   ].map(([number, title, description, state], index) => (
                     <article
-                      className={`module-card${index <= 3 ? ' module-card--ready' : ''}`}
+                      className={`module-card${index <= 4 ? ' module-card--ready' : ''}`}
                       key={number}
                     >
                       <span className="module-card__number">{number}</span>

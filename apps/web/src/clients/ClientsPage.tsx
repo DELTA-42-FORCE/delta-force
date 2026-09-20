@@ -20,6 +20,7 @@ interface ClientsPageProps {
     input: { display_name: string; profile_data: Record<string, string> },
   ) => Promise<ClientFolder>
   onOpenDocuments: (folder: ClientFolder) => void
+  onOpenContracts?: (folder: ClientFolder) => void
   exportProfile: (folder: ClientFolder) => Promise<DownloadedFile>
 }
 
@@ -31,6 +32,7 @@ export function ClientsPage({
   createFolder,
   updateFolder,
   onOpenDocuments,
+  onOpenContracts = () => undefined,
   exportProfile,
 }: ClientsPageProps) {
   const [folders, setFolders] = useState<ClientFolder[]>([])
@@ -247,6 +249,13 @@ export function ClientsPage({
                 <li className="clients-list__item" key={folder.id}>
                   <span>{folder.display_name}</span>
                   <span className="clients-list__actions">
+                    <button
+                      className="text-button"
+                      type="button"
+                      onClick={() => onOpenContracts(folder)}
+                    >
+                      Contratos
+                    </button>
                     <button
                       className="text-button"
                       type="button"

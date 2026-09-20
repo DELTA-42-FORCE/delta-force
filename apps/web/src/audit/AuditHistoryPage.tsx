@@ -27,6 +27,10 @@ const ACTION_FILTER_OPTIONS: ReadonlyArray<
   ['auth.logout', 'Saídas'],
   ['auth.access_denied', 'Acessos negados'],
   ['audit.log_view', 'Consultas à auditoria'],
+  ['contract.created', 'Contratos cadastrados'],
+  ['contract.viewed', 'Consultas a contratos'],
+  ['contract.installment_paid', 'Pagamentos de parcelas'],
+  ['contract.cancelled', 'Contratos cancelados'],
 ]
 
 const RESULT_FILTER_OPTIONS: ReadonlyArray<

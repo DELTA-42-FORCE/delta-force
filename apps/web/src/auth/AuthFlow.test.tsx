@@ -102,7 +102,7 @@ describe('owner authentication flow', () => {
     ).toBeVisible()
     expect(
       screen.getByText(
-        'Clientes, documentos e modelos já estão disponíveis. O envio de e-mails aguarda a configuração segura do remetente.',
+        'Clientes, documentos, contratos e modelos já estão disponíveis. O envio de e-mails aguarda a configuração segura do remetente.',
       ),
     ).toBeVisible()
     expect(

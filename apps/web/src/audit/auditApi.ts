@@ -16,6 +16,10 @@ export type AuditActionFilter =
   | 'auth.logout'
   | 'auth.access_denied'
   | 'audit.log_view'
+  | 'contract.created'
+  | 'contract.viewed'
+  | 'contract.installment_paid'
+  | 'contract.cancelled'
 
 export type AuditResultFilter = 'success' | 'denied' | 'failure'
 
