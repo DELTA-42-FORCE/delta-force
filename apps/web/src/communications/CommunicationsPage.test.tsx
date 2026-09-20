@@ -53,6 +53,10 @@ function renderPage(
       | 'updateTemplate'
       | 'deleteTemplate'
       | 'loadCandidates'
+      | 'loadSenderSettings'
+      | 'saveSenderSettings'
+      | 'sendBatch'
+      | 'loadDispatches'
     >
   > = {},
 ) {
@@ -70,6 +74,22 @@ function renderPage(
       items: [candidate(CLIENT_ID)],
       nextCursor: null,
     })
+  const senderSettings = {
+    sender_name: 'Escritório Sintético',
+    sender_email: 'sender@example.com',
+    smtp_host: 'smtp.example.com',
+    smtp_port: 587,
+    security: 'starttls' as const,
+    username: 'sender@example.com',
+    max_recipients: 50,
+  }
+  const loadSenderSettings =
+    overrides.loadSenderSettings ?? vi.fn().mockResolvedValue(senderSettings)
+  const saveSenderSettings =
+    overrides.saveSenderSettings ?? vi.fn().mockResolvedValue(senderSettings)
+  const sendBatch = overrides.sendBatch ?? vi.fn().mockResolvedValue([])
+  const loadDispatches =
+    overrides.loadDispatches ?? vi.fn().mockResolvedValue([])
 
   render(
     <CommunicationsPage
@@ -78,6 +98,10 @@ function renderPage(
       updateTemplate={updateTemplate}
       deleteTemplate={deleteTemplate}
       loadCandidates={loadCandidates}
+      loadSenderSettings={loadSenderSettings}
+      saveSenderSettings={saveSenderSettings}
+      sendBatch={sendBatch}
+      loadDispatches={loadDispatches}
       onBack={vi.fn()}
     />,
   )
@@ -88,6 +112,10 @@ function renderPage(
     updateTemplate,
     deleteTemplate,
     loadCandidates,
+    loadSenderSettings,
+    saveSenderSettings,
+    sendBatch,
+    loadDispatches,
   }
 }
 
@@ -95,11 +123,11 @@ describe('CommunicationsPage', () => {
   it('shows saved templates and pending recipient candidates', async () => {
     const { loadCandidates } = renderPage()
 
-    expect(await screen.findByText('Pendência documental')).toBeVisible()
+    expect(await screen.findAllByText('Pendência documental')).toHaveLength(2)
     expect(await screen.findByText('Ana Souza')).toBeVisible()
     expect(screen.getByText('2 documentos nesta situação')).toBeVisible()
     expect(loadCandidates).toHaveBeenCalledWith('pending', null)
-    expect(screen.getByText('Envio desativado')).toBeVisible()
+    expect(await screen.findByText('Envio configurado')).toBeVisible()
   })
 
   it('creates a static reusable template', async () => {
@@ -140,7 +168,7 @@ describe('CommunicationsPage', () => {
     const user = userEvent.setup()
     renderPage({ createTemplate })
 
-    await screen.findByText('Pendência documental')
+    await screen.findByRole('button', { name: 'Editar' })
     await user.click(screen.getByRole('button', { name: 'Novo modelo' }))
     await user.click(screen.getByRole('button', { name: 'Salvar modelo' }))
 
@@ -158,7 +186,7 @@ describe('CommunicationsPage', () => {
     const user = userEvent.setup()
     renderPage({ updateTemplate })
 
-    await screen.findByText('Pendência documental')
+    await screen.findByRole('button', { name: 'Editar' })
     await user.click(screen.getByRole('button', { name: 'Editar' }))
     const subject = screen.getByLabelText('Assunto')
     await user.clear(subject)
@@ -181,7 +209,7 @@ describe('CommunicationsPage', () => {
     const user = userEvent.setup()
     renderPage({ deleteTemplate })
 
-    await screen.findByText('Pendência documental')
+    await screen.findByRole('button', { name: 'Excluir' })
     await user.click(screen.getByRole('button', { name: 'Excluir' }))
     expect(deleteTemplate).not.toHaveBeenCalled()
     expect(screen.getByText(/Esta ação não pode ser desfeita/)).toBeVisible()

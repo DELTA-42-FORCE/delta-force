@@ -1,102 +1,88 @@
 # Continuação do projeto
 
 Este arquivo permite retomar o trabalho sem depender do histórico de uma
-conversa. Antes de agir, leia `AGENTS.md` e confirme o estado atual no GitHub;
-os dados abaixo são um retrato de **14 de setembro de 2026, após a integração da
-PR #87**.
+conversa. Antes de agir, leia `AGENTS.md`, execute `git fetch origin --prune` e
+confirme PRs, revisões e checks no GitHub. Este retrato é de **19 de setembro de
+2026** e não autoriza merge automático.
 
-## Estado confirmado
+## Estado do MVP
 
-- `origin/develop` estava em `a972a38`, após o merge da PR #87.
-- Acesso local, clientes, documentos PDF/JPEG, status documental, ficha PDF,
-  importação assistida, auditoria, modelos de mensagem e triagem estão
-  integrados.
-- O E2E da preparação de comunicação, o texto de progresso do painel e a
-  inicialização do SQLite no aplicativo Windows instalado também estão
-  integrados.
-- As GitHub Actions obrigatórias usam versões com runtime Node 24; o Node 22 da
-  aplicação permanece inalterado.
-- O envio real de e-mail, backup/restauração e o aceite completo do MVP em uma
-  instalação Windows limpa ainda não estão concluídos. Confirme no GitHub as
-  PRs abertas antes de iniciar ou integrar qualquer trabalho.
-- Use somente dados sintéticos. Não copie banco, documento, senha, token ou
-  `.env` de cliente para branch, PR, issue ou log.
+- `origin/develop` estava em `923a6aa` antes das entregas empilhadas abaixo.
+- Autenticação do proprietário, clientes, documentos PDF/JPEG, status manual,
+  importação assistida, ficha PDF, auditoria, modelos e triagem já estavam em
+  `develop`.
+- A PR **#97**, branch `codex/24-email-client-template-vars`, adiciona e-mail
+  opcional validado ao cliente, variável única `{{nome}}`, prévia autenticada e
+  testes. Ela depende de revisão; não foi mesclada por este agente.
+- A PR **#96** de contratos também nasceu do mesmo `develop` e usa o identificador
+  de migration `20260919_0014`. Se ela for integrada primeiro, a #97 precisa ser
+  rebaseada e suas migrations `0014`/`0015` renumeradas; se a #97 entrar primeiro,
+  a #96 é que precisa ser rebaseada e renumerada. Nunca mantenha dois heads com o
+  mesmo identificador.
+- A branch `codex/25-email-sending-history` parte da #97 e acrescenta SMTP
+  configurável, credencial efêmera, envio individual, proteção contra repetição,
+  histórico, auditoria, interface e E2E sintético. Consulte no GitHub a PR dessa
+  branch e seus checks antes de revisar ou continuar.
+- Nenhuma senha, token ou dado real foi versionado. Os testes usam somente dados
+  e transportes sintéticos; o envio real fica para aceite controlado.
 
-## Últimas integrações
+## Decisões encerradas
 
-- **#79:** interface de modelos e triagem, sem envio real.
-- **#80:** E2E da preparação de comunicação, cobrindo status documental,
-  criação de modelo, triagem e auditoria.
-- **#81:** texto de progresso do painel alinhado ao estado atual.
-- **#82:** handoff inicial para continuidade do projeto.
-- **#83:** inclusão do driver SQLite no sidecar instalado e smoke test cauteloso
-  do instalador Windows.
-- **#84:** consulta autenticada de modelo por ID e cobertura HTTP do ciclo CRUD.
-- **#87:** atualização das GitHub Actions para runtime Node 24, preservando
-  versões, caches, permissões e comandos da aplicação.
+- O proprietário preenche os dados públicos do remetente no aplicativo e
+  informa a senha/senha de aplicativo a cada sessão de envio; ela nunca é
+  persistida ou incluída no backup.
+- O transporte do MVP é SMTP com TLS/STARTTLS. Sem TLS existe apenas para
+  Mailpit em loopback, quando habilitado explicitamente no desenvolvimento.
+- O envio é individual, com limite configurável de 1 a 100 (padrão 50), falha
+  isolada e confirmação para repetir sucesso ou resultado desconhecido.
+- Backup usa HD externo e senha digitada. O padrão técnico aprovado para o MVP é
+  arquivo versionado criptografado, sem recuperação de senha pela equipe,
+  lembrete após sete dias e restauração somente em instalação vazia.
 
-## Bloqueios que não devem ser inventados
-
-- **#24:** CRUD, triagem e interface estão integrados; faltam homologar as
-  variáveis de modelo e onde cadastrar/validar o e-mail opcional do cliente.
-- **#46:** o cliente ainda precisa informar remetente, provedor SMTP/API,
-  autenticação, limites de envio e regra de falha/reenvio. Isso bloqueia #25.
-- **#44:** o HD externo e o uso de senha digitada pelo proprietário foram
-  confirmados; formato criptográfico, custódia e recuperação da senha ainda
-  precisam ser definidos. Não implemente backup desprotegido.
-- **ADR 0002/#43:** a arquitetura está **Aceita** e a issue #43 está concluída.
-  A PR #48 aprovou Tauri 2, React, FastAPI empacotada como sidecar e
-  SQLite/filesystem privado; a integração essencial foi entregue pela #57.
-  Permanecem pendentes somente os gates operacionais e de release registrados
-  na própria ADR, como proteção do equipamento, assinatura e recuperação do
-  backup.
-- **#26:** depende das decisões operacionais restantes e da entrega #44.
-- **#27:** permanece aberta até envio/histórico, backup/restauração e aceite em
-  instalação Windows limpa.
-- **#88:** está pronta para desenvolvimento e deve tornar falhas de inicialização
-  do aplicativo Windows diagnosticáveis sem persistir segredos ou dados do
-  cliente. As falhas intermitentes observadas nas PRs #85/#87 passaram no
-  rerun, mas o código 101 isolado não informa sua causa.
+Os detalhes e a separação entre resposta do cliente e decisão técnica delegada
+estão em `docs/CLIENT_DECISIONS.md`.
 
 ## Próxima sequência segura
 
-1. Implementar #88 e validar novamente o smoke test do instalador Windows.
-2. Obter do cliente/time as decisões de #24, #44 e #46.
-3. Implementar #25 somente após #46 e implementar #44 somente após definir o
-   formato criptográfico e a recuperação da senha.
-4. Completar #26 e executar o aceite final de #27 em Windows limpo.
+1. Revisar a PR da branch `codex/25-email-sending-history`, confirmar que a base
+   é a branch da #97 enquanto ela não estiver integrada e rodar `just check`.
+2. Após aprovação/merge da #97, atualizar a base da PR de envio para `develop`,
+   resolver somente conflitos reais e repetir todos os checks.
+3. Coordenar a ordem com a PR #96 e renumerar migrations na segunda PR antes do
+   merge, preservando upgrade/downgrade e um único head Alembic.
+4. Implementar **#44** em branch própria: ADR, backup criptografado consistente,
+   validação completa e restauração atômica somente em instalação vazia.
+5. Concluir **#26** com manual de operação, LGPD, incidente e procedimento de
+   backup/restauração.
+6. Executar **#27** em Windows limpo: instalar, criar conta, cadastrar cliente,
+   anexar/abrir documento, gerar ficha, enviar e-mail de teste autorizado,
+   criar backup, restaurar e verificar desinstalação/atualização manual.
 
-### Informações necessárias para destravar #46
+## Alertas para quem continuar
 
-- endereço e nome de exibição do remetente;
-- provedor já contratado ou disponível e se a integração será SMTP ou API;
-- forma autorizada de armazenar a credencial fora do repositório e do backup;
-- limite esperado de destinatários por lote;
-- comportamento aprovado para falha parcial e reenvio.
+- Não use conta SMTP, banco, documento ou destinatário real em teste, screenshot,
+  issue, log ou PR.
+- Não mescle PR sem revisão humana e checks verdes.
+- Restauração é operação destrutiva: nunca aponte testes para o diretório real
+  do aplicativo nem implemente substituição de instalação com dados no MVP.
+- A senha do backup não pode ser armazenada, logada, recuperada pela equipe nem
+  derivada da senha de login.
+- O histórico de envio mantém a fotografia de assunto/corpo mesmo depois da
+  exclusão de um modelo; por isso o identificador do modelo não bloqueia essa
+  exclusão.
+- `package-lock.json` não rastreado na worktree principal pertence ao ambiente
+  do desenvolvedor e não deve ser apagado ou incluído sem investigação.
 
-Não registre senha, token ou segredo em issue, PR ou arquivo versionado.
-
-### Informações necessárias para destravar #44
-
-- decisão confirmada: o backup poderá usar senha digitada pelo proprietário;
-- onde a senha ou chave de recuperação será guardada fora do computador e do HD
-  de backup;
-- quem poderá executar a restauração em um computador substituto;
-- procedimento aceito para perda da senha/chave.
-
-Não implemente um backup desprotegido nem uma chave vinculada somente ao
-computador perdido: ambos contrariam a recuperação por HD externo.
-
-Para qualquer nova entrega, crie worktree/branch curta a partir de
-`origin/develop`, rode `just check`, abra PR para `develop` e solicite revisão:
+## Comandos de retomada
 
 ```powershell
 git fetch origin --prune
-git worktree add -b feature/ISSUE-resumo storage/worktrees/ISSUE-resumo origin/develop
-Set-Location storage/worktrees/ISSUE-resumo
+git status --short --branch
+gh pr list --state open --limit 30
 just install
 just check
 ```
 
-Não altere nem apague arquivos não rastreados da worktree principal: eles podem
-pertencer ao desenvolvedor local.
+Para nova entrega, use branch curta baseada na dependência correta. Enquanto as
+PRs empilhadas não forem integradas, preserve explicitamente a ordem; depois,
+rebaseie sobre `origin/develop` com `--force-with-lease`, nunca `--force`.

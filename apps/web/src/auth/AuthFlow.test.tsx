@@ -301,6 +301,13 @@ describe('owner authentication flow', () => {
     await waitFor(() => expect(fetch).toHaveBeenCalledOnce())
     vi.mocked(fetch).mockImplementation(async (input) => {
       const url = String(input)
+      if (url.endsWith('/email-sender-settings')) {
+        return {
+          ok: false,
+          status: 404,
+          json: () => Promise.resolve({ detail: 'not configured' }),
+        } as Response
+      }
       const body = url.endsWith('/message-templates')
         ? []
         : { items: [], next_cursor: null }
@@ -316,11 +323,11 @@ describe('owner authentication flow', () => {
     expect(
       await screen.findByRole('heading', { name: 'Preparação de e-mails' }),
     ).toBeVisible()
-    expect(screen.getByText('Envio desativado')).toBeVisible()
+    expect(await screen.findByText('Configure o remetente')).toBeVisible()
     expect(
-      screen.queryByRole('button', { name: /enviar/i }),
-    ).not.toBeInTheDocument()
-    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(3))
+      screen.getByRole('button', { name: 'Enviar mensagens' }),
+    ).toBeDisabled()
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(5))
     expect(fetch).toHaveBeenCalledWith(
       'http://localhost:8000/message-templates',
       expect.objectContaining({
@@ -329,6 +336,18 @@ describe('owner authentication flow', () => {
     )
     expect(fetch).toHaveBeenCalledWith(
       'http://localhost:8000/email-recipient-candidates?status=pending&limit=20',
+      expect.objectContaining({
+        headers: { Authorization: 'Bearer raw-secret-token' },
+      }),
+    )
+    expect(fetch).toHaveBeenCalledWith(
+      'http://localhost:8000/email-sender-settings',
+      expect.objectContaining({
+        headers: { Authorization: 'Bearer raw-secret-token' },
+      }),
+    )
+    expect(fetch).toHaveBeenCalledWith(
+      'http://localhost:8000/email-dispatches?limit=50',
       expect.objectContaining({
         headers: { Authorization: 'Bearer raw-secret-token' },
       }),

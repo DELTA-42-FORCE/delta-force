@@ -3,8 +3,9 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field, SecretStr
 
+from crm_api.domain.communications.entities import EmailDeliveryStatus, SmtpSecurity
 from crm_api.domain.documents.entities import DocumentStatus
 
 
@@ -46,3 +47,48 @@ class RecipientCandidateListResponse(BaseModel):
     items: list[RecipientCandidateResponse]
     limit: int = Field(ge=1, le=100)
     next_cursor: RecipientCandidateCursorResponse | None
+
+
+class EmailSenderSettingsPayload(BaseModel):
+    sender_name: str = Field(min_length=1, max_length=120)
+    sender_email: EmailStr
+    smtp_host: str = Field(min_length=1, max_length=253)
+    smtp_port: int = Field(ge=1, le=65535)
+    security: SmtpSecurity
+    username: str | None = Field(default=None, max_length=320)
+    max_recipients: int = Field(default=50, ge=1, le=100)
+
+
+class EmailSenderSettingsResponse(EmailSenderSettingsPayload):
+    pass
+
+
+class SendEmailBatchRequest(BaseModel):
+    template_id: UUID
+    client_ids: list[UUID] = Field(min_length=1, max_length=100)
+    credential: SecretStr | None = None
+    confirm_repeat: bool = False
+
+
+class EmailDispatchResponse(BaseModel):
+    id: UUID
+    template_id: UUID
+    client_id: UUID
+    recipient_email: EmailStr | None
+    subject: str
+    body: str
+    message_id: str
+    status: EmailDeliveryStatus
+    detail: str | None
+    attempted_at: datetime
+
+
+class EmailDispatchCursorResponse(BaseModel):
+    attempted_at: datetime
+    id: UUID
+
+
+class EmailDispatchListResponse(BaseModel):
+    items: list[EmailDispatchResponse]
+    limit: int = Field(ge=1, le=100)
+    next_cursor: EmailDispatchCursorResponse | None

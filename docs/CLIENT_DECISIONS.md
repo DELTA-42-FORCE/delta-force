@@ -1,6 +1,6 @@
 # Decisões confirmadas com o cliente
 
-**Atualizado em 4 de setembro de 2026.** Este registro complementa o levantamento
+**Atualizado em 19 de setembro de 2026.** Este registro complementa o levantamento
 de requisitos. Em caso de divergência, uma decisão posterior confirmada pelo
 cliente prevalece sobre uma hipótese anterior.
 
@@ -56,8 +56,9 @@ cliente prevalece sobre uma hipótese anterior.
 - Dados e documentos devem ser guardados, sem prazo de descarte definido.
   Isso não elimina a necessidade de proteger backup, documentar restauração e
   atender eventual solicitação legítima do titular.
-- O e-mail remetente da mala direta ainda será informado pelo cliente. Nenhuma
-  credencial, conta de teste real ou segredo deve ser adicionado ao repositório.
+- O proprietário cadastrará no próprio aplicativo o nome, endereço e servidor
+  SMTP do remetente. Nenhuma credencial, conta de teste real ou segredo deve ser
+  adicionado ao repositório, banco, backup ou logs.
 - O e-mail opcional de cada cliente será um campo próprio, validado, da pasta
   digital; não será inferido de campos livres. Modelos aceitam somente a
   variável `{{nome}}` no MVP. Outras variáveis exigem decisão e teste próprios.
@@ -111,8 +112,9 @@ até a homologação do evento que libera o parcelamento.
 
 A ADR 0002 e a issue #57 já definiram e implementaram o shell/empacotamento
 Windows, o diretório privado, a primeira execução e a estratégia de atualização
-manual. O formato criptográfico, a custódia/recuperação da senha do backup e o
-provedor de e-mail seguem pendentes.
+manual. A validação final ainda precisa comprovar instalação limpa, assinatura
+do instalador, envio com a conta real escolhida pelo proprietário e restauração
+em outro computador. Esses são gates de aceite, não novas regras do cliente.
 
 ## Configurações operacionais feitas no próprio aplicativo
 
@@ -120,47 +122,51 @@ As informações públicas do remetente e as preferências operacionais serão
 preenchidas pelo proprietário no aplicativo. Nenhuma senha, credencial ou
 segredo deve ser registrado aqui, em issue ou em pull request.
 
-### E-mail da mala direta (issue #46 — bloqueia #25)
+### E-mail da mala direta (issues #25 e #46)
 
-1. Qual é o endereço e o nome de exibição do remetente? Informe apenas esses
-   dados públicos, nunca senha, token ou código de recuperação.
-2. Qual provedor/conta de e-mail já utiliza? A conta permite SMTP e senha de
-   aplicativo, ou o provedor oferece outro mecanismo de envio autorizado?
-3. Aproximadamente quantos destinatários espera alcançar por lote e com que
-   frequência? O limite técnico será definido conforme as regras do provedor.
-4. Confirma envio individual por destinatário, com registro das falhas e reenvio
-   somente dos que falharam, sem duplicar mensagens já enviadas?
+Por autorização do responsável pelo produto, as opções operacionais que não
+alteram o escopo foram fechadas com padrões seguros:
 
-O time escolherá o adaptador SMTP ou API depois de conhecer o provedor. A
-credencial deve ficar fora de arquivos, banco, backup, logs e repositório: para
-o aplicativo Windows, avaliar Windows Credential Manager/DPAPI ou entrada a
-cada sessão. Nenhum segredo deve ser pedido ou registrado nesta issue.
+- o MVP usa SMTP configurável, compatível com o provedor que o proprietário
+  escolher; uma API específica de provedor fica fora do MVP;
+- nome, endereço, servidor, porta, segurança, usuário e limite do lote são
+  cadastrados no aplicativo; a senha ou senha de aplicativo é digitada somente
+  no momento do envio e nunca é persistida;
+- TLS direto ou STARTTLS validam certificado e nome do servidor. SMTP sem TLS é
+  permitido exclusivamente para o Mailpit em endereço de loopback no ambiente
+  de desenvolvimento e fica desabilitado por padrão na entrega final;
+- cada destinatário recebe uma mensagem individual. O lote padrão comporta até
+  50 destinatários e pode ser configurado entre 1 e 100;
+- falhas comprovadamente rejeitadas podem ser tentadas de novo. Resultado
+  desconhecido exige confirmação manual, pois o servidor pode já ter aceitado a
+  mensagem; um novo envio após sucesso também exige confirmação explícita;
+- o histórico guarda destinatário, conteúdo renderizado, identificador e
+  resultado do envio. A consulta desse histórico e da configuração é auditada.
+
+A conta real continua sendo necessária somente para o aceite operacional. Ela
+não bloqueia a implementação nem deve ser registrada em issue ou pull request.
 
 ### Backup e restauração por HD externo (issue #44)
 
-Já confirmado: o backup poderá usar uma senha digitada pelo proprietário.
+Já confirmado pelo cliente: o destino é um HD externo e a proteção usa senha
+digitada pelo proprietário. Por autorização do responsável pelo produto, o MVP
+adota ainda estas decisões conservadoras:
 
-1. Onde manterá uma cópia da senha de recuperação, separada do computador e do
-   HD externo (por exemplo, cofre físico ou gerenciador de senhas)? Não informe
-   a senha à equipe.
-2. Quem deverá poder restaurar o backup em um computador substituto: apenas o
-   proprietário ou também uma pessoa de confiança indicada por ele?
-3. Se a senha do backup for perdida, haverá uma segunda cópia guardada em outro
-   local seguro ou ele aceita que o backup se torne irrecuperável?
-4. Com que frequência pretende conectar o HD e fazer backup? Deseja lembrete no
-   aplicativo quando estiver há muito tempo sem uma cópia?
-5. Quantas versões anteriores deseja manter no HD, ou por quanto tempo? Isso é
-   diferente do prazo de guarda dos dados e documentos no CRM, que é indefinido.
-6. A restauração será usada apenas em uma instalação vazia ou também poderá
-   substituir dados já presentes? Na segunda hipótese, a operação exigirá
-   confirmação explícita e proteção contra perda dos dados atuais.
-7. O computador e o HD externo já usam senha do Windows e proteção de disco
-   (por exemplo, BitLocker)? Essa resposta ajuda a orientar a operação, mas não
-   substitui a criptografia do backup.
-8. Após trocar o computador, como espera recuperar o acesso à conta do CRM caso
-   também tenha esquecido a senha de login? A senha do backup não deve revelar
-   nem reutilizar a senha de login.
+- cada backup é um arquivo versionado, criptografado e autenticado; não
+  sobrescreve versões anteriores automaticamente;
+- a senha é solicitada em cada backup/restauração e não é persistida. Não existe
+  senha mestra, recuperação pela equipe ou chave presa ao computador perdido;
+- somente o proprietário autenticado pode iniciar a operação. Se perder a senha
+  e não mantiver uma cópia segura separada, o backup é irrecuperável;
+- o aplicativo lembra o proprietário quando não houver backup bem-sucedido nos
+  últimos sete dias, mas a conexão e a execução permanecem manuais;
+- a restauração do MVP é aceita apenas em instalação vazia, valida todo o pacote
+  antes da troca e não apaga o backup de origem. Substituir uma instalação que
+  já contenha dados exige uma evolução posterior com confirmação reforçada;
+- a senha de backup é independente da senha de login. O snapshot restaura a
+  conta existente; recuperação de senha continua sendo outro fluxo;
+- proteção do Windows e BitLocker são recomendadas, mas não substituem a
+  criptografia do arquivo de backup.
 
-O time definirá o formato criptográfico, o snapshot consistente de banco e
-documentos e a restauração atômica com validação antes de substituir dados. A
-senha do backup não será persistida pelo aplicativo nem incluída no backup.
+A ADR da #44 deve registrar o formato, os limites, a consistência do snapshot e
+o procedimento atômico antes da integração da implementação.

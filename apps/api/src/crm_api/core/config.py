@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     session_ttl_minutes: int = 12 * 60
     cors_allowed_origins: str = "http://localhost:5173"
     documents_root: str | None = None
+    allow_insecure_local_smtp: bool = False
 
     @field_validator("database_url")
     @classmethod

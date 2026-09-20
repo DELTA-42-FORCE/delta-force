@@ -19,8 +19,12 @@ import { CommunicationsPage } from './communications/CommunicationsPage'
 import {
   createMessageTemplate,
   deleteMessageTemplate,
+  getEmailSenderSettings,
+  listEmailDispatches,
   listMessageTemplates,
   listRecipientCandidates,
+  saveEmailSenderSettings,
+  sendEmailBatch,
   updateMessageTemplate,
 } from './communications/communicationsApi'
 import type {
@@ -28,6 +32,7 @@ import type {
   MessageTemplatePayload,
   RecipientCandidateCursor,
   RecipientDocumentStatus,
+  EmailSenderSettings,
 } from './communications/communicationsApi'
 import { ClientDocumentsPanel } from './documents/ClientDocumentsPanel'
 import {
@@ -231,6 +236,32 @@ function Root() {
     [authenticatedGet],
   )
 
+  const loadSenderSettings = useCallback(
+    () => getEmailSenderSettings(authenticatedGet),
+    [authenticatedGet],
+  )
+
+  const saveSenderSettings = useCallback(
+    (settings: EmailSenderSettings) =>
+      saveEmailSenderSettings(authenticatedRequest, settings),
+    [authenticatedRequest],
+  )
+
+  const sendBatch = useCallback(
+    (input: {
+      template_id: string
+      client_ids: string[]
+      credential: string | null
+      confirm_repeat: boolean
+    }) => sendEmailBatch(authenticatedRequest, input),
+    [authenticatedRequest],
+  )
+
+  const loadDispatches = useCallback(
+    () => listEmailDispatches(authenticatedGet),
+    [authenticatedGet],
+  )
+
   const goTo = useCallback(
     (view: 'overview' | 'audit' | 'clients' | 'imports' | 'communications') => {
       // Trocar de seção fecha a pasta aberta: os documentos pertencem ao cliente
@@ -418,6 +449,10 @@ function Root() {
               updateTemplate={updateTemplate}
               deleteTemplate={deleteTemplate}
               loadCandidates={loadCandidates}
+              loadSenderSettings={loadSenderSettings}
+              saveSenderSettings={saveSenderSettings}
+              sendBatch={sendBatch}
+              loadDispatches={loadDispatches}
               onBack={() => setActiveView('overview')}
             />
           ) : activeView === 'clients' && documentsFolder !== null ? (
