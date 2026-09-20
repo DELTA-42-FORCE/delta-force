@@ -17,7 +17,9 @@ Gestão de múltiplos usuários, PagBank, financeiro e emissão fiscal estão fo
 do MVP inicial. Consulte as [decisões do cliente](docs/CLIENT_DECISIONS.md),
 [o plano do MVP](docs/MVP_PLAN.md), [o guia do projeto](docs/PROJECT_GUIDE.md)
 e [o backlog](docs/BACKLOG.md). Para retomar uma entrega em andamento, comece
-pelo [guia de continuação](docs/CONTINUATION.md).
+pelo [guia de continuação](docs/CONTINUATION.md). A operação do aplicativo está
+no [manual de operação segura](docs/OPERATION_MANUAL.md), e a homologação final
+usa o [checklist de aceite Windows](docs/WINDOWS_ACCEPTANCE_CHECKLIST.md).
 
 ## Estrutura
 
@@ -57,8 +59,9 @@ just desktop-install
 just desktop-build
 ```
 
-O instalador NSIS gerado é apenas artefato de teste nesta etapa: assinatura,
-distribuição, backup/restauração e validação em máquina Windows limpa pertencem
-às issues #44 e #27. Consulte a ADR 0002 antes de alterar Rust, Tauri ou CI.
+O instalador NSIS gerado é artefato de teste até que origem, hash, assinatura,
+backup/restauração em HD externo real e instalação Windows limpa sejam
+homologados pelo checklist da issue #27. Consulte as ADRs 0002 e 0004 antes de
+alterar Rust, Tauri, backup ou CI.
 
 Use `just --list` para ver todos os comandos. Nenhuma credencial deve ser versionada.
