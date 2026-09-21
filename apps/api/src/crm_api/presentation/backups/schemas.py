@@ -23,6 +23,8 @@ class BackupStatusResponse(BaseModel):
 class StageRestoreRequest(BaseModel):
     source_file: str = Field(min_length=1, max_length=32_767)
     passphrase: SecretStr = Field(min_length=12, max_length=1024)
+    replace_existing: bool = False
+    confirmation: str | None = Field(default=None, max_length=64)
 
 
 class RestoreStagingResponse(BaseModel):

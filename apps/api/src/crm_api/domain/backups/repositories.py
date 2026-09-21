@@ -13,7 +13,11 @@ class BackupService(Protocol):
     ) -> BackupCreationResult: ...
 
     def stage_restore(
-        self, *, source_file: str, passphrase: str
+        self,
+        *,
+        source_file: str,
+        passphrase: str,
+        replace_existing: bool = False,
     ) -> RestoreStagingResult: ...
 
     def discard_backup(self, *, destination_directory: str, filename: str) -> None: ...

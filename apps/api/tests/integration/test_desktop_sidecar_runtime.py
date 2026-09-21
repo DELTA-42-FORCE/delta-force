@@ -13,6 +13,8 @@ from queue import Queue
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
+from crm_api.infrastructure.backups.generations import read_active_generation
+
 _ORIGIN = "http://tauri.localhost"
 _SECRET = "synthetic-desktop-bootstrap-secret"
 
@@ -125,6 +127,8 @@ def test_desktop_sidecar_bootstraps_and_records_owner_setup_audit_event(
     finally:
         _stop_gracefully(process)
 
-    with sqlite3.connect(data_directory / "crm.sqlite3") as connection:
+    active = read_active_generation(data_directory)
+    assert active is not None
+    with sqlite3.connect(active.database_path) as connection:
         actions = connection.execute("SELECT action FROM audit_events").fetchall()
     assert ("auth.owner_setup",) in actions

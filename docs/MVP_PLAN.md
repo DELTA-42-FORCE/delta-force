@@ -42,9 +42,10 @@ decisões pendentes.
    integradas. A transição SQLite (#54) e a futura issue desktop devem provar
    esses eventos no arquivo local, inclusive negações do bootstrap/capability.
 3. **#44 — em revisão:** backup AES-256-GCM versionado, senha efêmera,
-   validação de mídia externa, snapshot consistente e restauração validada em
-   instalação vazia foram implementados. O aceite final ainda deve exercitar um
-   HD externo real e uma instalação Windows limpa.
+   validação de mídia externa, snapshot consistente e restauração por geração
+   única foram implementados. A instalação vazia usa o mesmo protocolo; substituir
+   dados existentes exige autenticação e confirmação reforçada. O aceite final
+   ainda deve exercitar um HD externo real e uma instalação Windows limpa.
 
 ## Marco 2 — clientes e documentos
 

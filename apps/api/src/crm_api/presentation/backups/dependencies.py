@@ -18,7 +18,7 @@ from crm_api.presentation.dependencies import DatabaseSession
 def _service() -> EncryptedBackupService:
     settings = get_settings()
     database_path = settings.database_path
-    data_root = database_path.parent
+    data_root = settings.data_root_path
     return EncryptedBackupService(
         data_root=data_root,
         database_path=database_path,

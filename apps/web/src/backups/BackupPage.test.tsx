@@ -1,11 +1,13 @@
-import { render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { BackupPage } from './BackupPage'
 import { RestoreBackupPanel } from './RestoreBackupPanel'
 
 describe('backup and restore interface', () => {
+  afterEach(cleanup)
+
   it('warns when due and creates a protected backup after confirmation', async () => {
     const createBackup = vi.fn().mockResolvedValue({
       filename: 'delta-force-crm-synthetic.dfcrmbak',
@@ -20,6 +22,7 @@ describe('backup and restore interface', () => {
           Promise.resolve({ last_successful_at: null, reminder_due: true })
         }
         createBackup={createBackup}
+        stageRestore={vi.fn()}
         onBack={() => undefined}
       />,
     )
@@ -82,8 +85,52 @@ describe('backup and restore interface', () => {
     expect(stageRestore).toHaveBeenCalledWith({
       source_file: String.raw`E:\Backups\synthetic.dfcrmbak`,
       passphrase: 'senha sintetica forte',
+      replace_existing: false,
+      confirmation: null,
     })
     expect(onStaged).toHaveBeenCalledOnce()
     expect(screen.queryByText(/substituir dados/i)).not.toBeInTheDocument()
+  })
+
+  it('requires reinforced confirmation before replacing local data', async () => {
+    const stageRestore = vi.fn().mockResolvedValue({
+      backup_created_at: '2026-09-19T20:00:00Z',
+      document_count: 2,
+      requires_restart: true,
+    })
+    const user = userEvent.setup()
+    render(
+      <RestoreBackupPanel
+        stageRestore={stageRestore}
+        onStaged={() => undefined}
+        replaceExisting
+      />,
+    )
+
+    await user.click(
+      screen.getByRole('button', { name: 'Restaurar pelo HD externo' }),
+    )
+    await user.type(
+      screen.getByLabelText('Arquivo de backup'),
+      String.raw`E:\Backups\synthetic.dfcrmbak`,
+    )
+    await user.type(
+      screen.getByLabelText('Senha do backup'),
+      'senha sintetica forte',
+    )
+    await user.type(
+      screen.getByLabelText('Digite SUBSTITUIR DADOS'),
+      'SUBSTITUIR DADOS',
+    )
+    await user.click(
+      screen.getByRole('button', { name: 'Validar e preparar restauração' }),
+    )
+
+    expect(stageRestore).toHaveBeenCalledWith({
+      source_file: String.raw`E:\Backups\synthetic.dfcrmbak`,
+      passphrase: 'senha sintetica forte',
+      replace_existing: true,
+      confirmation: 'SUBSTITUIR DADOS',
+    })
   })
 })

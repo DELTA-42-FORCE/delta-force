@@ -8,7 +8,11 @@ import { AuthProvider, useAuth } from './auth/AuthContext'
 import { LoginPage } from './auth/LoginPage'
 import { SetupPage } from './auth/SetupPage'
 import { BackupPage } from './backups/BackupPage'
-import { createBackup, getBackupStatus } from './backups/backupsApi'
+import {
+  createBackup,
+  getBackupStatus,
+  stageAuthenticatedBackupRestore,
+} from './backups/backupsApi'
 import {
   createClientFolder,
   exportClientProfile,
@@ -66,6 +70,7 @@ import { LegacyImportPanel } from './imports/LegacyImportPanel'
 import { importLegacyArchive, previewLegacyImport } from './imports/importsApi'
 import {
   isTauriRuntime,
+  pickBackupFile,
   pickBackupFolder,
   pickImportFolder,
 } from './lib/desktopShell'
@@ -350,6 +355,12 @@ function Root() {
     [authenticatedRequest],
   )
 
+  const runRestore = useCallback(
+    (input: Parameters<typeof stageAuthenticatedBackupRestore>[1]) =>
+      stageAuthenticatedBackupRestore(authenticatedRequest, input),
+    [authenticatedRequest],
+  )
+
   const goTo = useCallback(
     (
       view:
@@ -579,6 +590,8 @@ function Root() {
               loadStatus={loadBackupStatus}
               createBackup={runBackup}
               pickFolder={isTauriRuntime() ? pickBackupFolder : undefined}
+              pickFile={isTauriRuntime() ? pickBackupFile : undefined}
+              stageRestore={runRestore}
               onBack={() => setActiveView('overview')}
             />
           ) : activeView === 'clients' && documentsFolder !== null ? (

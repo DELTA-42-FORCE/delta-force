@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import ctypes
+from contextlib import contextmanager
 from ctypes import wintypes
 from dataclasses import dataclass
+import hashlib
 import os
 from pathlib import Path
 import stat
 import struct
+from typing import BinaryIO, Iterator
 
 
 class BackupMediaError(Exception):
@@ -19,6 +22,7 @@ class BackupMediaError(Exception):
 class VerifiedBackupMedia:
     directory: Path
     identity: str
+    volume_serial: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,11 +38,19 @@ class BackupMediaPolicy:
             return VerifiedBackupMedia(
                 directory=directory,
                 identity=f"development:{directory.anchor or directory}",
+                volume_serial=None,
             )
         if os.name != "nt":
             raise BackupMediaError("external backup media requires Windows")
+        destination_serial = _verify_windows_directory_handle(directory)
         destination = _windows_volume(directory)
-        source = _windows_volume(_existing_plain_directory(self.data_root))
+        if destination_serial != destination.volume_serial:
+            raise BackupMediaError("backup destination volume identity changed")
+        source_directory = _existing_plain_directory(self.data_root)
+        source_serial = _verify_windows_directory_handle(source_directory)
+        source = _windows_volume(source_directory)
+        if source_serial != source.volume_serial:
+            raise BackupMediaError("local data volume identity changed")
         if destination.identity == source.identity:
             raise BackupMediaError("backup destination must use another volume")
         if destination.filesystem in {"FAT", "FAT32"}:
@@ -48,6 +60,7 @@ class BackupMediaPolicy:
         return VerifiedBackupMedia(
             directory=directory,
             identity=destination.identity,
+            volume_serial=destination.volume_serial,
         )
 
     def validate_source_file(
@@ -67,12 +80,86 @@ class BackupMediaPolicy:
         if current.identity != media.identity:
             raise BackupMediaError("backup drive identity changed during the operation")
 
+    def fingerprint_file(
+        self, value: str | Path, *, media: VerifiedBackupMedia
+    ) -> tuple[int, str]:
+        """Reabre por handle e comprova volume, caminho, tamanho e SHA-256."""
+        _reject_remote_or_device_path(value)
+        path = Path(value)
+        _reject_reparse_chain(path)
+        resolved = path.resolve(strict=True)
+        if resolved.parent != media.directory:
+            raise BackupMediaError("backup file escaped the validated directory")
+        digest = hashlib.sha256()
+        total = 0
+        with _open_regular_file_by_handle(resolved) as (handle, volume_serial):
+            if (
+                media.volume_serial is not None
+                and volume_serial is not None
+                and volume_serial != media.volume_serial
+            ):
+                raise BackupMediaError("backup file is on another volume")
+            while chunk := handle.read(1024 * 1024):
+                digest.update(chunk)
+                total += len(chunk)
+        self.revalidate(media)
+        return total, digest.hexdigest()
+
+    def copy_file_to(
+        self,
+        value: str | Path,
+        *,
+        media: VerifiedBackupMedia,
+        destination: Path,
+    ) -> tuple[int, str]:
+        """Copia de um único handle validado para staging local exclusivo."""
+        _reject_remote_or_device_path(value)
+        path = Path(value)
+        _reject_reparse_chain(path)
+        resolved = path.resolve(strict=True)
+        if resolved.parent != media.directory:
+            raise BackupMediaError("backup file escaped the validated directory")
+        output_flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_BINARY", 0)
+        try:
+            output_descriptor = os.open(destination, output_flags, 0o600)
+        except OSError as error:
+            raise BackupMediaError("restore staging file cannot be created") from error
+        digest = hashlib.sha256()
+        total = 0
+        try:
+            with (
+                _open_regular_file_by_handle(resolved) as (source, volume_serial),
+                os.fdopen(output_descriptor, "wb") as output,
+            ):
+                output_descriptor = -1
+                if (
+                    media.volume_serial is not None
+                    and volume_serial is not None
+                    and volume_serial != media.volume_serial
+                ):
+                    raise BackupMediaError("backup file is on another volume")
+                while chunk := source.read(1024 * 1024):
+                    output.write(chunk)
+                    digest.update(chunk)
+                    total += len(chunk)
+                output.flush()
+                os.fsync(output.fileno())
+            self.revalidate(media)
+            return total, digest.hexdigest()
+        except BaseException:
+            destination.unlink(missing_ok=True)
+            raise
+        finally:
+            if output_descriptor >= 0:
+                os.close(output_descriptor)
+
 
 @dataclass(frozen=True, slots=True)
 class _WindowsVolume:
     identity: str
     filesystem: str
     external: bool
+    volume_serial: int
 
 
 def _existing_plain_directory(value: str | Path) -> Path:
@@ -172,7 +259,168 @@ def _windows_volume(path: Path) -> _WindowsVolume:
         identity=identity,
         filesystem=filesystem.value.upper(),
         external=external,
+        volume_serial=serial.value,
     )
+
+
+@contextmanager
+def _open_regular_file_by_handle(
+    path: Path,
+) -> Iterator[tuple[BinaryIO, int | None]]:
+    flags = os.O_RDONLY | getattr(os, "O_BINARY", 0)
+    if os.name != "nt" and hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as error:
+        raise BackupMediaError("backup file cannot be opened safely") from error
+    try:
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode):
+            raise BackupMediaError("backup file is not regular")
+        volume_serial = (
+            _verify_windows_file_handle(descriptor, path) if os.name == "nt" else None
+        )
+        with os.fdopen(descriptor, "rb") as handle:
+            descriptor = -1
+            yield handle, volume_serial
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+
+
+def _verify_windows_file_handle(descriptor: int, expected_path: Path) -> int:
+    import msvcrt
+
+    class _ByHandleFileInformation(ctypes.Structure):
+        _fields_ = [
+            ("dwFileAttributes", wintypes.DWORD),
+            ("ftCreationTime", wintypes.FILETIME),
+            ("ftLastAccessTime", wintypes.FILETIME),
+            ("ftLastWriteTime", wintypes.FILETIME),
+            ("dwVolumeSerialNumber", wintypes.DWORD),
+            ("nFileSizeHigh", wintypes.DWORD),
+            ("nFileSizeLow", wintypes.DWORD),
+            ("nNumberOfLinks", wintypes.DWORD),
+            ("nFileIndexHigh", wintypes.DWORD),
+            ("nFileIndexLow", wintypes.DWORD),
+        ]
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.GetFileInformationByHandle.argtypes = [
+        wintypes.HANDLE,
+        ctypes.POINTER(_ByHandleFileInformation),
+    ]
+    kernel32.GetFileInformationByHandle.restype = wintypes.BOOL
+    kernel32.GetFinalPathNameByHandleW.argtypes = [
+        wintypes.HANDLE,
+        wintypes.LPWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+    ]
+    kernel32.GetFinalPathNameByHandleW.restype = wintypes.DWORD
+    handle = wintypes.HANDLE(msvcrt.get_osfhandle(descriptor))
+    information = _ByHandleFileInformation()
+    if not kernel32.GetFileInformationByHandle(handle, ctypes.byref(information)):
+        raise BackupMediaError("backup file identity is unavailable")
+    reparse_attribute = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+    if information.dwFileAttributes & reparse_attribute:
+        raise BackupMediaError("backup file cannot be a reparse point")
+    buffer = ctypes.create_unicode_buffer(32_768)
+    length = kernel32.GetFinalPathNameByHandleW(handle, buffer, len(buffer), 0)
+    if length == 0 or length >= len(buffer):
+        raise BackupMediaError("backup file final path is unavailable")
+    final_path = buffer.value
+    if final_path.startswith("\\\\?\\UNC\\"):
+        raise BackupMediaError("network backup files are not allowed")
+    if final_path.startswith("\\\\?\\"):
+        final_path = final_path[4:]
+    if os.path.normcase(os.path.abspath(final_path)) != os.path.normcase(
+        os.path.abspath(expected_path)
+    ):
+        raise BackupMediaError("backup file handle resolved to another path")
+    return int(information.dwVolumeSerialNumber)
+
+
+def _verify_windows_directory_handle(expected_path: Path) -> int:
+    class _ByHandleFileInformation(ctypes.Structure):
+        _fields_ = [
+            ("dwFileAttributes", wintypes.DWORD),
+            ("ftCreationTime", wintypes.FILETIME),
+            ("ftLastAccessTime", wintypes.FILETIME),
+            ("ftLastWriteTime", wintypes.FILETIME),
+            ("dwVolumeSerialNumber", wintypes.DWORD),
+            ("nFileSizeHigh", wintypes.DWORD),
+            ("nFileSizeLow", wintypes.DWORD),
+            ("nNumberOfLinks", wintypes.DWORD),
+            ("nFileIndexHigh", wintypes.DWORD),
+            ("nFileIndexLow", wintypes.DWORD),
+        ]
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.CreateFileW.argtypes = [
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.LPVOID,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.HANDLE,
+    ]
+    kernel32.CreateFileW.restype = wintypes.HANDLE
+    kernel32.GetFileInformationByHandle.argtypes = [
+        wintypes.HANDLE,
+        ctypes.POINTER(_ByHandleFileInformation),
+    ]
+    kernel32.GetFileInformationByHandle.restype = wintypes.BOOL
+    kernel32.GetFinalPathNameByHandleW.argtypes = [
+        wintypes.HANDLE,
+        wintypes.LPWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+    ]
+    kernel32.GetFinalPathNameByHandleW.restype = wintypes.DWORD
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel32.CloseHandle.restype = wintypes.BOOL
+    handle = kernel32.CreateFileW(
+        str(expected_path),
+        0,
+        0x00000001 | 0x00000002 | 0x00000004,
+        None,
+        3,
+        0x02000000 | 0x00200000,
+        None,
+    )
+    invalid_handle = wintypes.HANDLE(-1).value
+    if handle == invalid_handle:
+        raise BackupMediaError("backup directory cannot be opened by handle")
+    try:
+        information = _ByHandleFileInformation()
+        if not kernel32.GetFileInformationByHandle(
+            wintypes.HANDLE(handle), ctypes.byref(information)
+        ):
+            raise BackupMediaError("backup directory identity is unavailable")
+        reparse_attribute = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+        if information.dwFileAttributes & reparse_attribute:
+            raise BackupMediaError("backup directory cannot be a reparse point")
+        buffer = ctypes.create_unicode_buffer(32_768)
+        length = kernel32.GetFinalPathNameByHandleW(
+            wintypes.HANDLE(handle), buffer, len(buffer), 0
+        )
+        if length == 0 or length >= len(buffer):
+            raise BackupMediaError("backup directory final path is unavailable")
+        final_path = buffer.value
+        if final_path.startswith("\\\\?\\UNC\\"):
+            raise BackupMediaError("network backup directories are not allowed")
+        if final_path.startswith("\\\\?\\"):
+            final_path = final_path[4:]
+        if os.path.normcase(os.path.abspath(final_path)) != os.path.normcase(
+            os.path.abspath(expected_path)
+        ):
+            raise BackupMediaError("backup directory handle resolved elsewhere")
+        return int(information.dwVolumeSerialNumber)
+    finally:
+        kernel32.CloseHandle(wintypes.HANDLE(handle))
 
 
 def _windows_bus_is_usb(mount_point: str) -> bool:

@@ -2,14 +2,13 @@ import { useCallback, useState, type FormEvent } from 'react'
 
 import { ApiError } from '../lib/apiClient'
 import type { RestoreStagingResult } from './backupsApi'
+import type { StageRestoreInput } from './backupsApi'
 
 interface RestoreBackupPanelProps {
-  stageRestore: (input: {
-    source_file: string
-    passphrase: string
-  }) => Promise<RestoreStagingResult>
+  stageRestore: (input: StageRestoreInput) => Promise<RestoreStagingResult>
   pickFile?: () => Promise<string | null>
   onStaged: (result: RestoreStagingResult) => void
+  replaceExisting?: boolean
 }
 
 function describeRestoreFailure(error: unknown): string {
@@ -29,10 +28,12 @@ export function RestoreBackupPanel({
   stageRestore,
   pickFile,
   onStaged,
+  replaceExisting = false,
 }: RestoreBackupPanelProps) {
   const [expanded, setExpanded] = useState(false)
   const [sourceFile, setSourceFile] = useState('')
   const [passphrase, setPassphrase] = useState('')
+  const [replacementConfirmation, setReplacementConfirmation] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -54,15 +55,22 @@ export function RestoreBackupPanel({
       setError('A senha do backup deve ter entre 12 e 1024 bytes.')
       return
     }
+    if (replaceExisting && replacementConfirmation !== 'SUBSTITUIR DADOS') {
+      setError('Digite SUBSTITUIR DADOS para confirmar a troca completa.')
+      return
+    }
     setBusy(true)
     try {
       onStaged(
         await stageRestore({
           source_file: sourceFile.trim(),
           passphrase,
+          replace_existing: replaceExisting,
+          confirmation: replaceExisting ? replacementConfirmation : null,
         }),
       )
       setPassphrase('')
+      setReplacementConfirmation('')
     } catch (caught) {
       setError(describeRestoreFailure(caught))
     } finally {
@@ -128,9 +136,26 @@ export function RestoreBackupPanel({
         />
       </div>
       <p className="privacy-note">
-        O arquivo será verificado antes de qualquer troca. O backup no HD não é
-        apagado.
+        {replaceExisting
+          ? 'A restauração substituirá a geração local inteira no próximo reinício, com rollback se a validação falhar.'
+          : 'O arquivo será verificado antes de qualquer troca. O backup no HD não é apagado.'}
       </p>
+      {replaceExisting && (
+        <div className="field">
+          <label htmlFor="restore-replacement-confirmation">
+            Digite SUBSTITUIR DADOS
+          </label>
+          <input
+            id="restore-replacement-confirmation"
+            value={replacementConfirmation}
+            onChange={(event) => setReplacementConfirmation(event.target.value)}
+            disabled={busy}
+            autoComplete="off"
+            spellCheck={false}
+            required
+          />
+        </div>
+      )}
       {error !== null && (
         <p className="feedback feedback--error" role="alert">
           {error}

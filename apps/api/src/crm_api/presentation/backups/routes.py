@@ -1,12 +1,13 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from crm_api.application.backups.manage_backups import (
     CreateBackupUseCase,
     GetBackupStatusUseCase,
     StageRestoreUseCase,
 )
+from crm_api.domain.auth.entities import User
 from crm_api.infrastructure.backups.container import (
     BackupPasswordOrIntegrityError,
     InvalidBackupFormatError,
@@ -19,7 +20,11 @@ from crm_api.infrastructure.backups.service import (
     RestoreAlreadyPendingError,
     RestoreRequiresEmptyInstallationError,
 )
-from crm_api.presentation.auth.dependencies import CurrentUser
+from crm_api.presentation.auth.dependencies import (
+    BearerToken,
+    CurrentUser,
+    get_current_user,
+)
 from crm_api.presentation.backups.dependencies import (
     get_backup_status_use_case,
     get_create_backup_use_case,
@@ -32,8 +37,22 @@ from crm_api.presentation.backups.schemas import (
     RestoreStagingResponse,
     StageRestoreRequest,
 )
+from crm_api.presentation.dependencies import DatabaseSession
 
 router = APIRouter(prefix="/backups", tags=["backups"])
+
+
+async def get_restore_actor(
+    request: Request,
+    session: DatabaseSession,
+    session_token: BearerToken,
+) -> User | None:
+    if session_token is None:
+        return None
+    return await get_current_user(request, session, session_token)
+
+
+RestoreActor = Annotated[User | None, Depends(get_restore_actor)]
 
 
 @router.get("/status", response_model=BackupStatusResponse)
@@ -92,12 +111,25 @@ async def create_backup(
 )
 async def stage_restore(
     payload: StageRestoreRequest,
+    request: Request,
+    session: DatabaseSession,
+    session_token: BearerToken,
+    restore_actor: RestoreActor,
     use_case: Annotated[StageRestoreUseCase, Depends(get_stage_restore_use_case)],
 ) -> RestoreStagingResponse:
+    if payload.replace_existing:
+        if restore_actor is None:
+            await get_current_user(request, session, session_token)
+        if payload.confirmation != "SUBSTITUIR DADOS":
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="reinforced restore confirmation is invalid",
+            )
     try:
         result = await use_case.execute(
             source_file=payload.source_file,
             passphrase=payload.passphrase.get_secret_value(),
+            replace_existing=payload.replace_existing,
         )
     except RestoreRequiresEmptyInstallationError:
         raise HTTPException(

@@ -77,6 +77,19 @@ def test_documents_root_defaults_to_a_directory_next_to_the_database(
     expected = database_path.resolve().parent / "documents"
     assert get_settings().documents_root_path == expected
     assert get_settings().database_path == database_path.resolve()
+    assert get_settings().data_root_path == database_path.resolve().parent
+    get_settings.cache_clear()
+
+
+def test_desktop_data_root_can_be_explicitly_configured(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    data_root = tmp_path / "local-data"
+    monkeypatch.setenv("DATABASE_URL", "sqlite+aiosqlite:///./crm.sqlite3")
+    monkeypatch.setenv("DELTA_FORCE_DATA_DIR", str(data_root))
+    get_settings.cache_clear()
+
+    assert get_settings().data_root_path == data_root.resolve()
     get_settings.cache_clear()
 
 

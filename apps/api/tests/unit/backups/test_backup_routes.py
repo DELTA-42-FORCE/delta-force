@@ -19,6 +19,7 @@ from crm_api.presentation.backups.dependencies import (
     get_create_backup_use_case,
     get_stage_restore_use_case,
 )
+from crm_api.presentation.backups.routes import get_restore_actor
 
 _OWNER = User(
     id=UUID("00000000-0000-0000-0000-000000000044"),
@@ -58,19 +59,29 @@ class FakeBackupStatus:
 
 class FakeRestore:
     async def execute(
-        self, *, source_file: str, passphrase: str
+        self, *, source_file: str, passphrase: str, replace_existing: bool = False
     ) -> RestoreStagingResult:
         assert source_file == "E:\\Backups\\synthetic.dfcrmbak"
         assert passphrase == "senha sintetica forte"
+        assert replace_existing is False
         return RestoreStagingResult(created_at="2026-09-19T20:00:00Z", document_count=2)
 
 
 class RejectingRestore:
     async def execute(
-        self, *, source_file: str, passphrase: str
+        self, *, source_file: str, passphrase: str, replace_existing: bool = False
+    ) -> RestoreStagingResult:
+        del source_file, passphrase, replace_existing
+        raise BackupPasswordOrIntegrityError
+
+
+class ReplacingRestore:
+    async def execute(
+        self, *, source_file: str, passphrase: str, replace_existing: bool = False
     ) -> RestoreStagingResult:
         del source_file, passphrase
-        raise BackupPasswordOrIntegrityError
+        assert replace_existing is True
+        return RestoreStagingResult(created_at="2026-09-19T20:00:00Z", document_count=2)
 
 
 def _authenticated_client() -> TestClient:
@@ -147,3 +158,29 @@ def test_restore_hides_whether_password_or_content_failed() -> None:
     assert response.json()["detail"] == (
         "backup password is wrong or the file is corrupted"
     )
+
+
+def test_replacement_requires_owner_and_reinforced_confirmation() -> None:
+    app.dependency_overrides[get_stage_restore_use_case] = lambda: ReplacingRestore()
+    app.dependency_overrides[get_restore_actor] = lambda: _OWNER
+
+    missing_confirmation = TestClient(app).post(
+        "/backups/restore",
+        json={
+            "source_file": "E:\\Backups\\synthetic.dfcrmbak",
+            "passphrase": "senha sintetica forte",
+            "replace_existing": True,
+        },
+    )
+    accepted = TestClient(app).post(
+        "/backups/restore",
+        json={
+            "source_file": "E:\\Backups\\synthetic.dfcrmbak",
+            "passphrase": "senha sintetica forte",
+            "replace_existing": True,
+            "confirmation": "SUBSTITUIR DADOS",
+        },
+    )
+
+    assert missing_confirmation.status_code == 422
+    assert accepted.status_code == 202

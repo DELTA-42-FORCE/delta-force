@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     documents_root: str | None = None
     allow_insecure_local_smtp: bool = False
     allow_local_backup_destination: bool = False
+    delta_force_data_dir: str | None = None
 
     @field_validator("database_url")
     @classmethod
@@ -78,6 +79,13 @@ class Settings(BaseSettings):
         if not value or value.startswith(":memory:"):
             raise ValueError("local backup requires a SQLite file database")
         return Path(value).expanduser().resolve()
+
+    @property
+    def data_root_path(self) -> Path:
+        """Raiz durável que contém o ponteiro e as gerações locais."""
+        if self.delta_force_data_dir:
+            return Path(self.delta_force_data_dir).expanduser().resolve()
+        return self.database_path.parent
 
 
 @lru_cache

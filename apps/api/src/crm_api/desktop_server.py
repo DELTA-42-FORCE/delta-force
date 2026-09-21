@@ -18,7 +18,7 @@ from alembic.script import ScriptDirectory
 
 from crm_api.core.config import DOCUMENTS_DIRECTORY_NAME, get_settings
 from crm_api.core.desktop_runtime import DesktopRuntime
-from crm_api.infrastructure.backups.service import activate_pending_restore
+from crm_api.infrastructure.backups.generations import provision_generation_layout
 from crm_api.infrastructure.documents.storage import provision_document_storage
 
 _DATABASE_FILENAME = "crm.sqlite3"
@@ -158,9 +158,10 @@ def _stop_when_supervisor_disconnects(server: object) -> None:
     setattr(server, "should_exit", True)
 
 
-def _lock_down_packaged_email_transport() -> None:
-    """Impede que flags externas habilitem SMTP inseguro no pacote final."""
+def _lock_down_packaged_security_bypasses() -> None:
+    """Desabilita bypasses exclusivos de desenvolvimento no pacote final."""
     os.environ["ALLOW_INSECURE_LOCAL_SMTP"] = "0"
+    os.environ["ALLOW_LOCAL_BACKUP_DESTINATION"] = "0"
 
 
 def main() -> None:
@@ -171,18 +172,21 @@ def main() -> None:
 
     secret = _read_bootstrap_secret()
     data_directory = Path(data_directory_value)
-    # A ativação ocorre antes de abrir o SQLite. O endpoint de restauração só
-    # prepara um candidato validado e exige fechar/reabrir o aplicativo.
-    activate_pending_restore(data_directory)
-    database_path = provision_desktop_database(data_directory)
+    # O resolvedor recupera o journal e retorna uma única geração. Banco e
+    # documentos passam sempre pelo mesmo ponteiro durável.
+    active_generation = provision_generation_layout(data_directory)
+    database_path = provision_desktop_database(active_generation.root)
     # Documentos ficam ao lado do banco, na mesma árvore privada, para que o
     # backup em HD externo (#44) trate banco e arquivos como uma unidade.
-    provision_document_storage(data_directory / DOCUMENTS_DIRECTORY_NAME)
+    documents_root = provision_document_storage(
+        active_generation.root / DOCUMENTS_DIRECTORY_NAME
+    )
     os.environ["DATABASE_URL"] = _database_url(database_path)
+    os.environ["DOCUMENTS_ROOT"] = str(documents_root)
     os.environ["CORS_ALLOWED_ORIGINS"] = "http://tauri.localhost"
     # O pacote distribuído nunca habilita SMTP em texto claro, mesmo que o
     # ambiente externo do processo contenha uma flag de desenvolvimento.
-    _lock_down_packaged_email_transport()
+    _lock_down_packaged_security_bypasses()
     get_settings.cache_clear()
 
     listener = socket(AF_INET, SOCK_STREAM)

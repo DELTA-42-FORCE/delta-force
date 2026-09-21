@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react'
 
 import { ApiError } from '../lib/apiClient'
 import type { BackupCreationResult, BackupStatus } from './backupsApi'
+import type { RestoreStagingResult, StageRestoreInput } from './backupsApi'
+import { RestoreBackupPanel } from './RestoreBackupPanel'
 
 interface BackupPageProps {
   loadStatus: () => Promise<BackupStatus>
@@ -10,6 +12,8 @@ interface BackupPageProps {
     passphrase: string
   }) => Promise<BackupCreationResult>
   pickFolder?: () => Promise<string | null>
+  pickFile?: () => Promise<string | null>
+  stageRestore: (input: StageRestoreInput) => Promise<RestoreStagingResult>
   onBack: () => void
 }
 
@@ -30,6 +34,8 @@ export function BackupPage({
   loadStatus,
   createBackup,
   pickFolder,
+  pickFile,
+  stageRestore,
   onBack,
 }: BackupPageProps) {
   const [status, setStatus] = useState<BackupStatus | null>(null)
@@ -39,6 +45,8 @@ export function BackupPage({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<BackupCreationResult | null>(null)
+  const [restoreResult, setRestoreResult] =
+    useState<RestoreStagingResult | null>(null)
 
   useEffect(() => {
     let active = true
@@ -201,6 +209,23 @@ export function BackupPage({
             Arquivo <strong>{result.filename}</strong> criado com{' '}
             {result.document_count} documento(s). Ejete o HD com segurança e
             guarde-o separado do computador.
+          </p>
+        </section>
+      )}
+      {restoreResult === null ? (
+        <RestoreBackupPanel
+          stageRestore={stageRestore}
+          pickFile={pickFile}
+          onStaged={setRestoreResult}
+          replaceExisting
+        />
+      ) : (
+        <section className="import-result" aria-label="Restauração preparada">
+          <h2>Restauração validada</h2>
+          <p>
+            Feche completamente o CRM e abra novamente. A geração anterior será
+            preservada até o novo banco e os documentos passarem pelas
+            verificações finais.
           </p>
         </section>
       )}

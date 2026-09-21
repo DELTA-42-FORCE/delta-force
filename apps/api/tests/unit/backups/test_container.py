@@ -42,6 +42,7 @@ def test_container_round_trip_uses_bounded_public_header(tmp_path: Path) -> None
     )
 
     assert header.frame_count == 2
+    assert header.payload_bytes == 1_200_000
     assert header.schema_revision == "synthetic_revision"
     assert restored.read_bytes() == b"abc" * 400_000
     assert b"senha sintetica forte" not in source.read_bytes()
@@ -100,7 +101,7 @@ def test_untrusted_kdf_parameters_are_rejected_before_kdf(
     magic, header_length = _PREFIX.unpack(content[: _PREFIX.size])
     start = _PREFIX.size
     header = json.loads(content[start:][:header_length])
-    header["scrypt_n"] = 2**20
+    header["kdf"]["n"] = 2**20
     changed_header = json.dumps(header, sort_keys=True, separators=(",", ":")).encode(
         "ascii"
     )
@@ -119,3 +120,34 @@ def test_untrusted_kdf_parameters_are_rejected_before_kdf(
             destination_path=tmp_path / "restored.tar",
             passphrase="senha sintetica forte",
         )
+
+
+def test_version_one_header_matches_the_accepted_adr(tmp_path: Path) -> None:
+    source = _encrypt(tmp_path)
+    content = source.read_bytes()
+    _, header_length = _PREFIX.unpack(content[: _PREFIX.size])
+    start = _PREFIX.size
+    header = json.loads(content[slice(start, start + header_length)])
+
+    assert set(header) == {
+        "format_version",
+        "app_version",
+        "schema_revision",
+        "created_at",
+        "payload_bytes",
+        "frame_count",
+        "frame_size",
+        "cipher",
+        "kdf",
+        "salt",
+        "nonce_prefix",
+    }
+    assert header["cipher"] == "AES-256-GCM"
+    assert header["kdf"] == {
+        "name": "scrypt",
+        "n": 32768,
+        "r": 8,
+        "p": 1,
+        "dklen": 32,
+        "maxmem": 67108864,
+    }

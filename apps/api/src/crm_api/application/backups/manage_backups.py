@@ -73,12 +73,17 @@ class StageRestoreUseCase:
     service: BackupService
 
     async def execute(
-        self, *, source_file: str, passphrase: str
+        self,
+        *,
+        source_file: str,
+        passphrase: str,
+        replace_existing: bool = False,
     ) -> RestoreStagingResult:
         return await asyncio.to_thread(
             self.service.stage_restore,
             source_file=source_file,
             passphrase=passphrase,
+            replace_existing=replace_existing,
         )
 
 

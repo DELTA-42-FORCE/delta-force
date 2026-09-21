@@ -27,6 +27,14 @@ from crm_api.infrastructure.backups.container import (
     decrypt_payload,
     encrypt_payload,
 )
+from crm_api.infrastructure.backups.generations import (
+    ACTIVATION_JOURNAL_NAME,
+    GenerationLayoutError,
+    activate_pending_generation,
+    discard_generation,
+    new_restore_generation,
+    stage_activation,
+)
 from crm_api.infrastructure.backups.media import BackupMediaPolicy
 
 BACKUP_EXTENSION = ".dfcrmbak"
@@ -35,7 +43,6 @@ DOCUMENTS_ARCHIVE_PREFIX = "documents/"
 MANIFEST_ARCHIVE_NAME = "manifest.json"
 ACTIVE_DATABASE_NAME = "crm.sqlite3"
 ACTIVE_DOCUMENTS_NAME = "documents"
-RESTORE_MARKER_NAME = "restore.pending"
 FORMAT_VERSION = 1
 COPY_CHUNK_BYTES = 1024 * 1024
 FREE_SPACE_MARGIN_BYTES = 64 * 1024 * 1024
@@ -46,11 +53,9 @@ _STORAGE_KEY_PATTERN = re.compile(
     r"^[0-9a-f]{2}/[0-9a-f]{2}/[0-9a-f]{32}\.(?:pdf|jpg)$"
 )
 _SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
-_CANDIDATE_PATTERN = re.compile(r"^restore-candidate-[0-9a-f]{32}$")
 _BACKUP_FILENAME_PATTERN = re.compile(
     r"^delta-force-crm-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}\.dfcrmbak$"
 )
-_ROLLBACK_DIRECTORY_NAME = "restore-rollback"
 
 
 class BackupServiceError(Exception):
@@ -98,13 +103,15 @@ class EncryptedBackupService:
     app_version: str = "0.1.0"
 
     def __post_init__(self) -> None:
-        if self.database_path.resolve().parent != self.data_root.resolve():
-            raise ValueError("backup database must be inside the private data root")
+        data_root = self.data_root.resolve()
+        database_parent = self.database_path.resolve().parent
         if (
             self.documents_root.resolve()
-            != (self.data_root / ACTIVE_DOCUMENTS_NAME).resolve()
+            != (database_parent / ACTIVE_DOCUMENTS_NAME).resolve()
         ):
-            raise ValueError("backup documents must use the private data root")
+            raise ValueError("backup database and documents must share one generation")
+        if data_root != database_parent and data_root not in database_parent.parents:
+            raise ValueError("backup generation must be inside the private data root")
 
     def create_backup(
         self,
@@ -117,6 +124,7 @@ class EncryptedBackupService:
         media = self.media_policy.validate_directory(destination_directory)
         work_root = self._new_private_directory(prefix=".backup-work-")
         partial_path: Path | None = None
+        published_path: Path | None = None
         try:
             snapshot_path = work_root / DATABASE_ARCHIVE_NAME
             _snapshot_sqlite(self.database_path, snapshot_path)
@@ -174,49 +182,69 @@ class EncryptedBackupService:
                 created_at=manifest.created_at,
                 schema_revision=schema_revision,
             )
+            partial_size, partial_digest = self.media_policy.fingerprint_file(
+                partial_path, media=media
+            )
             self.media_policy.revalidate(media)
             if final_path.exists():
                 raise BackupServiceError("backup destination already exists")
             os.rename(partial_path, final_path)
             partial_path = None
+            published_path = final_path
             _sync_directory(media.directory)
+            final_size, final_digest = self.media_policy.fingerprint_file(
+                final_path, media=media
+            )
+            if (final_size, final_digest) != (partial_size, partial_digest):
+                raise BackupServiceError("published backup failed verification")
+            published_path = None
             return BackupCreationResult(
                 filename=basename,
                 created_at=created_at,
-                byte_size=final_path.stat().st_size,
+                byte_size=final_size,
                 document_count=len(document_entries),
             )
         finally:
             if partial_path is not None:
                 partial_path.unlink(missing_ok=True)
+            if published_path is not None:
+                published_path.unlink(missing_ok=True)
+                _sync_directory(media.directory)
             _safe_remove_tree(self.data_root, work_root)
 
     def stage_restore(
-        self, *, source_file: str, passphrase: str
+        self, *, source_file: str, passphrase: str, replace_existing: bool = False
     ) -> RestoreStagingResult:
-        if not is_empty_installation(self.database_path, self.documents_root):
+        if not replace_existing and not is_empty_installation(
+            self.database_path, self.documents_root
+        ):
             raise RestoreRequiresEmptyInstallationError(
-                "restore requires an empty installation"
+                "restore with existing data requires explicit replacement"
             )
-        marker_path = self.data_root / RESTORE_MARKER_NAME
-        if marker_path.exists():
+        if (self.data_root / ACTIVATION_JOURNAL_NAME).exists():
             raise RestoreAlreadyPendingError("another restore is already pending")
         source_path, media = self.media_policy.validate_source_file(source_file)
         if source_path.suffix.lower() != BACKUP_EXTENSION:
             raise BackupServiceError("backup file extension is invalid")
         work_root = self._new_private_directory(prefix=".restore-work-")
-        candidate_root = self._new_private_directory(prefix="restore-candidate-")
-        marker_created = False
+        candidate = new_restore_generation(self.data_root)
+        staged = False
         try:
+            local_source = work_root / "source.dfcrmbak"
+            self.media_policy.copy_file_to(
+                source_path,
+                media=media,
+                destination=local_source,
+            )
             header = _read_and_check_restore_capacity(
-                source_path=source_path, destination=self.data_root
+                source_path=local_source, destination=self.data_root
             )
             expected_revision = _database_revision(self.database_path)
             if header.schema_revision != expected_revision:
                 raise BackupServiceError("backup schema is incompatible")
             payload_path = work_root / "payload.tar"
             decrypted_header = decrypt_payload(
-                source_path=source_path,
+                source_path=local_source,
                 destination_path=payload_path,
                 passphrase=passphrase,
             )
@@ -224,27 +252,27 @@ class EncryptedBackupService:
                 raise BackupServiceError("backup header changed during restore")
             manifest = _extract_and_validate_tar(
                 payload_path=payload_path,
-                candidate_root=candidate_root,
+                candidate_root=candidate.root,
                 expected_header=header,
             )
-            candidate_database = candidate_root / ACTIVE_DATABASE_NAME
+            candidate_database = candidate.database_path
             _validate_sqlite(candidate_database, expected_revision=expected_revision)
             _validate_database_documents(
                 candidate_database,
-                candidate_root / ACTIVE_DOCUMENTS_NAME,
+                candidate.documents_root,
                 manifest.documents,
             )
             self.media_policy.revalidate(media)
-            _write_restore_marker(marker_path, candidate_root.name)
-            marker_created = True
+            stage_activation(self.data_root, candidate=candidate)
+            staged = True
             return RestoreStagingResult(
                 created_at=manifest.created_at,
                 document_count=len(manifest.documents),
             )
         finally:
             _safe_remove_tree(self.data_root, work_root)
-            if not marker_created:
-                _safe_remove_tree(self.data_root, candidate_root)
+            if not staged:
+                discard_generation(self.data_root, candidate)
 
     def discard_backup(self, *, destination_directory: str, filename: str) -> None:
         """Compensa uma publicação cuja auditoria transacional falhou."""
@@ -305,7 +333,7 @@ class EncryptedBackupService:
 def is_empty_installation(database_path: Path, documents_root: Path) -> bool:
     """A restauração nunca substitui uma instalação que já contenha dono/dados."""
     if not database_path.exists():
-        return True
+        return _documents_tree_is_empty(documents_root)
     with closing(sqlite3.connect(database_path)) as connection:
         has_data = connection.execute(
             "SELECT EXISTS(SELECT 1 FROM users) "
@@ -315,6 +343,10 @@ def is_empty_installation(database_path: Path, documents_root: Path) -> bool:
         ).fetchone()
         if has_data != (0,):
             return False
+    return _documents_tree_is_empty(documents_root)
+
+
+def _documents_tree_is_empty(documents_root: Path) -> bool:
     if not documents_root.exists():
         return True
     if any(item.name != "_incoming" for item in documents_root.iterdir()):
@@ -324,77 +356,10 @@ def is_empty_installation(database_path: Path, documents_root: Path) -> bool:
 
 
 def activate_pending_restore(data_root: Path) -> bool:
-    """Ativa a restauração antes de o engine SQLite abrir qualquer arquivo."""
-    data_root = data_root.resolve()
-    marker_path = data_root / RESTORE_MARKER_NAME
-    if not marker_path.exists():
-        return False
-    rollback_root = data_root / _ROLLBACK_DIRECTORY_NAME
-    active_database = data_root / ACTIVE_DATABASE_NAME
-    active_documents = data_root / ACTIVE_DOCUMENTS_NAME
-
-    if _path_exists_without_following(rollback_root):
-        _rollback_activation(
-            data_root=data_root,
-            rollback_root=rollback_root,
-            active_database=active_database,
-            active_documents=active_documents,
-        )
-        _remove_restore_candidates(data_root)
-        marker_path.unlink(missing_ok=True)
-        raise BackupServiceError("an interrupted restore was rolled back")
     try:
-        candidate_root = _candidate_from_marker(data_root, marker_path)
-    except BaseException:
-        _remove_restore_candidates(data_root)
-        marker_path.unlink(missing_ok=True)
-        raise
-    if not is_empty_installation(active_database, active_documents):
-        _safe_remove_tree(data_root, candidate_root)
-        marker_path.unlink(missing_ok=True)
-        raise RestoreRequiresEmptyInstallationError(
-            "restore refused because the installation is no longer empty"
-        )
-
-    candidate_database = candidate_root / ACTIVE_DATABASE_NAME
-    candidate_documents = candidate_root / ACTIVE_DOCUMENTS_NAME
-    try:
-        _require_plain_regular_file(candidate_database, root=candidate_root)
-        _require_plain_directory(
-            candidate_documents, message="restore candidate documents are invalid"
-        )
-        expected_revision = _database_revision(candidate_database)
-        _validate_sqlite(candidate_database, expected_revision=expected_revision)
-    except BaseException:
-        _safe_remove_tree(data_root, candidate_root)
-        marker_path.unlink(missing_ok=True)
-        raise
-    rollback_root.mkdir(mode=0o700)
-    try:
-        if active_database.exists():
-            os.rename(active_database, rollback_root / ACTIVE_DATABASE_NAME)
-        if active_documents.exists():
-            os.rename(active_documents, rollback_root / ACTIVE_DOCUMENTS_NAME)
-        os.rename(candidate_database, active_database)
-        os.rename(candidate_documents, active_documents)
-        _validate_sqlite(active_database, expected_revision=expected_revision)
-        _record_restore_audit(active_database)
-    except BaseException:
-        _rollback_activation(
-            data_root=data_root,
-            rollback_root=rollback_root,
-            active_database=active_database,
-            active_documents=active_documents,
-        )
-        _safe_remove_tree(data_root, candidate_root)
-        marker_path.unlink(missing_ok=True)
-        raise
-
-    _safe_remove_tree(data_root, rollback_root)
-    _safe_remove_tree(data_root, candidate_root)
-    marker_path.unlink(missing_ok=True)
-    _sync_directory(data_root)
-    return True
+        return activate_pending_generation(data_root)
+    except GenerationLayoutError as error:
+        raise BackupServiceError(str(error)) from error
 
 
 def _snapshot_sqlite(source_path: Path, destination_path: Path) -> None:
@@ -453,21 +418,6 @@ def _validate_sqlite(database_path: Path, *, expected_revision: str) -> None:
         ).fetchone()
     if integrity != ("ok",) or foreign_keys or revision != (expected_revision,):
         raise BackupSourceIntegrityError("backup database failed integrity checks")
-
-
-def _record_restore_audit(database_path: Path) -> None:
-    """Registra a ativação anônima antes de liberar o banco restaurado."""
-    with closing(sqlite3.connect(database_path)) as connection:
-        connection.execute(
-            "INSERT INTO audit_events "
-            "(id, occurred_at, actor_kind, actor_user_id, action, "
-            "resource_type, resource_id, result, context) "
-            "VALUES (?, ?, 'anonymous', NULL, 'backup.restore_applied', "
-            "'backup', NULL, 'success', '{}')",
-            (uuid4().hex, datetime.now(UTC).isoformat()),
-        )
-        connection.commit()
-    _flush_file(database_path)
 
 
 def _manifest_file(path: Path, *, archive_path: str) -> _ManifestFile:
@@ -541,7 +491,7 @@ def _read_and_check_restore_capacity(
     from crm_api.infrastructure.backups.container import read_backup_header
 
     header = read_backup_header(source_path)
-    required = header.payload_size * 2 + FREE_SPACE_MARGIN_BYTES
+    required = header.payload_bytes * 2 + FREE_SPACE_MARGIN_BYTES
     if shutil.disk_usage(destination).free < required:
         raise BackupInsufficientSpaceError(
             "installation disk does not have enough space for restore"
@@ -805,75 +755,6 @@ def _require_plain_regular_file(path: Path, *, root: Path) -> None:
         raise BackupSourceIntegrityError("stored document is not a regular file")
 
 
-def _write_restore_marker(marker_path: Path, candidate_name: str) -> None:
-    if not _CANDIDATE_PATTERN.fullmatch(candidate_name):
-        raise BackupServiceError("restore candidate name is invalid")
-    raw = json.dumps(
-        {"candidate": candidate_name, "version": FORMAT_VERSION},
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode("ascii")
-    flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_BINARY", 0)
-    descriptor = os.open(marker_path, flags, 0o600)
-    with os.fdopen(descriptor, "wb") as handle:
-        handle.write(raw)
-        handle.flush()
-        os.fsync(handle.fileno())
-    _sync_directory(marker_path.parent)
-
-
-def _candidate_from_marker(data_root: Path, marker_path: Path) -> Path:
-    try:
-        raw = marker_path.read_bytes()
-        data = json.loads(raw)
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
-        raise BackupServiceError("restore marker is invalid") from None
-    if (
-        not isinstance(data, dict)
-        or set(data) != {"candidate", "version"}
-        or data.get("version") != FORMAT_VERSION
-        or not isinstance(data.get("candidate"), str)
-        or not _CANDIDATE_PATTERN.fullmatch(data["candidate"])
-    ):
-        raise BackupServiceError("restore marker is invalid")
-    candidate = _validated_direct_child(data_root, data_root / data["candidate"])
-    _require_plain_directory(candidate, message="restore candidate is invalid")
-    return candidate
-
-
-def _remove_restore_candidates(data_root: Path) -> None:
-    for candidate in data_root.iterdir():
-        if _CANDIDATE_PATTERN.fullmatch(candidate.name):
-            _safe_remove_tree(data_root, candidate)
-
-
-def _rollback_activation(
-    *,
-    data_root: Path,
-    rollback_root: Path,
-    active_database: Path,
-    active_documents: Path,
-) -> None:
-    rollback_root = _validated_direct_child(data_root, rollback_root)
-    _require_plain_directory(rollback_root, message="restore rollback is invalid")
-    rollback_database = rollback_root / ACTIVE_DATABASE_NAME
-    rollback_documents = rollback_root / ACTIVE_DOCUMENTS_NAME
-    if _path_exists_without_following(rollback_database):
-        _require_plain_regular_file(rollback_database, root=rollback_root)
-    if _path_exists_without_following(rollback_documents):
-        _require_plain_directory(
-            rollback_documents, message="restore rollback documents are invalid"
-        )
-    active_database.unlink(missing_ok=True)
-    _safe_remove_tree(data_root, active_documents)
-    if _path_exists_without_following(rollback_database):
-        os.rename(rollback_database, active_database)
-    if _path_exists_without_following(rollback_documents):
-        os.rename(rollback_documents, active_documents)
-    _safe_remove_tree(data_root, rollback_root)
-    _sync_directory(data_root)
-
-
 def _safe_remove_tree(root: Path, target: Path) -> None:
     target = _validated_direct_child(root, target)
     try:
@@ -888,8 +769,6 @@ def _safe_remove_tree(root: Path, target: Path) -> None:
     if not (
         target.name.startswith(".backup-work-")
         or target.name.startswith(".restore-work-")
-        or _CANDIDATE_PATTERN.fullmatch(target.name)
-        or target.name in {_ROLLBACK_DIRECTORY_NAME, ACTIVE_DOCUMENTS_NAME}
     ):
         raise BackupServiceError("refusing to remove an unexpected data path")
     shutil.rmtree(target)
@@ -901,14 +780,6 @@ def _validated_direct_child(root: Path, target: Path) -> Path:
     if target_absolute.parent != root_absolute:
         raise BackupServiceError("refusing a path outside the data root")
     return target_absolute
-
-
-def _path_exists_without_following(path: Path) -> bool:
-    try:
-        path.lstat()
-    except FileNotFoundError:
-        return False
-    return True
 
 
 def _require_plain_directory(path: Path, *, message: str) -> None:

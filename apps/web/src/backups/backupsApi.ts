@@ -18,6 +18,13 @@ export interface RestoreStagingResult {
   requires_restart: boolean
 }
 
+export interface StageRestoreInput {
+  source_file: string
+  passphrase: string
+  replace_existing?: boolean
+  confirmation?: string | null
+}
+
 type AuthenticatedGet = <T>(path: string) => Promise<T>
 type AuthenticatedRequest = <T>(
   path: string,
@@ -40,11 +47,20 @@ export function createBackup(
   })
 }
 
-export function stageBackupRestore(input: {
-  source_file: string
-  passphrase: string
-}): Promise<RestoreStagingResult> {
+export function stageBackupRestore(
+  input: StageRestoreInput,
+): Promise<RestoreStagingResult> {
   return apiFetch<RestoreStagingResult>('/backups/restore', {
+    method: 'POST',
+    body: input,
+  })
+}
+
+export function stageAuthenticatedBackupRestore(
+  request: AuthenticatedRequest,
+  input: StageRestoreInput,
+): Promise<RestoreStagingResult> {
+  return request<RestoreStagingResult>('/backups/restore', {
     method: 'POST',
     body: input,
   })

@@ -6,7 +6,7 @@ import pytest
 from crm_api.core.config import DOCUMENTS_DIRECTORY_NAME, get_settings
 from crm_api.desktop_server import (
     _database_url,
-    _lock_down_packaged_email_transport,
+    _lock_down_packaged_security_bypasses,
     _read_bootstrap_secret,
     provision_desktop_database,
 )
@@ -16,14 +16,16 @@ from crm_api.infrastructure.documents.storage import (
 )
 
 
-def test_packaged_desktop_disables_insecure_smtp_environment(
+def test_packaged_desktop_disables_development_security_bypasses(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("ALLOW_INSECURE_LOCAL_SMTP", "true")
+    monkeypatch.setenv("ALLOW_LOCAL_BACKUP_DESTINATION", "true")
 
-    _lock_down_packaged_email_transport()
+    _lock_down_packaged_security_bypasses()
 
     assert os.environ["ALLOW_INSECURE_LOCAL_SMTP"] == "0"
+    assert os.environ["ALLOW_LOCAL_BACKUP_DESTINATION"] == "0"
 
 
 def test_desktop_database_url_uses_an_absolute_file_path(tmp_path: Path) -> None:

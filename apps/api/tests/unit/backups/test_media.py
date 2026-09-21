@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import pytest
@@ -44,3 +45,11 @@ def test_source_rejects_unc_before_filesystem_io(
 
     with pytest.raises(BackupMediaError, match="network and device"):
         policy.validate_source_file(r"\\server\share\backup.dfcrmbak")
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows handle validation")
+def test_directory_identity_is_read_from_the_open_handle(tmp_path: Path) -> None:
+    serial = media._verify_windows_directory_handle(tmp_path.resolve())
+
+    assert isinstance(serial, int)
+    assert serial >= 0
