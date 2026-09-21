@@ -23,6 +23,8 @@ _CURRENT_ACTIONS = (
     "'document.exported', 'document.status_updated', 'message_template.created', "
     "'message_template.updated', 'message_template.deleted', "
     "'recipient_candidates.viewed', 'legacy_import.completed', "
+    "'contract.created', 'contract.viewed', 'contract.installment_paid', "
+    "'contract.cancelled', "
     "'email_sender_settings.updated', 'email_sender_settings.viewed', "
     "'email_dispatch.batch_sent', 'email_dispatch.history_viewed')"
 )
@@ -32,7 +34,7 @@ _NEXT_ACTIONS = _CURRENT_ACTIONS[:-1] + (
 _CURRENT_RESOURCES = (
     "resource_type IN ('owner_account', 'session', 'route', 'audit_log', "
     "'client_folder', 'document', 'message_template', 'legacy_import', "
-    "'email_sender_settings', 'email_dispatch')"
+    "'contract', 'email_sender_settings', 'email_dispatch')"
 )
 _NEXT_RESOURCES = _CURRENT_RESOURCES[:-1] + ", 'backup')"
 

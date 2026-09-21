@@ -47,6 +47,9 @@ _STORAGE_KEY_PATTERN = re.compile(
 )
 _SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 _CANDIDATE_PATTERN = re.compile(r"^restore-candidate-[0-9a-f]{32}$")
+_BACKUP_FILENAME_PATTERN = re.compile(
+    r"^delta-force-crm-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}\.dfcrmbak$"
+)
 _ROLLBACK_DIRECTORY_NAME = "restore-rollback"
 
 
@@ -243,6 +246,23 @@ class EncryptedBackupService:
             if not marker_created:
                 _safe_remove_tree(self.data_root, candidate_root)
 
+    def discard_backup(self, *, destination_directory: str, filename: str) -> None:
+        """Compensa uma publicação cuja auditoria transacional falhou."""
+        if not _BACKUP_FILENAME_PATTERN.fullmatch(filename):
+            raise BackupServiceError("refusing to discard an unexpected backup")
+        media = self.media_policy.validate_directory(destination_directory)
+        target = media.directory / filename
+        try:
+            metadata = target.lstat()
+        except FileNotFoundError:
+            return
+        _reject_link_or_reparse(metadata, message="backup file is not plain")
+        if not stat.S_ISREG(metadata.st_mode):
+            raise BackupServiceError("backup file is not regular")
+        self.media_policy.revalidate(media)
+        target.unlink()
+        _sync_directory(media.directory)
+
     def _stage_document(
         self,
         *,
@@ -313,7 +333,7 @@ def activate_pending_restore(data_root: Path) -> bool:
     active_database = data_root / ACTIVE_DATABASE_NAME
     active_documents = data_root / ACTIVE_DOCUMENTS_NAME
 
-    if rollback_root.exists():
+    if _path_exists_without_following(rollback_root):
         _rollback_activation(
             data_root=data_root,
             rollback_root=rollback_root,
@@ -339,6 +359,10 @@ def activate_pending_restore(data_root: Path) -> bool:
     candidate_database = candidate_root / ACTIVE_DATABASE_NAME
     candidate_documents = candidate_root / ACTIVE_DOCUMENTS_NAME
     try:
+        _require_plain_regular_file(candidate_database, root=candidate_root)
+        _require_plain_directory(
+            candidate_documents, message="restore candidate documents are invalid"
+        )
         expected_revision = _database_revision(candidate_database)
         _validate_sqlite(candidate_database, expected_revision=expected_revision)
     except BaseException:
@@ -755,6 +779,7 @@ def _hash_file(path: Path) -> tuple[int, str]:
 
 
 def _require_plain_regular_file(path: Path, *, root: Path) -> None:
+    _require_plain_directory(root, message="document root is invalid")
     try:
         relative = path.relative_to(root)
     except ValueError:
@@ -811,19 +836,14 @@ def _candidate_from_marker(data_root: Path, marker_path: Path) -> Path:
         or not _CANDIDATE_PATTERN.fullmatch(data["candidate"])
     ):
         raise BackupServiceError("restore marker is invalid")
-    candidate = data_root / data["candidate"]
-    try:
-        candidate.resolve(strict=True).relative_to(data_root)
-    except (OSError, ValueError):
-        raise BackupServiceError("restore candidate is invalid") from None
-    if not candidate.is_dir():
-        raise BackupServiceError("restore candidate is invalid")
+    candidate = _validated_direct_child(data_root, data_root / data["candidate"])
+    _require_plain_directory(candidate, message="restore candidate is invalid")
     return candidate
 
 
 def _remove_restore_candidates(data_root: Path) -> None:
     for candidate in data_root.iterdir():
-        if candidate.is_dir() and _CANDIDATE_PATTERN.fullmatch(candidate.name):
+        if _CANDIDATE_PATTERN.fullmatch(candidate.name):
             _safe_remove_tree(data_root, candidate)
 
 
@@ -834,37 +854,78 @@ def _rollback_activation(
     active_database: Path,
     active_documents: Path,
 ) -> None:
-    active_database.unlink(missing_ok=True)
-    _safe_remove_tree(data_root, active_documents)
+    rollback_root = _validated_direct_child(data_root, rollback_root)
+    _require_plain_directory(rollback_root, message="restore rollback is invalid")
     rollback_database = rollback_root / ACTIVE_DATABASE_NAME
     rollback_documents = rollback_root / ACTIVE_DOCUMENTS_NAME
-    if rollback_database.exists():
+    if _path_exists_without_following(rollback_database):
+        _require_plain_regular_file(rollback_database, root=rollback_root)
+    if _path_exists_without_following(rollback_documents):
+        _require_plain_directory(
+            rollback_documents, message="restore rollback documents are invalid"
+        )
+    active_database.unlink(missing_ok=True)
+    _safe_remove_tree(data_root, active_documents)
+    if _path_exists_without_following(rollback_database):
         os.rename(rollback_database, active_database)
-    if rollback_documents.exists():
+    if _path_exists_without_following(rollback_documents):
         os.rename(rollback_documents, active_documents)
     _safe_remove_tree(data_root, rollback_root)
     _sync_directory(data_root)
 
 
 def _safe_remove_tree(root: Path, target: Path) -> None:
-    if not target.exists():
-        return
-    root_resolved = root.resolve()
-    target_resolved = target.resolve(strict=True)
+    target = _validated_direct_child(root, target)
     try:
-        relative = target_resolved.relative_to(root_resolved)
-    except ValueError:
-        raise BackupServiceError(
-            "refusing to remove a path outside data root"
-        ) from None
-    if len(relative.parts) != 1 or not (
-        relative.name.startswith(".backup-work-")
-        or relative.name.startswith(".restore-work-")
-        or _CANDIDATE_PATTERN.fullmatch(relative.name)
-        or relative.name in {_ROLLBACK_DIRECTORY_NAME, ACTIVE_DOCUMENTS_NAME}
+        metadata = target.lstat()
+    except FileNotFoundError:
+        return
+    _reject_link_or_reparse(
+        metadata, message="refusing to remove a link or reparse point"
+    )
+    if not stat.S_ISDIR(metadata.st_mode):
+        raise BackupServiceError("refusing to remove a non-directory path")
+    if not (
+        target.name.startswith(".backup-work-")
+        or target.name.startswith(".restore-work-")
+        or _CANDIDATE_PATTERN.fullmatch(target.name)
+        or target.name in {_ROLLBACK_DIRECTORY_NAME, ACTIVE_DOCUMENTS_NAME}
     ):
         raise BackupServiceError("refusing to remove an unexpected data path")
-    shutil.rmtree(target_resolved)
+    shutil.rmtree(target)
+
+
+def _validated_direct_child(root: Path, target: Path) -> Path:
+    root_absolute = Path(os.path.abspath(root))
+    target_absolute = Path(os.path.abspath(target))
+    if target_absolute.parent != root_absolute:
+        raise BackupServiceError("refusing a path outside the data root")
+    return target_absolute
+
+
+def _path_exists_without_following(path: Path) -> bool:
+    try:
+        path.lstat()
+    except FileNotFoundError:
+        return False
+    return True
+
+
+def _require_plain_directory(path: Path, *, message: str) -> None:
+    try:
+        metadata = path.lstat()
+    except OSError as error:
+        raise BackupServiceError(message) from error
+    _reject_link_or_reparse(metadata, message=message)
+    if not stat.S_ISDIR(metadata.st_mode):
+        raise BackupServiceError(message)
+
+
+def _reject_link_or_reparse(metadata: os.stat_result, *, message: str) -> None:
+    attributes = getattr(metadata, "st_file_attributes", 0)
+    reparse_attribute = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+    if stat.S_ISLNK(metadata.st_mode) or attributes & reparse_attribute:
+        raise BackupServiceError(message)
 
 
 def _flush_file(path: Path) -> None:

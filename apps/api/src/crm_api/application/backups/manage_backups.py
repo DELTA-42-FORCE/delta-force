@@ -56,7 +56,14 @@ class CreateBackupUseCase:
             )
             await self.transaction.commit()
         except Exception:
-            await self.transaction.rollback()
+            try:
+                await self.transaction.rollback()
+            finally:
+                await asyncio.to_thread(
+                    self.service.discard_backup,
+                    destination_directory=destination_directory,
+                    filename=result.filename,
+                )
             raise
         return result
 

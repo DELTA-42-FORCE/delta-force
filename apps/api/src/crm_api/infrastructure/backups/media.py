@@ -53,6 +53,7 @@ class BackupMediaPolicy:
     def validate_source_file(
         self, value: str | Path
     ) -> tuple[Path, VerifiedBackupMedia]:
+        _reject_remote_or_device_path(value)
         source = Path(value)
         if not source.is_absolute() or not source.exists() or not source.is_file():
             raise BackupMediaError("backup file does not exist")
@@ -75,11 +76,28 @@ class _WindowsVolume:
 
 
 def _existing_plain_directory(value: str | Path) -> Path:
+    _reject_remote_or_device_path(value)
     raw = Path(value)
     if not raw.is_absolute() or not raw.exists() or not raw.is_dir():
         raise BackupMediaError("backup directory does not exist")
     _reject_reparse_chain(raw)
     return raw.resolve(strict=True)
+
+
+def _reject_remote_or_device_path(value: str | Path) -> None:
+    """Rejeita namespaces remotos/dispositivo antes de qualquer acesso ao disco."""
+    raw = os.fspath(value)
+    if not isinstance(raw, str):
+        raise BackupMediaError("backup path is invalid")
+    windows_form = raw.replace("/", "\\")
+    upper = windows_form.upper()
+    if (
+        windows_form.startswith("\\\\")
+        or windows_form.startswith("\\??\\")
+        or upper.startswith("\\DEVICE\\")
+        or upper.startswith("\\GLOBALROOT\\")
+    ):
+        raise BackupMediaError("network and device paths are not allowed")
 
 
 def _reject_reparse_chain(path: Path) -> None:

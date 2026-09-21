@@ -1,6 +1,9 @@
 from contextlib import closing
+import json
+import os
 from pathlib import Path
 import sqlite3
+import subprocess
 
 import pytest
 
@@ -12,10 +15,12 @@ from crm_api.infrastructure.backups.service import (
     BACKUP_EXTENSION,
     RESTORE_MARKER_NAME,
     BackupSourceIntegrityError,
+    BackupServiceError,
     EncryptedBackupService,
     RestoreRequiresEmptyInstallationError,
     activate_pending_restore,
     is_empty_installation,
+    _safe_remove_tree,
 )
 
 _REVISION = "synthetic_revision"
@@ -185,3 +190,71 @@ def test_corrupted_candidate_is_removed_without_touching_empty_installation(
     assert is_empty_installation(database, documents) is True
     assert not (target_root / RESTORE_MARKER_NAME).exists()
     assert not candidate.exists()
+
+
+def _create_windows_junction(link: Path, target: Path) -> None:
+    subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(link), str(target)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
+@pytest.mark.skipif(os.name != "nt", reason="junctions are Windows-specific")
+def test_cleanup_rejects_candidate_junction_without_touching_target(
+    tmp_path: Path,
+) -> None:
+    data_root, _, documents = _data_root(tmp_path / "target", populated=True)
+    candidate = data_root / f"restore-candidate-{'0' * 32}"
+    protected_document = documents.joinpath(*_STORAGE_KEY.split("/"))
+    _create_windows_junction(candidate, documents)
+    try:
+        with pytest.raises(BackupServiceError, match="reparse point"):
+            _safe_remove_tree(data_root, candidate)
+        assert protected_document.read_bytes() == _DOCUMENT
+    finally:
+        if os.path.lexists(candidate):
+            os.rmdir(candidate)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="junctions are Windows-specific")
+def test_activation_rejects_candidate_junction_without_touching_documents(
+    tmp_path: Path,
+) -> None:
+    data_root, _, documents = _data_root(tmp_path / "target", populated=True)
+    candidate = data_root / f"restore-candidate-{'1' * 32}"
+    marker = data_root / RESTORE_MARKER_NAME
+    protected_document = documents.joinpath(*_STORAGE_KEY.split("/"))
+    _create_windows_junction(candidate, documents)
+    marker.write_text(
+        json.dumps({"candidate": candidate.name, "version": 1}),
+        encoding="ascii",
+    )
+    try:
+        with pytest.raises(BackupServiceError):
+            activate_pending_restore(data_root)
+        assert protected_document.read_bytes() == _DOCUMENT
+    finally:
+        if os.path.lexists(candidate):
+            os.rmdir(candidate)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="junctions are Windows-specific")
+def test_rollback_rejects_junction_before_changing_active_data(
+    tmp_path: Path,
+) -> None:
+    data_root, database, documents = _data_root(tmp_path / "target", populated=True)
+    rollback = data_root / "restore-rollback"
+    marker = data_root / RESTORE_MARKER_NAME
+    protected_document = documents.joinpath(*_STORAGE_KEY.split("/"))
+    _create_windows_junction(rollback, documents)
+    marker.write_text("{}", encoding="ascii")
+    try:
+        with pytest.raises(BackupServiceError, match="rollback is invalid"):
+            activate_pending_restore(data_root)
+        assert database.is_file()
+        assert protected_document.read_bytes() == _DOCUMENT
+    finally:
+        if os.path.lexists(rollback):
+            os.rmdir(rollback)
