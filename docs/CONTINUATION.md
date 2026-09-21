@@ -82,8 +82,8 @@ confirme o estado no GitHub. Este retrato foi atualizado em **20 de setembro de
 - URL: https://github.com/DELTA-42-FORCE/delta-force/pull/100
 - Branch: codex/26-operations-lgpd; base empilhada: #99.
 - Contém docs/OPERATION_MANUAL.md e docs/WINDOWS_ACCEPTANCE_CHECKLIST.md.
-- Head publicado: 03b97f2, rebaseado sobre adc265d; confirme o head e os checks
-  antes de revisar.
+- A branch está rebaseada sobre adc265d e o commit mais recente atualiza este
+  próprio guia; confirme o head remoto e os checks antes de revisar.
 - O smoke antigo do instalador é evidência histórica, não substitui o aceite do
   build final numa máquina Windows limpa, HD externo real e SMTP autorizado.
 
