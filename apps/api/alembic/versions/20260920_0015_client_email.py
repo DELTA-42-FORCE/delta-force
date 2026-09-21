@@ -1,8 +1,8 @@
 """Add the optional, validated client email used by communications.
 
-Revision ID: 20260919_0014
-Revises: 20260915_0013
-Create Date: 2026-09-19 20:00:00
+Revision ID: 20260920_0015
+Revises: 20260919_0014
+Create Date: 2026-09-20 21:15:00
 """
 
 from collections.abc import Sequence
@@ -10,8 +10,8 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "20260919_0014"
-down_revision: str | Sequence[str] | None = "20260915_0013"
+revision: str = "20260920_0015"
+down_revision: str | Sequence[str] | None = "20260919_0014"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -32,7 +32,7 @@ def downgrade() -> None:
     )
     if has_email:
         raise RuntimeError(
-            "cannot safely downgrade 20260919_0014 while client emails exist"
+            "cannot safely downgrade 20260920_0015 while client emails exist"
         )
     with op.batch_alter_table("client_folders") as batch_op:
         batch_op.drop_constraint("ck_client_folders_email_not_blank", type_="check")
