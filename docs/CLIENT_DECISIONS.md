@@ -122,7 +122,7 @@ ainda pendentes na seção seguinte. Nenhum segredo é definido aqui.
 - **Restauração que substitui dados (#44):** substituir dados já presentes é
   suportado, porém exige confirmação explícita e proteção contra perda dos dados
   atuais (restauração em nova geração e troca de ponteiro durável, conforme a
-  ADR 0002). Restaurar em instalação vazia permanece o caminho padrão.
+  ADR 0004). Restaurar em instalação vazia permanece o caminho padrão.
 
 ## Perguntas em aberto aguardando o cliente
 

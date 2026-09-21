@@ -116,10 +116,11 @@ dados/metadados          documentos PDF/JPEG
 - Usar o bundle NSIS padrão gerado pelo Tauri como instalador por usuário.
   Customização fica limitada a nome, ícone, atalhos e preservação do diretório
   de dados; a prova do instalador e do WebView2 pertence à #27.
-- Não criar launcher separado, manifesto assinado próprio, atualizador próprio,
-  protocolo A/B de versões, journal de ativação ou sistema de gerações no MVP.
-  Esses mecanismos só voltam a ser considerados mediante risco demonstrado e
-  nova decisão.
+- Não criar launcher separado, manifesto assinado próprio, atualizador próprio
+  nem protocolo A/B de versões. A única exceção é a geração transitória, o
+  ponteiro e o journal estritamente necessários para ativar ou desfazer uma
+  restauração de backup, decididos posteriormente pela ADR 0004; eles não podem
+  ser reutilizados como atualizador ou histórico geral de versões.
 - O MVP recebe atualizações manualmente por um novo instalador. A aplicação
   mantém binários separados dos dados, exige backup verificado antes de migration
   incompatível e não abre para escrita quando a migration falha. Não há downgrade
@@ -174,9 +175,9 @@ responsabilidade da #54 e da ADR 0003, não desta ADR.
 5. A desinstalação remove binários e atalhos, mas preserva dados e documentos. A
    remoção definitiva é fluxo separado, autenticado e explicitamente confirmado.
 
-Esse recorte usa apenas um candidato temporário durante criação/migration; não
-introduz o protocolo geral de gerações, manifestos e atualização da versão
-anterior da ADR.
+Além do candidato temporário durante criação/migration, somente a restauração
+definida na ADR 0004 pode usar uma geração transitória e ativação recuperável.
+Isso não introduz protocolo geral de atualização ou versionamento de dados.
 
 ### Fronteira do backup
 
