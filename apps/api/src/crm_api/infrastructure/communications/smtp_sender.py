@@ -3,6 +3,7 @@
 import asyncio
 from dataclasses import dataclass
 from email.message import EmailMessage
+from email.policy import SMTP as SMTP_POLICY
 from email.utils import formataddr
 from ipaddress import ip_address
 import smtplib
@@ -81,27 +82,39 @@ class SmtpEmailSender:
         payload["Message-ID"] = message.message_id
         payload.set_content(message.body)
 
+        client: smtplib.SMTP | smtplib.SMTP_SSL | None = None
+        acceptance_possible = False
         try:
             context = ssl.create_default_context()
             if settings.security is SmtpSecurity.TLS:
-                with smtplib.SMTP_SSL(
+                client = smtplib.SMTP_SSL(
                     settings.smtp_host,
                     settings.smtp_port,
                     timeout=self.timeout_seconds,
                     context=context,
-                ) as client:
-                    self._authenticate_and_send(client, settings, credential, payload)
+                )
             else:
-                with smtplib.SMTP(
+                client = smtplib.SMTP(
                     settings.smtp_host,
                     settings.smtp_port,
                     timeout=self.timeout_seconds,
-                ) as client:
+                )
+                client.ehlo()
+                if settings.security is SmtpSecurity.STARTTLS:
+                    client.starttls(context=context)
                     client.ehlo()
-                    if settings.security is SmtpSecurity.STARTTLS:
-                        client.starttls(context=context)
-                        client.ehlo()
-                    self._authenticate_and_send(client, settings, credential, payload)
+            if settings.username:
+                client.login(settings.username, credential or "")
+            code, response = client.mail(settings.sender_email)
+            if code != 250:
+                raise smtplib.SMTPSenderRefused(code, response, settings.sender_email)
+            code, response = client.rcpt(message.recipient)
+            if code not in {250, 251}:
+                raise smtplib.SMTPRecipientsRefused(
+                    {message.recipient: (code, response)}
+                )
+            acceptance_possible = True
+            client.data(payload.as_bytes(policy=SMTP_POLICY))
         except smtplib.SMTPAuthenticationError:
             return EmailDeliveryResult(
                 status=EmailDeliveryStatus.REJECTED,
@@ -117,24 +130,24 @@ class SmtpEmailSender:
                 detail="smtp_rejected",
             )
         except (smtplib.SMTPException, OSError, socket.timeout):
-            # A conexão pode cair depois de DATA: o servidor talvez já tenha
-            # aceitado a mensagem. Não classificar como falha reenviável evita
-            # duplicidade automática.
             return EmailDeliveryResult(
-                status=EmailDeliveryStatus.UNKNOWN,
-                detail="smtp_result_unknown",
+                status=(
+                    EmailDeliveryStatus.UNKNOWN
+                    if acceptance_possible
+                    else EmailDeliveryStatus.REJECTED
+                ),
+                detail=(
+                    "smtp_result_unknown"
+                    if acceptance_possible
+                    else "smtp_pre_data_failure"
+                ),
             )
+        finally:
+            if client is not None:
+                try:
+                    close = getattr(client, "close", None)
+                    if close is not None:
+                        close()
+                except (OSError, smtplib.SMTPException):
+                    pass
         return EmailDeliveryResult(status=EmailDeliveryStatus.SENT)
-
-    @staticmethod
-    def _authenticate_and_send(
-        client: smtplib.SMTP,
-        settings: EmailSenderSettings,
-        credential: str | None,
-        payload: EmailMessage,
-    ) -> None:
-        if settings.username:
-            client.login(settings.username, credential or "")
-        refused = client.send_message(payload)
-        if refused:
-            raise smtplib.SMTPRecipientsRefused(refused)

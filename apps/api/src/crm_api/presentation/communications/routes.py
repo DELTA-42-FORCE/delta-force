@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from crm_api.application.communications.email_delivery import (
     ConfigureEmailSenderUseCase,
+    ConfirmedDeliveryAlreadyExistsError,
     EmailSenderNotConfiguredError,
     GetEmailSenderSettingsUseCase,
     ListEmailDispatchesUseCase,
@@ -102,6 +103,8 @@ def _dispatch_response(dispatch: EmailDispatch) -> EmailDispatchResponse:
         subject=dispatch.subject,
         body=dispatch.body,
         message_id=dispatch.message_id,
+        retry_of_id=dispatch.retry_of_id,
+        retry_of_message_id=dispatch.retry_of_message_id,
         status=dispatch.status,
         detail=dispatch.detail,
         attempted_at=dispatch.attempted_at,
@@ -193,6 +196,11 @@ async def send_email_batch(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="repeat confirmation required",
+        ) from None
+    except ConfirmedDeliveryAlreadyExistsError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="confirmed delivery cannot be repeated",
         ) from None
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from None

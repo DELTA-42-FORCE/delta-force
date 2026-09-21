@@ -78,6 +78,8 @@ class EmailDispatchResponse(BaseModel):
     subject: str
     body: str
     message_id: str
+    retry_of_id: UUID | None
+    retry_of_message_id: str | None
     status: EmailDeliveryStatus
     detail: str | None
     attempted_at: datetime

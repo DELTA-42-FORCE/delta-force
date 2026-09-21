@@ -462,7 +462,6 @@ export function CommunicationsPage({
       setSendNotice(
         `${sent} aceita(s), ${rejected} rejeitada(s), ${unknown} com resultado desconhecido e ${missing} sem e-mail.`,
       )
-      setCredential('')
       setConfirmRepeat(false)
       setSendConfirmationPending(false)
       try {
@@ -481,7 +480,15 @@ export function CommunicationsPage({
         error.message === 'repeat confirmation required'
       ) {
         setSendError(
-          'Há destinatários com envio confirmado, resultado desconhecido ou tentativa em andamento. Marque a confirmação de reenvio para assumir o risco de duplicidade.',
+          'Há destinatários com resultado desconhecido ou tentativa em andamento. Marque a confirmação para assumir o risco de duplicidade.',
+        )
+      } else if (
+        error instanceof ApiError &&
+        error.status === 409 &&
+        error.message === 'confirmed delivery cannot be repeated'
+      ) {
+        setSendError(
+          'Um ou mais destinatários já possuem entrega confirmada para este modelo e não podem receber repetição.',
         )
       } else {
         setSendError(
@@ -489,6 +496,8 @@ export function CommunicationsPage({
         )
       }
     } finally {
+      setCredential('')
+      setShowCredential(false)
       setSendState('idle')
     }
   }
@@ -757,7 +766,7 @@ export function CommunicationsPage({
               <input
                 id="smtp-credential"
                 type={showCredential ? 'text' : 'password'}
-                autoComplete="current-password"
+                autoComplete="off"
                 value={credential}
                 onChange={(event) => setCredential(event.target.value)}
               />
@@ -780,8 +789,8 @@ export function CommunicationsPage({
                 setSendConfirmationPending(false)
               }}
             />{' '}
-            Confirmo o reenvio mesmo quando houver entrega confirmada, resultado
-            desconhecido ou tentativa ainda pendente
+            Confirmo a nova tentativa quando houver resultado desconhecido ou
+            tentativa ainda pendente
           </label>
           <p>{selectedClients.size} cliente(s) selecionado(s).</p>
           {sendConfirmationPending && (
@@ -804,6 +813,19 @@ export function CommunicationsPage({
                 ? 'Confirmar e enviar'
                 : 'Revisar envio'}
           </button>
+          {sendConfirmationPending && sendState !== 'sending' && (
+            <button
+              className="secondary-button compact-button"
+              type="button"
+              onClick={() => {
+                setSendConfirmationPending(false)
+                setCredential('')
+                setShowCredential(false)
+              }}
+            >
+              Cancelar revisão
+            </button>
+          )}
         </form>
       </div>
 

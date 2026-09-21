@@ -350,6 +350,7 @@ async def test_owner_walks_the_core_mvp_flow(tmp_path: Path) -> None:
         "recipient_candidates.viewed",
         "email_sender_settings.updated",
         "email_sender_settings.viewed",
-        "email_dispatch.batch_sent",
+        "email_dispatch.batch_started",
+        "email_dispatch.batch_completed",
         "email_dispatch.history_viewed",
     } <= actions

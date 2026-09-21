@@ -1,18 +1,20 @@
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 import smtplib
+import ssl
 from uuid import UUID, uuid4
 
 import pytest
 
 from crm_api.application.audit.record_audit_event import RecordAuditEventUseCase
 from crm_api.application.communications.email_delivery import (
+    ConfirmedDeliveryAlreadyExistsError,
     ConfigureEmailSenderUseCase,
     RepeatConfirmationRequiredError,
     SendEmailBatchUseCase,
     normalize_sender_settings,
 )
-from crm_api.domain.audit.entities import AuditEvent
+from crm_api.domain.audit.entities import AuditEvent, AuditResult
 from crm_api.domain.clients.entities import ClientFolder
 from crm_api.domain.communications.entities import (
     EmailDeliveryResult,
@@ -102,6 +104,8 @@ class FakeCommunications:
         subject: str,
         body: str,
         message_id: str,
+        retry_of_id: UUID | None,
+        retry_of_message_id: str | None,
         status: EmailDeliveryStatus,
         detail: str | None,
     ) -> EmailDispatch:
@@ -113,6 +117,8 @@ class FakeCommunications:
             subject=subject,
             body=body,
             message_id=message_id,
+            retry_of_id=retry_of_id,
+            retry_of_message_id=retry_of_message_id,
             status=status,
             detail=detail,
             attempted_at=datetime.now(UTC),
@@ -132,11 +138,13 @@ class FakeCommunications:
         self.dispatches[self.dispatches.index(current)] = updated
         return updated
 
-    async def has_delivery_requiring_confirmation(
+    async def latest_delivery_barrier(
         self, *, template_id: UUID, client_id: UUID
-    ) -> bool:
-        return any(
-            item.template_id == template_id
+    ) -> EmailDispatch | None:
+        matches = [
+            item
+            for item in self.dispatches
+            if item.template_id == template_id
             and item.client_id == client_id
             and item.status
             in {
@@ -144,8 +152,8 @@ class FakeCommunications:
                 EmailDeliveryStatus.SENT,
                 EmailDeliveryStatus.UNKNOWN,
             }
-            for item in self.dispatches
-        )
+        ]
+        return matches[-1] if matches else None
 
 
 def _settings() -> EmailSenderSettings:
@@ -242,7 +250,11 @@ async def test_batch_sends_individually_and_records_missing_email() -> None:
     assert [item.recipient for item in sender.messages] == ["cliente@example.com"]
     assert sender.messages[0].subject == "Pendência de Cliente Sintético"
     assert sender.credentials == ["segredo-sintético"]
-    assert audit.events[0].context == {"requested_count": "2", "sent_count": "1"}
+    assert [event.context["phase"] for event in audit.events] == [
+        "started",
+        "completed",
+    ]
+    assert audit.events[-1].context["sent_count"] == "1"
 
 
 @pytest.mark.parametrize(
@@ -266,12 +278,19 @@ async def test_batch_requires_confirmation_before_repeating_uncertain_delivery(
         subject="anterior",
         body="anterior",
         message_id="<anterior@delta-force.local>",
+        retry_of_id=None,
+        retry_of_message_id=None,
         status=previous_status,
         detail=None,
     )
     sender = FakeSender(EmailDeliveryResult(EmailDeliveryStatus.SENT))
 
-    with pytest.raises(RepeatConfirmationRequiredError):
+    expected_error = (
+        ConfirmedDeliveryAlreadyExistsError
+        if previous_status is EmailDeliveryStatus.SENT
+        else RepeatConfirmationRequiredError
+    )
+    with pytest.raises(expected_error):
         await SendEmailBatchUseCase(
             communications=repository,  # type: ignore[arg-type]
             clients=FakeClients({client.id: client}),  # type: ignore[arg-type]
@@ -352,6 +371,8 @@ async def test_batch_checks_repeat_confirmation_before_sending_fresh_clients() -
         subject="anterior",
         body="anterior",
         message_id="<anterior@delta-force.local>",
+        retry_of_id=None,
+        retry_of_message_id=None,
         status=EmailDeliveryStatus.UNKNOWN,
         detail="smtp_result_unknown",
     )
@@ -437,3 +458,235 @@ async def test_smtp_adapter_reports_authentication_rejection(
 
     assert result.status is EmailDeliveryStatus.REJECTED
     assert result.detail == "smtp_authentication_failed"
+
+
+async def test_confirmed_delivery_is_never_repeated_even_with_confirmation() -> None:
+    template = _template()
+    client = _client("cliente@example.com")
+    repository = FakeCommunications(settings=_settings(), template=template)
+    await repository.create_dispatch(
+        template_id=template.id,
+        client_id=client.id,
+        recipient_email=client.email,
+        subject="anterior",
+        body="anterior",
+        message_id="<confirmed@delta-force.local>",
+        retry_of_id=None,
+        retry_of_message_id=None,
+        status=EmailDeliveryStatus.SENT,
+        detail=None,
+    )
+    sender = FakeSender(EmailDeliveryResult(EmailDeliveryStatus.SENT))
+
+    with pytest.raises(ConfirmedDeliveryAlreadyExistsError):
+        await SendEmailBatchUseCase(
+            communications=repository,  # type: ignore[arg-type]
+            clients=FakeClients({client.id: client}),  # type: ignore[arg-type]
+            sender=sender,
+            audit=RecordAuditEventUseCase(FakeAudit()),
+            transaction=FakeTransaction(),
+        ).execute(
+            actor_user_id=uuid4(),
+            template_id=template.id,
+            client_ids=[client.id],
+            credential="segredo-sintético",
+            confirm_repeat=True,
+        )
+
+    assert sender.messages == []
+
+
+async def test_confirmed_unknown_retry_keeps_previous_attempt_reference() -> None:
+    template = _template()
+    client = _client("cliente@example.com")
+    repository = FakeCommunications(settings=_settings(), template=template)
+    previous = await repository.create_dispatch(
+        template_id=template.id,
+        client_id=client.id,
+        recipient_email=client.email,
+        subject="anterior",
+        body="anterior",
+        message_id="<unknown@delta-force.local>",
+        retry_of_id=None,
+        retry_of_message_id=None,
+        status=EmailDeliveryStatus.UNKNOWN,
+        detail="smtp_result_unknown",
+    )
+
+    results = await SendEmailBatchUseCase(
+        communications=repository,  # type: ignore[arg-type]
+        clients=FakeClients({client.id: client}),  # type: ignore[arg-type]
+        sender=FakeSender(EmailDeliveryResult(EmailDeliveryStatus.SENT)),
+        audit=RecordAuditEventUseCase(FakeAudit()),
+        transaction=FakeTransaction(),
+    ).execute(
+        actor_user_id=uuid4(),
+        template_id=template.id,
+        client_ids=[client.id],
+        credential="segredo-sintético",
+        confirm_repeat=True,
+    )
+
+    assert results[0].retry_of_id == previous.id
+    assert results[0].retry_of_message_id == previous.message_id
+
+
+async def test_batch_audits_start_and_failure_after_partial_external_effect() -> None:
+    template = _template()
+    first = _client("primeiro@example.com")
+    second = _client("segundo@example.com")
+    repository = FakeCommunications(settings=_settings(), template=template)
+    audit = FakeAudit()
+
+    @dataclass
+    class InterruptingSender:
+        calls: int = 0
+
+        async def send(
+            self,
+            *,
+            settings: EmailSenderSettings,
+            message: OutboundEmail,
+            credential: str | None,
+        ) -> EmailDeliveryResult:
+            del settings, message, credential
+            self.calls += 1
+            if self.calls == 2:
+                raise RuntimeError("synthetic interruption")
+            return EmailDeliveryResult(EmailDeliveryStatus.SENT)
+
+    with pytest.raises(RuntimeError, match="synthetic interruption"):
+        await SendEmailBatchUseCase(
+            communications=repository,  # type: ignore[arg-type]
+            clients=FakeClients(  # type: ignore[arg-type]
+                {first.id: first, second.id: second}
+            ),
+            sender=InterruptingSender(),  # type: ignore[arg-type]
+            audit=RecordAuditEventUseCase(audit),
+            transaction=FakeTransaction(),
+        ).execute(
+            actor_user_id=uuid4(),
+            template_id=template.id,
+            client_ids=[first.id, second.id],
+            credential="segredo-sintético",
+            confirm_repeat=False,
+        )
+
+    assert [event.context["phase"] for event in audit.events] == [
+        "started",
+        "failed",
+    ]
+    assert audit.events[-1].result is AuditResult.FAILURE
+    assert audit.events[-1].context["sent_count"] == "1"
+    assert audit.events[-1].context["unknown_count"] == "1"
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        ConnectionRefusedError("synthetic refusal"),
+        OSError("synthetic DNS failure"),
+        ssl.SSLCertVerificationError("synthetic certificate failure"),
+    ],
+)
+async def test_smtp_transport_failures_before_data_are_definitive(
+    monkeypatch: pytest.MonkeyPatch, failure: OSError
+) -> None:
+    def fail_before_connection(*args: object, **kwargs: object) -> None:
+        del args, kwargs
+        raise failure
+
+    monkeypatch.setattr(smtplib, "SMTP", fail_before_connection)
+    result = await SmtpEmailSender().send(
+        settings=_settings(),
+        message=OutboundEmail(
+            message_id="<synthetic@delta-force.local>",
+            recipient="cliente@example.com",
+            subject="Assunto",
+            body="Corpo",
+        ),
+        credential="segredo-sintético",
+    )
+
+    assert result.status is EmailDeliveryStatus.REJECTED
+    assert result.detail == "smtp_pre_data_failure"
+
+
+async def test_smtp_starttls_failure_before_data_is_definitive(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class StartTlsFailure:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            del args, kwargs
+
+        def ehlo(self) -> None:
+            return None
+
+        def starttls(self, *, context: object) -> None:
+            del context
+            raise smtplib.SMTPNotSupportedError("synthetic STARTTLS failure")
+
+        def close(self) -> None:
+            return None
+
+    monkeypatch.setattr(smtplib, "SMTP", StartTlsFailure)
+    result = await SmtpEmailSender().send(
+        settings=_settings(),
+        message=OutboundEmail(
+            message_id="<synthetic@delta-force.local>",
+            recipient="cliente@example.com",
+            subject="Assunto",
+            body="Corpo",
+        ),
+        credential="segredo-sintético",
+    )
+
+    assert result.status is EmailDeliveryStatus.REJECTED
+    assert result.detail == "smtp_pre_data_failure"
+
+
+async def test_smtp_disconnect_during_data_is_unknown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class DataDisconnect:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            del args, kwargs
+
+        def ehlo(self) -> None:
+            return None
+
+        def starttls(self, *, context: object) -> None:
+            del context
+
+        def login(self, username: str, password: str) -> None:
+            del username, password
+
+        def mail(self, sender: str) -> tuple[int, bytes]:
+            del sender
+            return 250, b"ok"
+
+        def rcpt(self, recipient: str) -> tuple[int, bytes]:
+            del recipient
+            return 250, b"ok"
+
+        def data(self, payload: bytes) -> None:
+            del payload
+            raise smtplib.SMTPServerDisconnected("synthetic disconnect")
+
+        def close(self) -> None:
+            return None
+
+    monkeypatch.setattr(smtplib, "SMTP", DataDisconnect)
+    result = await SmtpEmailSender().send(
+        settings=_settings(),
+        message=OutboundEmail(
+            message_id="<synthetic@delta-force.local>",
+            recipient="cliente@example.com",
+            subject="Assunto",
+            body="Corpo",
+        ),
+        credential="segredo-sintético",
+    )
+
+    assert result.status is EmailDeliveryStatus.UNKNOWN
+    assert result.detail == "smtp_result_unknown"

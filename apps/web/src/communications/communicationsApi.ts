@@ -65,6 +65,8 @@ export interface EmailDispatch {
   subject: string
   body: string
   message_id: string
+  retry_of_id: string | null
+  retry_of_message_id: string | null
   status: EmailDeliveryStatus
   detail: string | null
   attempted_at: string

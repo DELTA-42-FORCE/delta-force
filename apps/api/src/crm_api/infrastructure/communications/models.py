@@ -8,6 +8,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    Index,
     String,
     Text,
     Uuid,
@@ -88,6 +89,12 @@ class EmailDispatchModel(Base):
             "'skipped_duplicate', 'missing_email')",
             name="ck_email_dispatches_status",
         ),
+        CheckConstraint(
+            "(retry_of_id IS NULL AND retry_of_message_id IS NULL) OR "
+            "(retry_of_id IS NOT NULL AND retry_of_message_id IS NOT NULL)",
+            name="ck_email_dispatches_retry_reference",
+        ),
+        Index("ix_email_dispatches_retry_of_id", "retry_of_id"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -106,6 +113,12 @@ class EmailDispatchModel(Base):
     subject: Mapped[str] = mapped_column(String(200), nullable=False)
     body: Mapped[str] = mapped_column(Text(), nullable=False)
     message_id: Mapped[str] = mapped_column(String(200), nullable=False, unique=True)
+    retry_of_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("email_dispatches.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    retry_of_message_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
     status: Mapped[str] = mapped_column(String(24), nullable=False)
     detail: Mapped[str | None] = mapped_column(String(200), nullable=True)
     attempted_at: Mapped[datetime] = mapped_column(

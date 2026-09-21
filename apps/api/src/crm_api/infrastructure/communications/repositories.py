@@ -59,6 +59,8 @@ def _to_dispatch(model: EmailDispatchModel) -> EmailDispatch:
         subject=model.subject,
         body=model.body,
         message_id=model.message_id,
+        retry_of_id=model.retry_of_id,
+        retry_of_message_id=model.retry_of_message_id,
         status=EmailDeliveryStatus(model.status),
         detail=model.detail,
         attempted_at=as_utc(model.attempted_at),
@@ -188,6 +190,8 @@ class SqlAlchemyCommunicationRepository:
         subject: str,
         body: str,
         message_id: str,
+        retry_of_id: UUID | None,
+        retry_of_message_id: str | None,
         status: EmailDeliveryStatus,
         detail: str | None,
     ) -> EmailDispatch:
@@ -198,6 +202,8 @@ class SqlAlchemyCommunicationRepository:
             subject=subject,
             body=body,
             message_id=message_id,
+            retry_of_id=retry_of_id,
+            retry_of_message_id=retry_of_message_id,
             status=status.value,
             detail=detail,
         )
@@ -222,21 +228,30 @@ class SqlAlchemyCommunicationRepository:
         await self.session.refresh(model)
         return _to_dispatch(model)
 
-    async def has_delivery_requiring_confirmation(
+    async def latest_delivery_barrier(
         self, *, template_id: UUID, client_id: UUID
-    ) -> bool:
-        statement = select(EmailDispatchModel.id).where(
-            EmailDispatchModel.template_id == template_id,
-            EmailDispatchModel.client_id == client_id,
-            EmailDispatchModel.status.in_(
-                [
-                    EmailDeliveryStatus.PENDING.value,
-                    EmailDeliveryStatus.SENT.value,
-                    EmailDeliveryStatus.UNKNOWN.value,
-                ]
-            ),
+    ) -> EmailDispatch | None:
+        statement = (
+            select(EmailDispatchModel)
+            .where(
+                EmailDispatchModel.template_id == template_id,
+                EmailDispatchModel.client_id == client_id,
+                EmailDispatchModel.status.in_(
+                    [
+                        EmailDeliveryStatus.PENDING.value,
+                        EmailDeliveryStatus.SENT.value,
+                        EmailDeliveryStatus.UNKNOWN.value,
+                    ]
+                ),
+            )
+            .order_by(
+                EmailDispatchModel.attempted_at.desc(),
+                EmailDispatchModel.id.desc(),
+            )
+            .limit(1)
         )
-        return (await self.session.scalar(statement)) is not None
+        model = await self.session.scalar(statement)
+        return _to_dispatch(model) if model is not None else None
 
     async def list_dispatches(
         self, *, limit: int, before: EmailDispatchCursor | None

@@ -367,7 +367,11 @@ async def test_sender_configuration_and_delivery_history_persist_without_secret(
                 select(AuditEventModel).where(
                     AuditEventModel.actor_user_id == owner_id,
                     AuditEventModel.action.in_(
-                        ["email_sender_settings.updated", "email_dispatch.batch_sent"]
+                        [
+                            "email_sender_settings.updated",
+                            "email_dispatch.batch_started",
+                            "email_dispatch.batch_completed",
+                        ]
                     ),
                 )
             )
@@ -380,4 +384,4 @@ async def test_sender_configuration_and_delivery_history_persist_without_secret(
     assert "synthetic-session-secret" not in repr(
         (stored_settings, stored_dispatch, events)
     )
-    assert len(events) == 2
+    assert len(events) == 3

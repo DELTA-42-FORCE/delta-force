@@ -176,6 +176,36 @@ describe('CommunicationsPage', () => {
         '1 aceita(s), 0 rejeitada(s), 0 com resultado desconhecido e 0 sem e-mail.',
       ),
     ).toBeVisible()
+    const credential = screen.getByLabelText('Senha ou senha de aplicativo')
+    expect(credential).toHaveValue('')
+    expect(credential).toHaveAttribute('type', 'password')
+    expect(credential).toHaveAttribute('autocomplete', 'off')
+  })
+
+  it('clears and hides the SMTP credential after failure or review cancellation', async () => {
+    const sendBatch = vi.fn().mockRejectedValue(new ApiError(500, 'synthetic'))
+    const user = userEvent.setup()
+    renderPage({ sendBatch })
+
+    await screen.findByText('Ana Souza')
+    await user.selectOptions(screen.getByLabelText('Modelo'), TEMPLATE_ID)
+    await user.click(screen.getByLabelText('Selecionar Ana Souza'))
+    const credential = screen.getByLabelText('Senha ou senha de aplicativo')
+    await user.type(credential, 'segredo-sintético')
+    await user.click(screen.getByRole('button', { name: 'Mostrar' }))
+    await user.click(screen.getByRole('button', { name: 'Revisar envio' }))
+    await user.click(screen.getByRole('button', { name: 'Cancelar revisão' }))
+    expect(credential).toHaveValue('')
+    expect(credential).toHaveAttribute('type', 'password')
+
+    await user.type(credential, 'outro-segredo')
+    await user.click(screen.getByRole('button', { name: 'Revisar envio' }))
+    await user.click(screen.getByRole('button', { name: 'Confirmar e enviar' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Não foi possível concluir o envio',
+    )
+    expect(credential).toHaveValue('')
+    expect(credential).toHaveAttribute('type', 'password')
   })
 
   it('creates a static reusable template', async () => {
