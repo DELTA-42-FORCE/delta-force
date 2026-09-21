@@ -389,7 +389,11 @@ export function CommunicationsPage({
           )}
 
           {editing && (
-            <form className="message-template-form" onSubmit={handleSave}>
+            <form
+              className="message-template-form"
+              onSubmit={handleSave}
+              noValidate
+            >
               <div className="message-template-form__title">
                 <div>
                   <p className="eyebrow">

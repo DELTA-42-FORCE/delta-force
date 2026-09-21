@@ -206,7 +206,11 @@ export function ClientsPage({
         </button>
       </div>
 
-      <form className="clients-page__search" onSubmit={handleSearchSubmit}>
+      <form
+        className="clients-page__search"
+        onSubmit={handleSearchSubmit}
+        noValidate
+      >
         <label htmlFor="client-search" className="sr-only">
           Buscar cliente
         </label>
