@@ -25,8 +25,8 @@ PR continua curto, nasce de `develop`, referencia uma issue e volta para
 A ADR 0002 já é a decisão de produção. A integração essencial foi entregue pela
 #57; os próximos passos específicos da entrega Windows são:
 
-1. corrigir e integrar o envio da #103; depois rebasear e revisar a implementação
-   de backup da #99;
+1. revisar a correção empilhada #105, integrá-la à #103 e revalidar o envio;
+   depois rebasear e revisar a implementação de backup da #99;
 2. validar instalação, atualização manual, desinstalação e restauração na #27.
 
 Versão/edição do Windows, assinatura/custódia e o aceite em HD externo real
@@ -64,9 +64,11 @@ decisões pendentes.
 
 1. **#24 — concluída:** modelos, candidatos, e-mail opcional do cliente, prévia
    e variável {{nome}} estão integrados.
-2. **#25 — correções solicitadas na #103:** o envio/histórico existe, mas ainda
-   precisa fechar duplicidade, credencial efêmera, classificação SMTP, vínculo
-   de repetição e auditoria de lote. Mailpit é somente desenvolvimento.
+2. **#25 — correções solicitadas na #103:** envio/histórico, credencial efêmera,
+   classificação SMTP, vínculo de repetição e auditoria de lote estão na PR
+   empilhada. A #105 corrige a reserva transacional e a conciliação de
+   tentativas interrompidas; ambas exigem revisão e checks no head integrado.
+   Mailpit é somente desenvolvimento.
 3. **#26 — documentação em revisão na #100:** manual de operação/LGPD e
    checklist Windows estão escritos, mas dependem das bases finais e do aceite.
 4. **#27:** executar o aceite de ponta a ponta em instalação Windows limpa,

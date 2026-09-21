@@ -2,18 +2,20 @@
 
 Este manual orienta o proprietário e a equipe de suporte na instalação e no uso
 do CRM local Windows. Ele não substitui avaliação jurídica, contábil ou de
-segurança quando houver uma solicitação de titular ou um incidente real.
+segurança quando houver uma solicitação de titular ou um incidente real. É um
+**rascunho operacional em revisão na PR #100**: os fluxos de envio (#103/#105)
+e backup/restauração (#99) ainda precisam de integração, revisão e aceite
+físico (#27). Não usar esta versão com dados reais antes desses gates.
 
 ## Limites desta versão
 
 - O CRM é usado por um único proprietário em um único computador Windows.
 - Banco, documentos e histórico ficam em `%LOCALAPPDATA%\br.com.deltaforce.crm`.
 - O backup é manual, criptografado e gravado em HD externo.
-- A restauração só é aceita numa instalação vazia, antes de criar a primeira
-  conta. Ela não substitui uma instalação que já contém dados.
-- A ADR 0004 prevê uma evolução autenticada para substituir dados existentes,
-  mas esse fluxo ainda não está disponível nesta versão e não deve ser simulado
-  por cópia manual de arquivos.
+- A implementação em revisão permite restauração numa instalação vazia antes
+  da primeira conta e, em instalação com dados, substituição autenticada com
+  confirmação reforçada. Isso só estará disponível ao proprietário após a
+  integração e o aceite da PR #99; nunca simule o fluxo copiando arquivos.
 - A atualização é feita manualmente com um novo instalador aprovado. Não há
   atualização nem downgrade automáticos.
 - A desinstalação remove o programa e os atalhos, mas preserva os dados locais.
@@ -99,7 +101,26 @@ conecte o HD até o equipamento ser reinstalado e liberado pela equipe técnica.
    registrar as verificações no checklist de aceite.
 
 Se já existir conta ou dado local, não tente apagar pastas para forçar a
-restauração. Preserve os dois conjuntos e peça orientação técnica.
+restauração. Use apenas o fluxo autenticado descrito a seguir, quando ele
+estiver integrado e aceito. Até lá, preserve os dois conjuntos e peça
+orientação técnica.
+
+## Substituir dados locais por um backup
+
+Este fluxo troca a geração local inteira, inclusive conta e histórico, pelos
+dados contidos no backup. Confirme antes que este é o backup correto e que há
+uma cópia recuperável dos dados locais atuais. Não use o procedimento para
+misturar dois acervos: não há mesclagem.
+
+1. Entre com a conta atual do proprietário e abra a restauração autenticada.
+2. Selecione o backup do HD e informe sua senha. Leia o aviso de substituição
+   completa apresentado pelo aplicativo antes de confirmar.
+3. Se concordar com a troca completa, digite exatamente `SUBSTITUIR DADOS`.
+   Se não concordar, cancele sem alterar arquivos manualmente.
+4. Reinicie quando solicitado. Confira o login da conta que veio no backup,
+   uma amostra de clientes, documentos, e-mails e auditoria; registre o
+   resultado. Se houver falha, não exclua a geração anterior nem a cópia do HD
+   e acione o suporte para recuperação.
 
 ## Atualizar o CRM
 
@@ -125,6 +146,8 @@ restauração. Preserve os dois conjuntos e peça orientação técnica.
 ## Solicitação de titular de dados
 
 O responsável pelo tratamento, e não o software, decide a resposta aplicável.
+Os passos abaixo são orientação preliminar a validar por ele, não uma política
+de retenção nem uma garantia automática de conformidade.
 
 1. Registre a data, o canal, o pedido e uma referência de protocolo fora de
    campos livres do cliente. Não copie documento de identidade além do necessário.
@@ -176,7 +199,9 @@ prazo diferenciado de agente de pequeno porte sem confirmar o enquadramento.
 A comunicação ao titular deve ser clara, direta quando possível e informar os
 dados afetados, riscos, proteções, medidas de mitigação, data de conhecimento e
 um contato. O registro do incidente, inclusive quando não comunicado, deve ser
-mantido por no mínimo cinco anos, com a justificativa da decisão.
+mantido por no mínimo cinco anos, com a justificativa da decisão. Esse mínimo
+para incidentes não define o prazo de guarda das fichas e documentos dos
+clientes; tal política precisa de validação do responsável pelo tratamento.
 
 ### Recuperação
 

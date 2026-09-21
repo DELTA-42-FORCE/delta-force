@@ -64,7 +64,11 @@ como aceite do artefato definitivo.
 - [ ] Cria modelo com `{{nome}}`, visualiza prévia e rejeita variável não permitida.
 - [ ] Configura remetente SMTP; a credencial é digitada só no envio.
 - [ ] Seleciona destinatário por pendência e envia mensagem individual ao alvo autorizado.
-- [ ] Registra sucesso/falha no histórico e exige confirmação para repetir resultado incerto/sucesso.
+- [ ] Registra sucesso/falha no histórico; `SENT` nunca é repetido, e uma
+      tentativa `UNKNOWN` só pode ser repetida com confirmação explícita e
+      vínculo à tentativa anterior.
+- [ ] Após interrupção/reinício durante envio, tentativa pendente torna-se
+      incerta antes de novo envio; reabrir a tela não duplica a mensagem.
 - [ ] Reiniciar o aplicativo não recupera a senha SMTP anterior.
 - [ ] Auditoria mostra login, consulta/alteração relevante, documentos, PDF, e-mail e backup.
 
@@ -83,7 +87,19 @@ como aceite do artefato definitivo.
 - [ ] Após reabrir, aceita o login que veio no backup e não oferece criar novo proprietário.
 - [ ] Clientes, documentos, ficha, modelos, histórico e auditoria conferem com a amostra original.
 - [ ] A auditoria contém a ativação da restauração.
-- [ ] Depois de criar dados locais, nova tentativa de restauração é recusada.
+
+## Restauração sobre dados existentes
+
+- [ ] Sem login do proprietário atual, a substituição é recusada.
+- [ ] A interface avisa que a geração local inteira será substituída, sem
+      mesclar acervos, e exige `SUBSTITUIR DADOS` antes de aceitar.
+- [ ] Confirmação ausente/incorreta, senha de backup errada e arquivo inválido
+      não alteram a geração ativa nem apagam o backup de origem.
+- [ ] Após reinício, login, clientes, documentos e auditoria são os do backup;
+      a geração anterior só é removida depois da validação final, conforme a
+      ADR 0004. A cópia externa dos dados substituídos continua disponível.
+- [ ] Queda controlada antes da ativação e falha de validação mantêm os dados
+      anteriores íntegros, sem mistura de gerações.
 
 ## Atualização, reinstalação e desinstalação
 
