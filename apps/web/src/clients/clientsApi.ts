@@ -3,6 +3,7 @@ import type { DownloadedFile } from '../lib/apiClient'
 export interface ClientFolder {
   id: string
   display_name: string
+  email: string | null
   profile_data: Record<string, string>
   created_at: string
   updated_at: string
@@ -65,7 +66,11 @@ export async function getClientFolder(
 
 export async function createClientFolder(
   authenticatedRequest: AuthenticatedRequest,
-  input: { display_name: string; profile_data?: Record<string, string> },
+  input: {
+    display_name: string
+    email?: string | null
+    profile_data?: Record<string, string>
+  },
 ): Promise<ClientFolder> {
   return authenticatedRequest<ClientFolder>('/clients', {
     method: 'POST',
@@ -76,7 +81,11 @@ export async function createClientFolder(
 export async function updateClientFolder(
   authenticatedRequest: AuthenticatedRequest,
   id: string,
-  input: { display_name: string; profile_data?: Record<string, string> },
+  input: {
+    display_name: string
+    email?: string | null
+    profile_data?: Record<string, string>
+  },
 ): Promise<ClientFolder> {
   return authenticatedRequest<ClientFolder>(`/clients/${id}`, {
     method: 'PUT',

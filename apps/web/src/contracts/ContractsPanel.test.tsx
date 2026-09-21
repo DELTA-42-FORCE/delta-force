@@ -9,6 +9,7 @@ import type { ClientContract } from './contractsApi'
 const folder: ClientFolder = {
   id: '00000000-0000-0000-0000-000000000029',
   display_name: 'Cliente Sintético',
+  email: null,
   profile_data: {},
   created_at: '2026-09-01T00:00:00Z',
   updated_at: '2026-09-01T00:00:00Z',

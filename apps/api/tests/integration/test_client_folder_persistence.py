@@ -33,6 +33,7 @@ async def test_client_folder_persists_name_and_optional_profile_data() -> None:
     async with get_session_factory()() as session:
         created = await SqlAlchemyClientFolderRepository(session).create(
             display_name="Cliente de Persistência",
+            email="cliente@example.com",
             profile_data={"observação": "documento pendente"},
         )
         await session.commit()
@@ -44,6 +45,7 @@ async def test_client_folder_persists_name_and_optional_profile_data() -> None:
 
     assert stored is not None
     assert stored.display_name == "Cliente de Persistência"
+    assert stored.email == "cliente@example.com"
     assert stored.profile_data == {"observação": "documento pendente"}
 
 
@@ -143,12 +145,14 @@ async def test_update_changes_name_and_profile_data() -> None:
         updated = await repository.update(
             id=created.id,
             display_name="Nome Novo",
+            email="novo@example.com",
             profile_data={"telefone": "123"},
         )
         await session.commit()
 
     assert updated is not None
     assert updated.display_name == "Nome Novo"
+    assert updated.email == "novo@example.com"
     assert updated.profile_data == {"telefone": "123"}
 
     async with get_session_factory()() as session:

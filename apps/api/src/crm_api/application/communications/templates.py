@@ -1,6 +1,7 @@
 """Manutenção transacional e auditada de modelos de mensagem."""
 
 from dataclasses import dataclass
+import re
 from uuid import UUID
 
 from crm_api.application.audit.record_audit_event import RecordAuditEventUseCase
@@ -14,6 +15,26 @@ from crm_api.domain.audit.entities import (
 from crm_api.domain.communications.entities import MessageTemplate
 from crm_api.domain.communications.errors import MessageTemplateNotFoundError
 from crm_api.domain.communications.repositories import CommunicationRepository
+
+_VARIABLE_PATTERN = re.compile(r"{{\s*([a-z][a-z0-9_]*)\s*}}")
+_ALLOWED_VARIABLES = frozenset({"nome"})
+
+
+def _normalize_template_variables(value: str) -> str:
+    """Valida e canonicaliza a sintaxe fechada de variáveis do MVP."""
+    matches = tuple(_VARIABLE_PATTERN.finditer(value))
+    unsupported = sorted({match.group(1) for match in matches} - _ALLOWED_VARIABLES)
+    if unsupported:
+        raise ValueError(
+            "message template contains unsupported variables: " + ", ".join(unsupported)
+        )
+    without_variables = _VARIABLE_PATTERN.sub("", value)
+    if "{{" in without_variables or "}}" in without_variables:
+        raise ValueError("message template contains malformed variables")
+    return _VARIABLE_PATTERN.sub(
+        lambda match: "{{" + match.group(1) + "}}",
+        value,
+    )
 
 
 def normalize_template_fields(
@@ -30,6 +51,10 @@ def normalize_template_fields(
             raise ValueError(f"message template {field_name} must not be blank")
         if len(cleaned) > limits[field_name]:
             raise ValueError(f"message template {field_name} is too long")
+        if field_name == "subject" and ("\r" in cleaned or "\n" in cleaned):
+            raise ValueError("message template subject must use a single line")
+        if field_name in {"subject", "body"}:
+            cleaned = _normalize_template_variables(cleaned)
         normalized[field_name] = cleaned
     return normalized["name"], normalized["subject"], normalized["body"]
 

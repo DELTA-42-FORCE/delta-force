@@ -389,7 +389,11 @@ export function CommunicationsPage({
           )}
 
           {editing && (
-            <form className="message-template-form" onSubmit={handleSave}>
+            <form
+              className="message-template-form"
+              onSubmit={handleSave}
+              noValidate
+            >
               <div className="message-template-form__title">
                 <div>
                   <p className="eyebrow">
@@ -442,8 +446,8 @@ export function CommunicationsPage({
               </div>
 
               <p className="message-template-form__note">
-                Variáveis automáticas ainda não estão habilitadas. O conteúdo
-                será salvo exatamente como escrito.
+                Use {'{{nome}}'} para inserir o nome do cliente. Outras
+                variáveis não são aceitas nesta versão.
               </p>
 
               <div className="message-template-form__actions">

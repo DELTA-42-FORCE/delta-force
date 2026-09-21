@@ -10,7 +10,11 @@ class ClientFolderRepository(Protocol):
     """Persiste pastas sem expor ORM ou dialeto de banco."""
 
     async def create(
-        self, *, display_name: str, profile_data: Mapping[str, str]
+        self,
+        *,
+        display_name: str,
+        profile_data: Mapping[str, str],
+        email: str | None = None,
     ) -> ClientFolder: ...
 
     async def get(self, *, id: UUID) -> ClientFolder | None: ...
@@ -28,5 +32,10 @@ class ClientFolderRepository(Protocol):
     ) -> list[ClientFolder]: ...
 
     async def update(
-        self, *, id: UUID, display_name: str, profile_data: Mapping[str, str]
+        self,
+        *,
+        id: UUID,
+        display_name: str,
+        profile_data: Mapping[str, str],
+        email: str | None = None,
     ) -> ClientFolder | None: ...

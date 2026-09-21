@@ -67,9 +67,14 @@ class FakeClientFolderRepository:
         return []
 
     async def update(
-        self, *, id: UUID, display_name: str, profile_data: Mapping[str, str]
+        self,
+        *,
+        id: UUID,
+        display_name: str,
+        email: str | None,
+        profile_data: Mapping[str, str],
     ) -> ClientFolder | None:
-        del display_name, profile_data
+        del display_name, email, profile_data
         return self.folders.get(id)
 
 
