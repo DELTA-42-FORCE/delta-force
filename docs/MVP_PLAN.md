@@ -69,8 +69,9 @@ decisões pendentes.
    empilhada. A #105 corrige a reserva transacional e a conciliação de
    tentativas interrompidas; ambas exigem revisão e checks no head integrado.
    Mailpit é somente desenvolvimento.
-3. **#26 — documentação em revisão na #100:** manual de operação/LGPD e
-   checklist Windows estão escritos, mas dependem das bases finais e do aceite.
+3. **#26 — rascunho bloqueado na #100:** manual de operação/LGPD e checklist
+   Windows estão escritos para revisão técnica, mas não estão homologados;
+   dependem das bases finais, da validação operacional e do aceite físico.
 4. **#27:** executar o aceite de ponta a ponta em instalação Windows limpa,
    incluindo primeiro acesso, cliente, documento, ficha PDF, e-mail, backup e
    restauração.

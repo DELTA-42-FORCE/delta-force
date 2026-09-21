@@ -220,6 +220,9 @@ e encerrado ao final.
 
 ## Referências oficiais
 
+Fontes consultadas em 21 de setembro de 2026. Antes de aplicar o procedimento
+a um caso real, o responsável pelo tratamento deve confirmar a regra vigente.
+
 - [ANPD — comunicação de incidente de segurança](https://www.gov.br/anpd/pt-br/canais_atendimento/agente-de-tratamento/comunicado-de-incidente-de-seguranca-cis)
 - [ANPD — direitos e petição do titular](https://www.gov.br/anpd/pt-br/canais_atendimento/cidadao-titular-de-dados/denuncia-peticao-de-titular-referente-lgpd)
 - [ANPD — guia de segurança para agentes de pequeno porte](https://www.gov.br/anpd/pt-br/assuntos/noticias/anpd-publica-guia-de-seguranca-para-agentes-de-tratamento-de-pequeno-porte)
