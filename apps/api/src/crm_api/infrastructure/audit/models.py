@@ -45,7 +45,7 @@ class AuditEventModel(Base):
             "'contract.installment_paid', 'contract.cancelled', "
             "'email_sender_settings.updated', 'email_sender_settings.viewed', "
             "'email_dispatch.batch_started', 'email_dispatch.batch_completed', "
-            "'email_dispatch.history_viewed')",
+            "'email_dispatch.batch_failed', 'email_dispatch.history_viewed')",
             name="ck_audit_events_action",
         ),
         CheckConstraint(

@@ -48,6 +48,7 @@ class AuditAction(StrEnum):
     EMAIL_SENDER_SETTINGS_VIEWED = "email_sender_settings.viewed"
     EMAIL_BATCH_STARTED = "email_dispatch.batch_started"
     EMAIL_BATCH_COMPLETED = "email_dispatch.batch_completed"
+    EMAIL_BATCH_FAILED = "email_dispatch.batch_failed"
     EMAIL_DISPATCH_HISTORY_VIEWED = "email_dispatch.history_viewed"
     LEGACY_IMPORT_COMPLETED = "legacy_import.completed"
     CONTRACT_CREATED = "contract.created"

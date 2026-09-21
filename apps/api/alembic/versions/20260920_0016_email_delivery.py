@@ -29,7 +29,7 @@ _CURRENT_ACTIONS = (
 _NEXT_ACTIONS = _CURRENT_ACTIONS[:-1] + (
     ", 'email_sender_settings.updated', 'email_sender_settings.viewed', "
     "'email_dispatch.batch_started', 'email_dispatch.batch_completed', "
-    "'email_dispatch.history_viewed')"
+    "'email_dispatch.batch_failed', 'email_dispatch.history_viewed')"
 )
 _CURRENT_RESOURCES = (
     "resource_type IN ('owner_account', 'session', 'route', 'audit_log', "
@@ -143,7 +143,7 @@ def downgrade() -> None:
             "EXISTS(SELECT 1 FROM audit_events WHERE action IN "
             "('email_sender_settings.updated', 'email_sender_settings.viewed', "
             "'email_dispatch.batch_started', 'email_dispatch.batch_completed', "
-            "'email_dispatch.history_viewed'))"
+            "'email_dispatch.batch_failed', 'email_dispatch.history_viewed'))"
         )
     )
     if has_data:

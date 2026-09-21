@@ -8,7 +8,8 @@ import pytest
 
 from crm_api.application.audit.record_audit_event import RecordAuditEventUseCase
 from crm_api.application.communications.email_delivery import (
-    ConfirmedDeliveryAlreadyExistsError,
+    DeliveryAlreadyConfirmedError,
+    DeliveryInProgressError,
     ConfigureEmailSenderUseCase,
     RepeatConfirmationRequiredError,
     SendEmailBatchUseCase,
@@ -286,9 +287,13 @@ async def test_batch_requires_confirmation_before_repeating_uncertain_delivery(
     sender = FakeSender(EmailDeliveryResult(EmailDeliveryStatus.SENT))
 
     expected_error = (
-        ConfirmedDeliveryAlreadyExistsError
+        DeliveryAlreadyConfirmedError
         if previous_status is EmailDeliveryStatus.SENT
-        else RepeatConfirmationRequiredError
+        else (
+            DeliveryInProgressError
+            if previous_status is EmailDeliveryStatus.PENDING
+            else RepeatConfirmationRequiredError
+        )
     )
     with pytest.raises(expected_error):
         await SendEmailBatchUseCase(
@@ -433,8 +438,8 @@ async def test_smtp_adapter_reports_authentication_rejection(
         def __exit__(self, *args: object) -> None:
             del args
 
-        def ehlo(self) -> None:
-            return None
+        def ehlo(self) -> tuple[int, bytes]:
+            return 250, b"ok"
 
         def starttls(self, *, context: object) -> None:
             del context
@@ -478,7 +483,7 @@ async def test_confirmed_delivery_is_never_repeated_even_with_confirmation() -> 
     )
     sender = FakeSender(EmailDeliveryResult(EmailDeliveryStatus.SENT))
 
-    with pytest.raises(ConfirmedDeliveryAlreadyExistsError):
+    with pytest.raises(DeliveryAlreadyConfirmedError):
         await SendEmailBatchUseCase(
             communications=repository,  # type: ignore[arg-type]
             clients=FakeClients({client.id: client}),  # type: ignore[arg-type]
@@ -494,6 +499,39 @@ async def test_confirmed_delivery_is_never_repeated_even_with_confirmation() -> 
         )
 
     assert sender.messages == []
+
+
+async def test_pending_delivery_is_never_repeated_even_with_confirmation() -> None:
+    template = _template()
+    client = _client("cliente@example.com")
+    repository = FakeCommunications(settings=_settings(), template=template)
+    await repository.create_dispatch(
+        template_id=template.id,
+        client_id=client.id,
+        recipient_email=client.email,
+        subject="anterior",
+        body="anterior",
+        message_id="<pending@delta-force.local>",
+        retry_of_id=None,
+        retry_of_message_id=None,
+        status=EmailDeliveryStatus.PENDING,
+        detail=None,
+    )
+
+    with pytest.raises(DeliveryInProgressError):
+        await SendEmailBatchUseCase(
+            communications=repository,  # type: ignore[arg-type]
+            clients=FakeClients({client.id: client}),  # type: ignore[arg-type]
+            sender=FakeSender(EmailDeliveryResult(EmailDeliveryStatus.SENT)),
+            audit=RecordAuditEventUseCase(FakeAudit()),
+            transaction=FakeTransaction(),
+        ).execute(
+            actor_user_id=uuid4(),
+            template_id=template.id,
+            client_ids=[client.id],
+            credential="segredo-sintético",
+            confirm_repeat=True,
+        )
 
 
 async def test_confirmed_unknown_retry_keeps_previous_attempt_reference() -> None:
@@ -609,7 +647,7 @@ async def test_smtp_transport_failures_before_data_are_definitive(
     )
 
     assert result.status is EmailDeliveryStatus.REJECTED
-    assert result.detail == "smtp_pre_data_failure"
+    assert result.detail == "smtp_failed_before_data"
 
 
 async def test_smtp_starttls_failure_before_data_is_definitive(
@@ -619,8 +657,8 @@ async def test_smtp_starttls_failure_before_data_is_definitive(
         def __init__(self, *args: object, **kwargs: object) -> None:
             del args, kwargs
 
-        def ehlo(self) -> None:
-            return None
+        def ehlo(self) -> tuple[int, bytes]:
+            return 250, b"ok"
 
         def starttls(self, *, context: object) -> None:
             del context
@@ -642,7 +680,7 @@ async def test_smtp_starttls_failure_before_data_is_definitive(
     )
 
     assert result.status is EmailDeliveryStatus.REJECTED
-    assert result.detail == "smtp_pre_data_failure"
+    assert result.detail == "smtp_failed_before_data"
 
 
 async def test_smtp_disconnect_during_data_is_unknown(
@@ -652,8 +690,8 @@ async def test_smtp_disconnect_during_data_is_unknown(
         def __init__(self, *args: object, **kwargs: object) -> None:
             del args, kwargs
 
-        def ehlo(self) -> None:
-            return None
+        def ehlo(self) -> tuple[int, bytes]:
+            return 250, b"ok"
 
         def starttls(self, *, context: object) -> None:
             del context
@@ -669,9 +707,16 @@ async def test_smtp_disconnect_during_data_is_unknown(
             del recipient
             return 250, b"ok"
 
-        def data(self, payload: bytes) -> None:
+        def docmd(self, command: str) -> tuple[int, bytes]:
+            assert command == "DATA"
+            return 354, b"continue"
+
+        def send(self, payload: bytes) -> None:
             del payload
             raise smtplib.SMTPServerDisconnected("synthetic disconnect")
+
+        def getreply(self) -> tuple[int, bytes]:
+            raise AssertionError("reply is unavailable after disconnect")
 
         def close(self) -> None:
             return None
@@ -689,4 +734,4 @@ async def test_smtp_disconnect_during_data_is_unknown(
     )
 
     assert result.status is EmailDeliveryStatus.UNKNOWN
-    assert result.detail == "smtp_result_unknown"
+    assert result.detail == "smtp_result_unknown_after_data"

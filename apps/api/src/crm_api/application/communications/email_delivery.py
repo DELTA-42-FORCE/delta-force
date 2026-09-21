@@ -43,7 +43,11 @@ class RepeatConfirmationRequiredError(Exception):
     pass
 
 
-class ConfirmedDeliveryAlreadyExistsError(Exception):
+class DeliveryAlreadyConfirmedError(Exception):
+    pass
+
+
+class DeliveryInProgressError(Exception):
     pass
 
 
@@ -289,7 +293,12 @@ class SendEmailBatchUseCase:
         if any(
             barrier.status is EmailDeliveryStatus.SENT for barrier in barriers.values()
         ):
-            raise ConfirmedDeliveryAlreadyExistsError
+            raise DeliveryAlreadyConfirmedError
+        if any(
+            barrier.status is EmailDeliveryStatus.PENDING
+            for barrier in barriers.values()
+        ):
+            raise DeliveryInProgressError
         if barriers and not confirm_repeat:
             raise RepeatConfirmationRequiredError
 
@@ -414,7 +423,11 @@ class SendEmailBatchUseCase:
         await self.audit.execute(
             actor_kind=AuditActorKind.AUTHENTICATED,
             actor_user_id=actor_user_id,
-            action=AuditAction.EMAIL_BATCH_COMPLETED,
+            action=(
+                AuditAction.EMAIL_BATCH_FAILED
+                if forced_failure
+                else AuditAction.EMAIL_BATCH_COMPLETED
+            ),
             resource_type=AuditResourceType.EMAIL_DISPATCH,
             resource_id=None,
             result=(
