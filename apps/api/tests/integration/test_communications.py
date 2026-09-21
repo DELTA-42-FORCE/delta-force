@@ -6,7 +6,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 
 from crm_api.application.audit.record_audit_event import RecordAuditEventUseCase
 from crm_api.application.communications.list_recipient_candidates import (
@@ -69,6 +69,7 @@ async def clear_communication_rows() -> AsyncIterator[None]:
         client_ids = select(ClientFolderModel.id).where(
             ClientFolderModel.display_name.like(f"{_CLIENT_PREFIX}%")
         )
+        await session.execute(update(EmailDispatchModel).values(retry_of=None))
         await session.execute(delete(EmailDispatchModel))
         await session.execute(delete(EmailSenderSettingsModel))
         await session.execute(
@@ -109,6 +110,21 @@ class SuccessfulSender:
         assert credential == "synthetic-session-secret"
         self.recipients.append(message.recipient)
         return EmailDeliveryResult(EmailDeliveryStatus.SENT)
+
+
+@dataclass
+class SequenceSender:
+    results: list[EmailDeliveryResult]
+
+    async def send(
+        self,
+        *,
+        settings: EmailSenderSettings,
+        message: OutboundEmail,
+        credential: str | None,
+    ) -> EmailDeliveryResult:
+        del settings, message, credential
+        return self.results.pop(0)
 
 
 async def test_template_persists_and_records_sanitized_audit_event() -> None:
@@ -367,7 +383,11 @@ async def test_sender_configuration_and_delivery_history_persist_without_secret(
                 select(AuditEventModel).where(
                     AuditEventModel.actor_user_id == owner_id,
                     AuditEventModel.action.in_(
-                        ["email_sender_settings.updated", "email_dispatch.batch_sent"]
+                        [
+                            "email_sender_settings.updated",
+                            "email_dispatch.batch_started",
+                            "email_dispatch.batch_completed",
+                        ]
                     ),
                 )
             )
@@ -377,7 +397,89 @@ async def test_sender_configuration_and_delivery_history_persist_without_secret(
     assert not hasattr(stored_settings, "credential")
     assert stored_dispatch is not None
     assert stored_dispatch.status == "sent"
+    assert stored_dispatch.retry_of is None
     assert "synthetic-session-secret" not in repr(
         (stored_settings, stored_dispatch, events)
     )
-    assert len(events) == 2
+    assert len(events) == 3
+
+
+async def test_confirmed_unknown_retry_persists_previous_attempt_link() -> None:
+    _requires_disposable_sqlite()
+    owner_id = uuid4()
+    client_id = uuid4()
+    sender = SequenceSender(
+        [
+            EmailDeliveryResult(
+                EmailDeliveryStatus.UNKNOWN,
+                "smtp_result_unknown_after_data",
+            ),
+            EmailDeliveryResult(EmailDeliveryStatus.SENT),
+        ]
+    )
+    async with get_session_factory()() as session:
+        session.add_all(
+            [
+                UserModel(
+                    id=owner_id,
+                    email=f"owner-{owner_id}{_OWNER_DOMAIN}",
+                    full_name="Proprietário Sintético",
+                    password_hash="synthetic-password-hash",
+                    is_active=True,
+                ),
+                ClientFolderModel(
+                    id=client_id,
+                    display_name=f"{_CLIENT_PREFIX}Reenvio",
+                    email="retry@example.com",
+                    profile_data={},
+                ),
+            ]
+        )
+        await session.flush()
+        repository = SqlAlchemyCommunicationRepository(session)
+        template = await repository.create_template(
+            name="Reenvio seguro",
+            subject="Assunto",
+            body="Corpo",
+        )
+        await repository.save_sender_settings(
+            settings=EmailSenderSettings(
+                sender_name="Escritório Sintético",
+                sender_email="sender@example.com",
+                smtp_host="smtp.example.com",
+                smtp_port=587,
+                security=SmtpSecurity.STARTTLS,
+                username="sender@example.com",
+                max_recipients=20,
+            )
+        )
+        await session.commit()
+        use_case = SendEmailBatchUseCase(
+            communications=repository,
+            clients=SqlAlchemyClientFolderRepository(session),
+            sender=sender,
+            audit=RecordAuditEventUseCase(SqlAlchemyAuditEventRepository(session)),
+            transaction=SqlAlchemyTransaction(session),
+        )
+        [uncertain] = await use_case.execute(
+            actor_user_id=owner_id,
+            template_id=template.id,
+            client_ids=[client_id],
+            credential="synthetic-session-secret",
+            confirm_repeat=False,
+        )
+        [retried] = await use_case.execute(
+            actor_user_id=owner_id,
+            template_id=template.id,
+            client_ids=[client_id],
+            credential="synthetic-session-secret",
+            confirm_repeat=True,
+        )
+
+    assert uncertain.status is EmailDeliveryStatus.UNKNOWN
+    assert retried.status is EmailDeliveryStatus.SENT
+    assert retried.retry_of == uncertain.id
+    async with get_session_factory()() as session:
+        stored = await session.get(EmailDispatchModel, retried.id)
+    assert stored is not None
+    assert stored.retry_of == uncertain.id

@@ -108,6 +108,11 @@ class EmailDispatchModel(Base):
     message_id: Mapped[str] = mapped_column(String(200), nullable=False, unique=True)
     status: Mapped[str] = mapped_column(String(24), nullable=False)
     detail: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    retry_of: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("email_dispatches.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
     attempted_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

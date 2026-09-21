@@ -1,10 +1,14 @@
 from datetime import UTC, datetime
+from pathlib import Path
+import re
+import runpy
 from typing import cast
 from uuid import uuid4
 
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects import sqlite
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import CheckConstraint
 from sqlalchemy.schema import CreateTable
 from sqlalchemy.sql import Select
 
@@ -92,6 +96,35 @@ def test_audit_table_contract_compiles_for_postgresql_and_sqlite() -> None:
         assert "'client_folder.viewed'" in normalized
         assert "'client_folder.updated'" in normalized
         assert "'client_folder'" in normalized
+
+
+def test_audit_catalog_matches_domain_orm_and_email_migration() -> None:
+    constraints = {
+        constraint.name: str(constraint.sqltext)
+        for constraint in AuditEventModel.__table__.constraints
+        if isinstance(constraint, CheckConstraint)
+    }
+    migration = runpy.run_path(
+        str(
+            Path(__file__).resolve().parents[3]
+            / "alembic"
+            / "versions"
+            / "20260920_0016_email_delivery.py"
+        )
+    )
+
+    def quoted_values(expression: str) -> set[str]:
+        return set(re.findall(r"'([^']+)'", expression))
+
+    expected_actions = {action.value for action in AuditAction}
+    expected_resources = {resource.value for resource in AuditResourceType}
+    assert quoted_values(constraints["ck_audit_events_action"]) == expected_actions
+    assert quoted_values(str(migration["_NEXT_ACTIONS"])) == expected_actions
+    assert (
+        quoted_values(constraints["ck_audit_events_resource_type"])
+        == expected_resources
+    )
+    assert quoted_values(str(migration["_NEXT_RESOURCES"])) == expected_resources
 
 
 async def test_repository_appends_with_flush_but_does_not_commit() -> None:

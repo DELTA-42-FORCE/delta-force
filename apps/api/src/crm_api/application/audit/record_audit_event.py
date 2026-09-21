@@ -32,6 +32,9 @@ _ALLOWED_CONTEXT_KEYS = frozenset(
         "failed_count",
         "requested_count",
         "sent_count",
+        "rejected_count",
+        "unknown_count",
+        "missing_email_count",
     }
 )
 _ALLOWED_HTTP_METHODS = frozenset(
@@ -158,6 +161,9 @@ class RecordAuditEventUseCase:
             "failed_count",
             "requested_count",
             "sent_count",
+            "rejected_count",
+            "unknown_count",
+            "missing_email_count",
         ):
             count = context.get(key)
             if count is not None and (not count.isascii() or not count.isdecimal()):

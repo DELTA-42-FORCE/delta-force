@@ -130,6 +130,46 @@ describe('CommunicationsPage', () => {
     expect(await screen.findByText('Envio configurado')).toBeVisible()
   })
 
+  it('shows the previous Message-ID for a confirmed retry chain', async () => {
+    const previousId = '00000000-0000-0000-0000-000000000044'
+    renderPage({
+      loadDispatches: vi.fn().mockResolvedValue([
+        {
+          id: '00000000-0000-0000-0000-000000000055',
+          template_id: TEMPLATE_ID,
+          client_id: CLIENT_ID,
+          recipient_email: 'ana@example.com',
+          subject: 'Nova tentativa',
+          body: 'Conteúdo sintético',
+          message_id: '<retry@delta-force.local>',
+          status: 'sent',
+          detail: null,
+          retry_of: previousId,
+          attempted_at: '2026-09-20T12:01:00Z',
+        },
+        {
+          id: previousId,
+          template_id: TEMPLATE_ID,
+          client_id: CLIENT_ID,
+          recipient_email: 'ana@example.com',
+          subject: 'Tentativa original',
+          body: 'Conteúdo sintético',
+          message_id: '<original@delta-force.local>',
+          status: 'unknown',
+          detail: 'smtp_result_unknown_after_data',
+          retry_of: null,
+          attempted_at: '2026-09-20T12:00:00Z',
+        },
+      ]),
+    })
+
+    expect(
+      await screen.findByText(
+        'Nova tentativa de: <original@delta-force.local>',
+      ),
+    ).toBeVisible()
+  })
+
   it('requires an explicit review step before starting an external send', async () => {
     const sendBatch = vi.fn().mockResolvedValue([
       {
@@ -142,6 +182,7 @@ describe('CommunicationsPage', () => {
         message_id: '<synthetic@delta-force.local>',
         status: 'sent',
         detail: null,
+        retry_of: null,
         attempted_at: '2026-09-20T12:00:00Z',
       },
     ])
@@ -151,10 +192,13 @@ describe('CommunicationsPage', () => {
     await screen.findByText('Ana Souza')
     await user.selectOptions(screen.getByLabelText('Modelo'), TEMPLATE_ID)
     await user.click(screen.getByLabelText('Selecionar Ana Souza'))
-    await user.type(
-      screen.getByLabelText('Senha ou senha de aplicativo'),
-      'segredo-sintético',
-    )
+    const credential = screen.getByLabelText(
+      'Senha ou senha de aplicativo',
+    ) as HTMLInputElement
+    expect(credential).toHaveAttribute('autocomplete', 'off')
+    await user.type(credential, 'segredo-sintético')
+    await user.click(screen.getByRole('button', { name: 'Mostrar' }))
+    expect(credential).toHaveAttribute('type', 'text')
     await user.click(screen.getByRole('button', { name: 'Revisar envio' }))
 
     expect(sendBatch).not.toHaveBeenCalled()
@@ -176,6 +220,58 @@ describe('CommunicationsPage', () => {
         '1 aceita(s), 0 rejeitada(s), 0 com resultado desconhecido e 0 sem e-mail.',
       ),
     ).toBeVisible()
+    expect(credential).toHaveValue('')
+    expect(credential).toHaveAttribute('type', 'password')
+  })
+
+  it('clears the session credential when send review is cancelled', async () => {
+    const user = userEvent.setup()
+    const { sendBatch } = renderPage()
+
+    await screen.findByText('Ana Souza')
+    await user.selectOptions(screen.getByLabelText('Modelo'), TEMPLATE_ID)
+    await user.click(screen.getByLabelText('Selecionar Ana Souza'))
+    const credential = screen.getByLabelText(
+      'Senha ou senha de aplicativo',
+    ) as HTMLInputElement
+    await user.type(credential, 'segredo-sintético')
+    await user.click(screen.getByRole('button', { name: 'Mostrar' }))
+    await user.click(screen.getByRole('button', { name: 'Revisar envio' }))
+    await user.click(screen.getByRole('button', { name: 'Cancelar revisão' }))
+
+    expect(sendBatch).not.toHaveBeenCalled()
+    expect(credential).toHaveValue('')
+    expect(credential).toHaveAttribute('type', 'password')
+    expect(
+      screen.queryByText(/próximo clique iniciará um envio externo/),
+    ).not.toBeInTheDocument()
+  })
+
+  it('clears the session credential when the send fails', async () => {
+    const sendBatch = vi
+      .fn()
+      .mockRejectedValue(new ApiError(503, 'synthetic transport failure'))
+    const user = userEvent.setup()
+    renderPage({ sendBatch })
+
+    await screen.findByText('Ana Souza')
+    await user.selectOptions(screen.getByLabelText('Modelo'), TEMPLATE_ID)
+    await user.click(screen.getByLabelText('Selecionar Ana Souza'))
+    const credential = screen.getByLabelText(
+      'Senha ou senha de aplicativo',
+    ) as HTMLInputElement
+    await user.type(credential, 'segredo-sintético')
+    await user.click(screen.getByRole('button', { name: 'Mostrar' }))
+    await user.click(screen.getByRole('button', { name: 'Revisar envio' }))
+    await user.click(screen.getByRole('button', { name: 'Confirmar e enviar' }))
+
+    expect(
+      await screen.findByText(
+        'Não foi possível concluir o envio. Revise a configuração.',
+      ),
+    ).toBeVisible()
+    expect(credential).toHaveValue('')
+    expect(credential).toHaveAttribute('type', 'password')
   })
 
   it('creates a static reusable template', async () => {

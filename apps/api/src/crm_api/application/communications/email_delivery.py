@@ -43,6 +43,14 @@ class RepeatConfirmationRequiredError(Exception):
     pass
 
 
+class DeliveryAlreadyConfirmedError(Exception):
+    pass
+
+
+class DeliveryInProgressError(Exception):
+    pass
+
+
 def normalize_sender_settings(
     *,
     sender_name: str,
@@ -271,80 +279,164 @@ class SendEmailBatchUseCase:
                 raise ValueError("one or more clients do not exist")
             selected_clients.append(client)
 
-        repeated_clients = [
-            client
-            for client in selected_clients
-            if client.email is not None
-            and await self.communications.has_delivery_requiring_confirmation(
-                template_id=template.id, client_id=client.id
+        retry_of_by_client: dict[UUID, UUID] = {}
+        for client in selected_clients:
+            if client.email is None:
+                continue
+            barrier = await self.communications.get_retry_barrier(
+                template_id=template.id,
+                client_id=client.id,
             )
-        ]
-        if repeated_clients and not confirm_repeat:
-            raise RepeatConfirmationRequiredError
+            if barrier is None:
+                continue
+            if barrier.status is EmailDeliveryStatus.SENT:
+                raise DeliveryAlreadyConfirmedError
+            if barrier.status is EmailDeliveryStatus.PENDING:
+                raise DeliveryInProgressError
+            if not confirm_repeat:
+                raise RepeatConfirmationRequiredError
+            retry_of_by_client[client.id] = barrier.id
 
         results: list[EmailDispatch] = []
-        for client in selected_clients:
-            subject = template.subject.replace("{{nome}}", client.display_name)
-            body = template.body.replace("{{nome}}", client.display_name)
-            message_id = f"<{uuid4()}@delta-force.local>"
+        try:
+            await self._record_batch_event(
+                actor_user_id=actor_user_id,
+                action=AuditAction.EMAIL_BATCH_STARTED,
+                result=AuditResult.SUCCESS,
+                requested_count=len(client_ids),
+                dispatches=results,
+            )
+            await self.transaction.commit()
 
-            if client.email is None:
-                dispatch = await self.communications.create_dispatch(
+            for client in selected_clients:
+                subject = template.subject.replace("{{nome}}", client.display_name)
+                body = template.body.replace("{{nome}}", client.display_name)
+                message_id = f"<{uuid4()}@delta-force.local>"
+
+                if client.email is None:
+                    dispatch = await self.communications.create_dispatch(
+                        template_id=template.id,
+                        client_id=client.id,
+                        recipient_email=None,
+                        subject=subject,
+                        body=body,
+                        message_id=message_id,
+                        status=EmailDeliveryStatus.MISSING_EMAIL,
+                        detail="client_email_missing",
+                        retry_of=None,
+                    )
+                    await self.transaction.commit()
+                    results.append(dispatch)
+                    continue
+
+                pending = await self.communications.create_dispatch(
                     template_id=template.id,
                     client_id=client.id,
-                    recipient_email=None,
+                    recipient_email=client.email,
                     subject=subject,
                     body=body,
                     message_id=message_id,
-                    status=EmailDeliveryStatus.MISSING_EMAIL,
-                    detail="client_email_missing",
+                    status=EmailDeliveryStatus.PENDING,
+                    detail=None,
+                    retry_of=retry_of_by_client.get(client.id),
+                )
+                await self.transaction.commit()
+                delivery = await self.sender.send(
+                    settings=settings,
+                    message=OutboundEmail(
+                        message_id=message_id,
+                        recipient=client.email,
+                        subject=subject,
+                        body=body,
+                    ),
+                    credential=credential,
+                )
+                if delivery.status not in {
+                    EmailDeliveryStatus.SENT,
+                    EmailDeliveryStatus.REJECTED,
+                    EmailDeliveryStatus.UNKNOWN,
+                }:
+                    raise RuntimeError("email sender returned an invalid status")
+                dispatch = await self.communications.update_dispatch_result(
+                    id=pending.id,
+                    status=delivery.status,
+                    detail=delivery.detail,
                 )
                 await self.transaction.commit()
                 results.append(dispatch)
-                continue
 
-            pending = await self.communications.create_dispatch(
-                template_id=template.id,
-                client_id=client.id,
-                recipient_email=client.email,
-                subject=subject,
-                body=body,
-                message_id=message_id,
-                status=EmailDeliveryStatus.PENDING,
-                detail=None,
+            completed_result = (
+                AuditResult.SUCCESS
+                if all(item.status is EmailDeliveryStatus.SENT for item in results)
+                else AuditResult.FAILURE
+            )
+            await self._record_batch_event(
+                actor_user_id=actor_user_id,
+                action=AuditAction.EMAIL_BATCH_COMPLETED,
+                result=completed_result,
+                requested_count=len(client_ids),
+                dispatches=results,
             )
             await self.transaction.commit()
-            delivery = await self.sender.send(
-                settings=settings,
-                message=OutboundEmail(
-                    message_id=message_id,
-                    recipient=client.email,
-                    subject=subject,
-                    body=body,
-                ),
-                credential=credential,
-            )
-            dispatch = await self.communications.update_dispatch_result(
-                id=pending.id,
-                status=delivery.status,
-                detail=delivery.detail,
-            )
-            await self.transaction.commit()
-            results.append(dispatch)
+        except Exception:
+            await self.transaction.rollback()
+            try:
+                await self._record_batch_event(
+                    actor_user_id=actor_user_id,
+                    action=AuditAction.EMAIL_BATCH_FAILED,
+                    result=AuditResult.FAILURE,
+                    requested_count=len(client_ids),
+                    dispatches=results,
+                )
+                await self.transaction.commit()
+            except Exception:
+                await self.transaction.rollback()
+            raise
+        return tuple(results)
 
+    async def _record_batch_event(
+        self,
+        *,
+        actor_user_id: UUID,
+        action: AuditAction,
+        result: AuditResult,
+        requested_count: int,
+        dispatches: list[EmailDispatch],
+    ) -> None:
         await self.audit.execute(
             actor_kind=AuditActorKind.AUTHENTICATED,
             actor_user_id=actor_user_id,
-            action=AuditAction.EMAIL_BATCH_SENT,
+            action=action,
             resource_type=AuditResourceType.EMAIL_DISPATCH,
             resource_id=None,
-            result=AuditResult.SUCCESS,
+            result=result,
             context={
-                "requested_count": str(len(client_ids)),
+                "requested_count": str(requested_count),
                 "sent_count": str(
-                    sum(item.status is EmailDeliveryStatus.SENT for item in results)
+                    sum(item.status is EmailDeliveryStatus.SENT for item in dispatches)
+                ),
+                "rejected_count": str(
+                    sum(
+                        item.status is EmailDeliveryStatus.REJECTED
+                        for item in dispatches
+                    )
+                ),
+                "unknown_count": str(
+                    sum(
+                        item.status is EmailDeliveryStatus.UNKNOWN
+                        for item in dispatches
+                    )
+                ),
+                "missing_email_count": str(
+                    sum(
+                        item.status is EmailDeliveryStatus.MISSING_EMAIL
+                        for item in dispatches
+                    )
+                ),
+                "failed_count": str(
+                    requested_count - len(dispatches)
+                    if action is AuditAction.EMAIL_BATCH_FAILED
+                    else 0
                 ),
             },
         )
-        await self.transaction.commit()
-        return tuple(results)

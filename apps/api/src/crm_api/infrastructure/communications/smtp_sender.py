@@ -3,6 +3,7 @@
 import asyncio
 from dataclasses import dataclass
 from email.message import EmailMessage
+from email import policy
 from email.utils import formataddr
 from ipaddress import ip_address
 import smtplib
@@ -18,6 +19,10 @@ from crm_api.domain.communications.entities import (
 )
 
 _LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+
+class _DeliveryOutcomeUnknown(Exception):
+    """A conexão falhou depois que o corpo começou a ser transmitido."""
 
 
 def _resolves_only_to_loopback(host: str, port: int) -> bool:
@@ -81,27 +86,39 @@ class SmtpEmailSender:
         payload["Message-ID"] = message.message_id
         payload.set_content(message.body)
 
+        client: smtplib.SMTP | None = None
         try:
             context = ssl.create_default_context()
             if settings.security is SmtpSecurity.TLS:
-                with smtplib.SMTP_SSL(
+                client = smtplib.SMTP_SSL(
                     settings.smtp_host,
                     settings.smtp_port,
                     timeout=self.timeout_seconds,
                     context=context,
-                ) as client:
-                    self._authenticate_and_send(client, settings, credential, payload)
+                )
+                self._require_ehlo(client)
             else:
-                with smtplib.SMTP(
+                client = smtplib.SMTP(
                     settings.smtp_host,
                     settings.smtp_port,
                     timeout=self.timeout_seconds,
-                ) as client:
-                    client.ehlo()
-                    if settings.security is SmtpSecurity.STARTTLS:
-                        client.starttls(context=context)
-                        client.ehlo()
-                    self._authenticate_and_send(client, settings, credential, payload)
+                )
+                self._require_ehlo(client)
+                if settings.security is SmtpSecurity.STARTTLS:
+                    client.starttls(context=context)
+                    self._require_ehlo(client)
+            self._authenticate(client, settings, credential)
+            self._send_envelope_and_data(
+                client,
+                settings=settings,
+                message=message,
+                payload=payload,
+            )
+        except _DeliveryOutcomeUnknown:
+            return EmailDeliveryResult(
+                status=EmailDeliveryStatus.UNKNOWN,
+                detail="smtp_result_unknown_after_data",
+            )
         except smtplib.SMTPAuthenticationError:
             return EmailDeliveryResult(
                 status=EmailDeliveryStatus.REJECTED,
@@ -116,25 +133,67 @@ class SmtpEmailSender:
                 status=EmailDeliveryStatus.REJECTED,
                 detail="smtp_rejected",
             )
-        except (smtplib.SMTPException, OSError, socket.timeout):
-            # A conexão pode cair depois de DATA: o servidor talvez já tenha
-            # aceitado a mensagem. Não classificar como falha reenviável evita
-            # duplicidade automática.
+        except (smtplib.SMTPException, OSError, socket.timeout, ssl.SSLError):
             return EmailDeliveryResult(
-                status=EmailDeliveryStatus.UNKNOWN,
-                detail="smtp_result_unknown",
+                status=EmailDeliveryStatus.REJECTED,
+                detail="smtp_failed_before_data",
             )
+        finally:
+            if client is not None:
+                try:
+                    client.close()
+                except OSError:
+                    pass
         return EmailDeliveryResult(status=EmailDeliveryStatus.SENT)
 
     @staticmethod
-    def _authenticate_and_send(
+    def _require_ehlo(client: smtplib.SMTP) -> None:
+        code, message = client.ehlo()
+        if code >= 400:
+            raise smtplib.SMTPHeloError(code, message)
+
+    @staticmethod
+    def _authenticate(
         client: smtplib.SMTP,
         settings: EmailSenderSettings,
         credential: str | None,
-        payload: EmailMessage,
     ) -> None:
         if settings.username:
             client.login(settings.username, credential or "")
-        refused = client.send_message(payload)
-        if refused:
-            raise smtplib.SMTPRecipientsRefused(refused)
+
+    @staticmethod
+    def _send_envelope_and_data(
+        client: smtplib.SMTP,
+        *,
+        settings: EmailSenderSettings,
+        message: OutboundEmail,
+        payload: EmailMessage,
+    ) -> None:
+        code, response = client.mail(settings.sender_email)
+        if code != 250:
+            raise smtplib.SMTPSenderRefused(
+                code,
+                response,
+                settings.sender_email,
+            )
+        code, response = client.rcpt(message.recipient)
+        if code not in {250, 251}:
+            raise smtplib.SMTPRecipientsRefused({message.recipient: (code, response)})
+        code, response = client.docmd("DATA")
+        if code != 354:
+            raise smtplib.SMTPDataError(code, response)
+
+        serialized = payload.as_bytes(policy=policy.SMTP)
+        dot_stuffed = b"\r\n".join(
+            b"." + line if line.startswith(b".") else line
+            for line in serialized.split(b"\r\n")
+        )
+        if not dot_stuffed.endswith(b"\r\n"):
+            dot_stuffed += b"\r\n"
+        try:
+            client.send(dot_stuffed + b".\r\n")
+            code, response = client.getreply()
+        except (smtplib.SMTPException, OSError, socket.timeout) as error:
+            raise _DeliveryOutcomeUnknown from error
+        if code != 250:
+            raise smtplib.SMTPDataError(code, response)

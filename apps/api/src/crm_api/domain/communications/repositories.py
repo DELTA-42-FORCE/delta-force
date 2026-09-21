@@ -57,6 +57,7 @@ class CommunicationRepository(Protocol):
         message_id: str,
         status: EmailDeliveryStatus,
         detail: str | None,
+        retry_of: UUID | None,
     ) -> EmailDispatch: ...
 
     async def update_dispatch_result(
@@ -67,9 +68,9 @@ class CommunicationRepository(Protocol):
         detail: str | None,
     ) -> EmailDispatch: ...
 
-    async def has_delivery_requiring_confirmation(
+    async def get_retry_barrier(
         self, *, template_id: UUID, client_id: UUID
-    ) -> bool: ...
+    ) -> EmailDispatch | None: ...
 
     async def list_dispatches(
         self, *, limit: int, before: EmailDispatchCursor | None

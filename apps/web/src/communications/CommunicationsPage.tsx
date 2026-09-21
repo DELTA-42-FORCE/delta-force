@@ -184,6 +184,16 @@ export function CommunicationsPage({
     max_recipients: 50,
   })
 
+  function clearEphemeralCredential() {
+    setCredential('')
+    setShowCredential(false)
+  }
+
+  function cancelSendReview() {
+    if (sendConfirmationPending) clearEphemeralCredential()
+    setSendConfirmationPending(false)
+  }
+
   useEffect(() => {
     let active = true
     const cachedRequest = templatesRequestRef.current
@@ -344,7 +354,7 @@ export function CommunicationsPage({
         setTemplateNotice(`Modelo “${created.name}” criado.`)
       }
       setEditor({ mode: 'closed' })
-      setSendConfirmationPending(false)
+      cancelSendReview()
       setTemplatesState('ready')
     } catch (error) {
       setTemplateError(describeTemplateFailure(error, 'save'))
@@ -363,7 +373,7 @@ export function CommunicationsPage({
         current.filter((item) => item.id !== template.id),
       )
       setPendingDeleteId(null)
-      setSendConfirmationPending(false)
+      cancelSendReview()
       setTemplateNotice(`Modelo “${template.name}” removido.`)
     } catch (error) {
       setTemplateError(describeTemplateFailure(error, 'delete'))
@@ -381,13 +391,13 @@ export function CommunicationsPage({
     setCandidateMoreState('idle')
     setCandidateError(null)
     setSelectedClients(new Set())
-    setSendConfirmationPending(false)
+    cancelSendReview()
     setCandidateState('loading')
     setCandidateStatus(status)
   }
 
   function toggleCandidate(clientId: string) {
-    setSendConfirmationPending(false)
+    cancelSendReview()
     setSelectedClients((current) => {
       const next = new Set(current)
       if (next.has(clientId)) next.delete(clientId)
@@ -419,7 +429,7 @@ export function CommunicationsPage({
     try {
       const saved = await saveSenderSettings(senderSettings)
       setSenderSettings(saved)
-      setSendConfirmationPending(false)
+      cancelSendReview()
       setSenderState('ready')
     } catch {
       setSenderError('Não foi possível salvar a configuração do remetente.')
@@ -433,6 +443,8 @@ export function CommunicationsPage({
     setSendNotice(null)
     if (!selectedTemplateId || selectedClients.size === 0) {
       setSendError('Escolha um modelo e pelo menos um cliente.')
+      clearEphemeralCredential()
+      setSendConfirmationPending(false)
       return
     }
     if (senderSettings.username && !credential) {
@@ -462,9 +474,7 @@ export function CommunicationsPage({
       setSendNotice(
         `${sent} aceita(s), ${rejected} rejeitada(s), ${unknown} com resultado desconhecido e ${missing} sem e-mail.`,
       )
-      setCredential('')
       setConfirmRepeat(false)
-      setSendConfirmationPending(false)
       try {
         const history = await loadDispatches()
         setDispatches(history)
@@ -481,7 +491,23 @@ export function CommunicationsPage({
         error.message === 'repeat confirmation required'
       ) {
         setSendError(
-          'Há destinatários com envio confirmado, resultado desconhecido ou tentativa em andamento. Marque a confirmação de reenvio para assumir o risco de duplicidade.',
+          'Há destinatários com resultado desconhecido. Marque a confirmação de nova tentativa para assumir o risco de duplicidade.',
+        )
+      } else if (
+        error instanceof ApiError &&
+        error.status === 409 &&
+        error.message === 'delivery already confirmed'
+      ) {
+        setSendError(
+          'Há destinatários com entrega já confirmada. Eles nunca são reenviados.',
+        )
+      } else if (
+        error instanceof ApiError &&
+        error.status === 409 &&
+        error.message === 'delivery already in progress'
+      ) {
+        setSendError(
+          'Há destinatários com tentativa ainda em andamento. Consulte o histórico antes de tentar novamente.',
         )
       } else {
         setSendError(
@@ -489,6 +515,8 @@ export function CommunicationsPage({
         )
       }
     } finally {
+      clearEphemeralCredential()
+      setSendConfirmationPending(false)
       setSendState('idle')
     }
   }
@@ -738,7 +766,7 @@ export function CommunicationsPage({
               value={selectedTemplateId}
               onChange={(event) => {
                 setSelectedTemplateId(event.target.value)
-                setSendConfirmationPending(false)
+                cancelSendReview()
               }}
             >
               <option value="">Selecione um modelo</option>
@@ -756,8 +784,11 @@ export function CommunicationsPage({
             <div className="password-input">
               <input
                 id="smtp-credential"
+                name="smtp-session-secret"
                 type={showCredential ? 'text' : 'password'}
-                autoComplete="current-password"
+                autoComplete="off"
+                data-1p-ignore="true"
+                data-lpignore="true"
                 value={credential}
                 onChange={(event) => setCredential(event.target.value)}
               />
@@ -777,11 +808,11 @@ export function CommunicationsPage({
               checked={confirmRepeat}
               onChange={(event) => {
                 setConfirmRepeat(event.target.checked)
-                setSendConfirmationPending(false)
+                cancelSendReview()
               }}
             />{' '}
-            Confirmo o reenvio mesmo quando houver entrega confirmada, resultado
-            desconhecido ou tentativa ainda pendente
+            Confirmo uma nova tentativa quando o resultado anterior for
+            desconhecido
           </label>
           <p>{selectedClients.size} cliente(s) selecionado(s).</p>
           {sendConfirmationPending && (
@@ -789,6 +820,13 @@ export function CommunicationsPage({
               Revise o modelo e os {selectedClients.size} destinatário(s). O
               próximo clique iniciará um envio externo que não pode ser
               desfeito.
+              <button
+                className="text-button"
+                type="button"
+                onClick={cancelSendReview}
+              >
+                Cancelar revisão
+              </button>
             </div>
           )}
           {sendError !== null && <p role="alert">{sendError}</p>}
@@ -1163,6 +1201,14 @@ export function CommunicationsPage({
                 <strong>{dispatch.subject}</strong>
                 <span>{dispatch.recipient_email ?? 'Cliente sem e-mail'}</span>
                 <small>{DELIVERY_STATUS_LABELS[dispatch.status]}</small>
+                <small>Message-ID: {dispatch.message_id}</small>
+                {dispatch.retry_of !== null && (
+                  <small>
+                    Nova tentativa de:{' '}
+                    {dispatches.find((item) => item.id === dispatch.retry_of)
+                      ?.message_id ?? dispatch.retry_of}
+                  </small>
+                )}
               </li>
             ))}
           </ul>

@@ -40,13 +40,22 @@ class AuditEventModel(Base):
             "'document.stored', 'document.viewed', 'document.exported', "
             "'document.status_updated', 'message_template.created', "
             "'message_template.updated', 'message_template.deleted', "
-            "'recipient_candidates.viewed', 'legacy_import.completed')",
+            "'recipient_candidates.viewed', 'legacy_import.completed', "
+            "'contract.created', 'contract.viewed', "
+            "'contract.installment_paid', 'contract.cancelled', "
+            "'email_sender_settings.updated', "
+            "'email_sender_settings.viewed', "
+            "'email_dispatch.batch_started', "
+            "'email_dispatch.batch_completed', "
+            "'email_dispatch.batch_failed', "
+            "'email_dispatch.history_viewed')",
             name="ck_audit_events_action",
         ),
         CheckConstraint(
             "resource_type IN ('owner_account', 'session', 'route', "
             "'audit_log', 'client_folder', 'document', 'message_template', "
-            "'legacy_import')",
+            "'legacy_import', 'contract', 'email_sender_settings', "
+            "'email_dispatch')",
             name="ck_audit_events_resource_type",
         ),
         CheckConstraint(

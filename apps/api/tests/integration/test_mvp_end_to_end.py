@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 
 from crm_api.application.audit.record_audit_event import RecordAuditEventUseCase
 from crm_api.application.communications.email_delivery import SendEmailBatchUseCase
@@ -76,6 +76,7 @@ async def _clear_e2e_rows() -> None:
     if not _is_disposable_sqlite():
         return
     async with get_session_factory()() as session:
+        await session.execute(update(EmailDispatchModel).values(retry_of=None))
         await session.execute(delete(EmailDispatchModel))
         await session.execute(delete(EmailSenderSettingsModel))
         await session.execute(delete(DocumentModel))
@@ -350,6 +351,7 @@ async def test_owner_walks_the_core_mvp_flow(tmp_path: Path) -> None:
         "recipient_candidates.viewed",
         "email_sender_settings.updated",
         "email_sender_settings.viewed",
-        "email_dispatch.batch_sent",
+        "email_dispatch.batch_started",
+        "email_dispatch.batch_completed",
         "email_dispatch.history_viewed",
     } <= actions

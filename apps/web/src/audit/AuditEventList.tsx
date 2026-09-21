@@ -11,6 +11,10 @@ const ACTION_LABELS: Readonly<Record<string, string>> = {
   'contract.viewed': 'Contratos consultados',
   'contract.installment_paid': 'Pagamento de parcela registrado',
   'contract.cancelled': 'Contrato cancelado',
+  'email_dispatch.batch_started': 'Envio em lote iniciado',
+  'email_dispatch.batch_completed': 'Envio em lote concluído',
+  'email_dispatch.batch_failed': 'Envio em lote interrompido',
+  'email_dispatch.history_viewed': 'Histórico de envios consultado',
 }
 
 const RESULT_LABELS: Readonly<Record<string, string>> = {

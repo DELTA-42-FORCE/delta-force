@@ -28,7 +28,8 @@ _CURRENT_ACTIONS = (
 )
 _NEXT_ACTIONS = _CURRENT_ACTIONS[:-1] + (
     ", 'email_sender_settings.updated', 'email_sender_settings.viewed', "
-    "'email_dispatch.batch_sent', 'email_dispatch.history_viewed')"
+    "'email_dispatch.batch_started', 'email_dispatch.batch_completed', "
+    "'email_dispatch.batch_failed', 'email_dispatch.history_viewed')"
 )
 _CURRENT_RESOURCES = (
     "resource_type IN ('owner_account', 'session', 'route', 'audit_log', "
@@ -90,6 +91,7 @@ def upgrade() -> None:
         sa.Column("message_id", sa.String(length=200), nullable=False),
         sa.Column("status", sa.String(length=24), nullable=False),
         sa.Column("detail", sa.String(length=200), nullable=True),
+        sa.Column("retry_of", sa.Uuid(), nullable=True),
         sa.Column(
             "attempted_at",
             sa.DateTime(timezone=True),
@@ -104,6 +106,9 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(
             ["client_id"], ["client_folders.id"], ondelete="RESTRICT"
         ),
+        sa.ForeignKeyConstraint(
+            ["retry_of"], ["email_dispatches.id"], ondelete="RESTRICT"
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("message_id"),
     )
@@ -117,6 +122,11 @@ def upgrade() -> None:
         "email_dispatches",
         ["template_id", "client_id", "status"],
     )
+    op.create_index(
+        "ix_email_dispatches_retry_of",
+        "email_dispatches",
+        ["retry_of"],
+    )
     _replace_audit_catalog(include_email=True)
 
 
@@ -128,7 +138,8 @@ def downgrade() -> None:
             "EXISTS(SELECT 1 FROM email_dispatches) OR "
             "EXISTS(SELECT 1 FROM audit_events WHERE action IN "
             "('email_sender_settings.updated', 'email_sender_settings.viewed', "
-            "'email_dispatch.batch_sent', 'email_dispatch.history_viewed'))"
+            "'email_dispatch.batch_started', 'email_dispatch.batch_completed', "
+            "'email_dispatch.batch_failed', 'email_dispatch.history_viewed'))"
         )
     )
     if has_data:
@@ -136,6 +147,7 @@ def downgrade() -> None:
             "cannot safely downgrade 20260920_0016 while email data exists"
         )
     _replace_audit_catalog(include_email=False)
+    op.drop_index("ix_email_dispatches_retry_of", table_name="email_dispatches")
     op.drop_index(
         "ix_email_dispatches_template_client_status",
         table_name="email_dispatches",

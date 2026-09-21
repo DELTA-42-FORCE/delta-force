@@ -80,6 +80,7 @@ class EmailDispatchResponse(BaseModel):
     message_id: str
     status: EmailDeliveryStatus
     detail: str | None
+    retry_of: UUID | None
     attempted_at: datetime
 
 
