@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from uuid import UUID
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from crm_api.domain.communications.entities import (
@@ -228,6 +228,24 @@ class SqlAlchemyCommunicationRepository:
         await self.session.refresh(model)
         return _to_dispatch(model)
 
+    async def reconcile_stale_pending_dispatches(
+        self, *, template_id: UUID, client_ids: list[UUID]
+    ) -> None:
+        if not client_ids:
+            return
+        await self.session.execute(
+            update(EmailDispatchModel)
+            .where(
+                EmailDispatchModel.template_id == template_id,
+                EmailDispatchModel.client_id.in_(client_ids),
+                EmailDispatchModel.status == EmailDeliveryStatus.PENDING.value,
+            )
+            .values(
+                status=EmailDeliveryStatus.UNKNOWN.value,
+                detail="sender_interrupted",
+            )
+        )
+
     async def latest_delivery_barrier(
         self, *, template_id: UUID, client_id: UUID
     ) -> EmailDispatch | None:
@@ -236,13 +254,6 @@ class SqlAlchemyCommunicationRepository:
             .where(
                 EmailDispatchModel.template_id == template_id,
                 EmailDispatchModel.client_id == client_id,
-                EmailDispatchModel.status.in_(
-                    [
-                        EmailDeliveryStatus.PENDING.value,
-                        EmailDeliveryStatus.SENT.value,
-                        EmailDeliveryStatus.UNKNOWN.value,
-                    ]
-                ),
             )
             .order_by(
                 EmailDispatchModel.attempted_at.desc(),
@@ -251,7 +262,13 @@ class SqlAlchemyCommunicationRepository:
             .limit(1)
         )
         model = await self.session.scalar(statement)
-        return _to_dispatch(model) if model is not None else None
+        if model is None or model.status not in {
+            EmailDeliveryStatus.PENDING.value,
+            EmailDeliveryStatus.SENT.value,
+            EmailDeliveryStatus.UNKNOWN.value,
+        }:
+            return None
+        return _to_dispatch(model)
 
     async def list_dispatches(
         self, *, limit: int, before: EmailDispatchCursor | None

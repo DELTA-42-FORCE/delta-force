@@ -9,7 +9,6 @@ import pytest
 from crm_api.application.audit.record_audit_event import RecordAuditEventUseCase
 from crm_api.application.communications.email_delivery import (
     DeliveryAlreadyConfirmedError,
-    DeliveryInProgressError,
     ConfigureEmailSenderUseCase,
     RepeatConfirmationRequiredError,
     SendEmailBatchUseCase,
@@ -139,22 +138,36 @@ class FakeCommunications:
         self.dispatches[self.dispatches.index(current)] = updated
         return updated
 
+    async def reconcile_stale_pending_dispatches(
+        self, *, template_id: UUID, client_ids: list[UUID]
+    ) -> None:
+        for index, item in enumerate(self.dispatches):
+            if (
+                item.template_id == template_id
+                and item.client_id in client_ids
+                and item.status is EmailDeliveryStatus.PENDING
+            ):
+                self.dispatches[index] = replace(
+                    item,
+                    status=EmailDeliveryStatus.UNKNOWN,
+                    detail="sender_interrupted",
+                )
+
     async def latest_delivery_barrier(
         self, *, template_id: UUID, client_id: UUID
     ) -> EmailDispatch | None:
         matches = [
             item
             for item in self.dispatches
-            if item.template_id == template_id
-            and item.client_id == client_id
-            and item.status
-            in {
-                EmailDeliveryStatus.PENDING,
-                EmailDeliveryStatus.SENT,
-                EmailDeliveryStatus.UNKNOWN,
-            }
+            if item.template_id == template_id and item.client_id == client_id
         ]
-        return matches[-1] if matches else None
+        if not matches or matches[-1].status not in {
+            EmailDeliveryStatus.PENDING,
+            EmailDeliveryStatus.SENT,
+            EmailDeliveryStatus.UNKNOWN,
+        }:
+            return None
+        return matches[-1]
 
 
 def _settings() -> EmailSenderSettings:
@@ -289,11 +302,7 @@ async def test_batch_requires_confirmation_before_repeating_uncertain_delivery(
     expected_error = (
         DeliveryAlreadyConfirmedError
         if previous_status is EmailDeliveryStatus.SENT
-        else (
-            DeliveryInProgressError
-            if previous_status is EmailDeliveryStatus.PENDING
-            else RepeatConfirmationRequiredError
-        )
+        else RepeatConfirmationRequiredError
     )
     with pytest.raises(expected_error):
         await SendEmailBatchUseCase(
@@ -501,11 +510,11 @@ async def test_confirmed_delivery_is_never_repeated_even_with_confirmation() -> 
     assert sender.messages == []
 
 
-async def test_pending_delivery_is_never_repeated_even_with_confirmation() -> None:
+async def test_stale_pending_from_previous_runtime_is_retried_with_reference() -> None:
     template = _template()
     client = _client("cliente@example.com")
     repository = FakeCommunications(settings=_settings(), template=template)
-    await repository.create_dispatch(
+    previous = await repository.create_dispatch(
         template_id=template.id,
         client_id=client.id,
         recipient_email=client.email,
@@ -518,20 +527,73 @@ async def test_pending_delivery_is_never_repeated_even_with_confirmation() -> No
         detail=None,
     )
 
-    with pytest.raises(DeliveryInProgressError):
-        await SendEmailBatchUseCase(
-            communications=repository,  # type: ignore[arg-type]
-            clients=FakeClients({client.id: client}),  # type: ignore[arg-type]
-            sender=FakeSender(EmailDeliveryResult(EmailDeliveryStatus.SENT)),
-            audit=RecordAuditEventUseCase(FakeAudit()),
-            transaction=FakeTransaction(),
-        ).execute(
-            actor_user_id=uuid4(),
-            template_id=template.id,
-            client_ids=[client.id],
-            credential="segredo-sintético",
-            confirm_repeat=True,
-        )
+    results = await SendEmailBatchUseCase(
+        communications=repository,  # type: ignore[arg-type]
+        clients=FakeClients({client.id: client}),  # type: ignore[arg-type]
+        sender=FakeSender(EmailDeliveryResult(EmailDeliveryStatus.SENT)),
+        audit=RecordAuditEventUseCase(FakeAudit()),
+        transaction=FakeTransaction(),
+    ).execute(
+        actor_user_id=uuid4(),
+        template_id=template.id,
+        client_ids=[client.id],
+        credential="segredo-sintético",
+        confirm_repeat=True,
+    )
+
+    assert repository.dispatches[0].status is EmailDeliveryStatus.UNKNOWN
+    assert repository.dispatches[0].detail == "sender_interrupted"
+    assert results[0].status is EmailDeliveryStatus.SENT
+    assert results[0].retry_of_id == previous.id
+    assert results[0].retry_of_message_id == previous.message_id
+
+
+async def test_latest_rejection_supersedes_older_unknown_attempt() -> None:
+    template = _template()
+    client = _client("cliente@example.com")
+    repository = FakeCommunications(settings=_settings(), template=template)
+    await repository.create_dispatch(
+        template_id=template.id,
+        client_id=client.id,
+        recipient_email=client.email,
+        subject="incerto",
+        body="incerto",
+        message_id="<unknown@delta-force.local>",
+        retry_of_id=None,
+        retry_of_message_id=None,
+        status=EmailDeliveryStatus.UNKNOWN,
+        detail="smtp_result_unknown",
+    )
+    await repository.create_dispatch(
+        template_id=template.id,
+        client_id=client.id,
+        recipient_email=client.email,
+        subject="rejeitado",
+        body="rejeitado",
+        message_id="<rejected@delta-force.local>",
+        retry_of_id=None,
+        retry_of_message_id=None,
+        status=EmailDeliveryStatus.REJECTED,
+        detail="smtp_rejected",
+    )
+
+    results = await SendEmailBatchUseCase(
+        communications=repository,  # type: ignore[arg-type]
+        clients=FakeClients({client.id: client}),  # type: ignore[arg-type]
+        sender=FakeSender(EmailDeliveryResult(EmailDeliveryStatus.SENT)),
+        audit=RecordAuditEventUseCase(FakeAudit()),
+        transaction=FakeTransaction(),
+    ).execute(
+        actor_user_id=uuid4(),
+        template_id=template.id,
+        client_ids=[client.id],
+        credential="segredo-sintético",
+        confirm_repeat=False,
+    )
+
+    assert results[0].status is EmailDeliveryStatus.SENT
+    assert results[0].retry_of_id is None
+    assert results[0].retry_of_message_id is None
 
 
 async def test_confirmed_unknown_retry_keeps_previous_attempt_reference() -> None:
