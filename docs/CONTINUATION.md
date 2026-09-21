@@ -1,145 +1,117 @@
 # Continuação do projeto
 
 Este arquivo permite retomar o trabalho sem depender do histórico de uma
-conversa. Antes de agir, leia `AGENTS.md` e confirme o estado atual no GitHub;
-os dados abaixo são um retrato de **20 de setembro de 2026, após a integração da
-PR #101**.
+conversa. Antes de agir, leia AGENTS.md, execute git fetch origin --prune e
+confirme o estado no GitHub. Este retrato foi atualizado em **20 de setembro de
+2026**, após o rebase e a correção de segurança da PR #99.
 
-## Estado confirmado
+## Estado integrado em develop
 
-- `origin/develop` estava em `70e5619`, após o merge da PR #101.
-- Acesso local, clientes, documentos PDF/JPEG, status documental, ficha PDF,
-  importação assistida, auditoria, modelos de mensagem e triagem estão
-  integrados.
-- O E2E da preparação de comunicação, o texto de progresso do painel e a
-  inicialização do SQLite no aplicativo Windows instalado também estão
-  integrados.
-- As GitHub Actions obrigatórias usam versões com runtime Node 24; o Node 22 da
-  aplicação permanece inalterado.
-- As falhas de inicialização do aplicativo instalado agora produzem diagnóstico
-  sanitizado, e a PR #92 reforça upload/download de documentos, auditoria da
-  importação, limites técnicos e auditoria de dependências.
-- O envio real de e-mail, backup/restauração e o aceite completo do MVP em uma
-  instalação Windows limpa ainda não estão concluídos. Confirme no GitHub as
-  PRs abertas antes de iniciar ou integrar qualquer trabalho.
-- Use somente dados sintéticos. Não copie banco, documento, senha, token ou
-  `.env` de cliente para branch, PR, issue ou log.
+- origin/develop está em 625b608.
+- **#94:** ADR 0004 de backup/restauração aceita.
+- **#95:** ADR 0005 de envio seguro e credencial efêmera aceita.
+- **#96:** contratos e parcelamento integrados; migrations agora seguem uma
+  única cadeia.
+- **#97:** e-mail opcional do cliente, prévia e variável {{nome}} integrados.
+- **#101:** just audit funciona em Linux e PowerShell.
+- **#102:** decisões técnicas do time para e-mail e backup registradas.
+- Autenticação local, clientes, documentos PDF/JPEG, status, importação,
+  ficha PDF, auditoria, modelos de mensagem e contratos também estão integrados.
+- Use somente dados sintéticos. Nunca copie banco, documento, senha, token,
+  credencial SMTP ou .env real para branch, PR, issue, teste ou log.
 
-## Últimas integrações
+## Pull requests abertas
 
-- **#79:** interface de modelos e triagem, sem envio real.
-- **#80:** E2E da preparação de comunicação, cobrindo status documental,
-  criação de modelo, triagem e auditoria.
-- **#81:** texto de progresso do painel alinhado ao estado atual.
-- **#82:** handoff inicial para continuidade do projeto.
-- **#83:** inclusão do driver SQLite no sidecar instalado e smoke test cauteloso
-  do instalador Windows.
-- **#84:** consulta autenticada de modelo por ID e cobertura HTTP do ciclo CRUD.
-- **#87:** atualização das GitHub Actions para runtime Node 24, preservando
-  versões, caches, permissões e comandos da aplicação.
-- **#89:** diagnóstico sanitizado para falhas de inicialização do desktop
-  empacotado; nenhum segredo, dado pessoal ou caminho privado é persistido.
-- **#90:** registro das confirmações do cliente sobre parcelamento futuro, sem
-  ampliar o MVP atual.
-- **#91:** registro objetivo das perguntas que ainda bloqueiam e-mail (#46) e
-  backup (#44).
-- **#92:** reforço de documentos, importação, limites de campos, dependências e
-  tolerância da primeira abertura no Windows; os sete checks passaram na revisão
-  integrada, inclusive o smoke test do instalador.
-- **#96:** contratos e parcelamento da etapa posterior ao MVP, com valores em
-  centavos, vencimentos civis, pagamentos, cancelamento, auditoria e interface.
-- **#101:** `just audit` portátil para Linux e PowerShell, executando todos os
-  scanners obrigatórios e agregando falhas sem atualizar dependências.
-- **#102:** decisões do time sobre envio individual, resultado SMTP desconhecido,
-  lembrete de backup e restauração com proteção dos dados existentes.
+### #103 — envio e histórico de e-mail
 
-## Bloqueios que não devem ser inventados
+- URL: https://github.com/DELTA-42-FORCE/delta-force/pull/103
+- Branch: codex/25-email-sending-history; base: develop.
+- Head conferido: aacb4d5.
+- Os sete checks do GitHub estão verdes, mas a revisão continua em
+  **changes requested**.
+- Não aprovar enquanto o head não corrigir:
+  1. entrega SENT nunca pode ser repetida;
+  2. credencial SMTP não pode usar/autosalvar a senha do CRM;
+  3. falhas inequivocamente anteriores a DATA não podem virar UNKNOWN;
+  4. repetição de UNKNOWN precisa referenciar tentativa e Message-ID prévios;
+  5. auditoria do lote precisa começar antes do primeiro efeito e concluir/falhar
+     com contagens;
+  6. constraints ORM precisam permanecer em paridade com o catálogo migrado.
 
-- **#24:** CRUD, triagem e interface estão integrados; faltam homologar as
-  variáveis de modelo e onde cadastrar/validar o e-mail opcional do cliente.
-- **#46:** o cliente ainda precisa informar remetente, provedor/conta e os
-  mecanismos de envio autorizados pelo provedor, além do volume/frequência. O
-  envio individual, o tratamento de falhas e resultados desconhecidos já foram
-  decididos na #102. O time escolhe o adaptador e a guarda segura da credencial;
-  isso não deve ser delegado ao cliente. A proposta técnica está na PR #95 e
-  ainda aguarda correções.
-- **#44:** o HD externo e o uso de senha digitada pelo proprietário foram
-  confirmados; ainda faltam decisões operacionais sobre custódia/recuperação da
-  senha, responsáveis, frequência, retenção, modo de restauração e proteção dos
-  equipamentos. O formato criptográfico, snapshot consistente e restauração
-  atômica são decisões do time; a proposta técnica está na PR #94 e ainda
-  aguarda revisão. Não implemente backup desprotegido.
-- **ADR 0002/#43:** a arquitetura está **Aceita** e a issue #43 está concluída.
-  A PR #48 aprovou Tauri 2, React, FastAPI empacotada como sidecar e
-  SQLite/filesystem privado; a integração essencial foi entregue pela #57.
-  Permanecem pendentes somente os gates operacionais e de release registrados
-  na própria ADR, como proteção do equipamento, assinatura e recuperação do
-  backup.
-- **#26:** depende das decisões operacionais restantes e da entrega #44.
-- **#27:** permanece aberta até envio/histórico, backup/restauração e aceite em
-  instalação Windows limpa.
-- As PRs #94 e #95 propõem as decisões técnicas de backup e e-mail, mas continuam
-  com correções solicitadas. As PRs funcionais #97–#100 estão empilhadas e não
-  podem ser integradas antes de rebase, revisão e checks próprios. Não retire
-  `status: blocked` nem feche issue com base apenas na existência dessas branches.
+### #99 — backup cifrado e restauração
 
-## Próxima sequência segura
+- URL: https://github.com/DELTA-42-FORCE/delta-force/pull/99
+- Branch: codex/44-encrypted-backup-restore; base empilhada: #103.
+- Head publicado: adc265d; estado atual da cadeia: mergeável, aguardando
+  nova revisão.
+- O rebase preservou contratos/e-mail e renumerou o backup para
+  20260920_0017.
+- Os três bloqueios anteriores foram corrigidos: junction/reparse point,
+  UNC/dispositivo antes de I/O e compensação do arquivo quando auditoria/commit
+  falham.
+- Evidência do novo head: just check com 340 testes unitários, 46 integrações
+  SQLite e 139 testes web; just desktop-test com 10 testes Python e 8 Rust;
+  just audit sem vulnerabilidade bloqueante.
+- A PR entrega restauração em instalação vazia. A substituição autenticada de
+  dados existentes prevista na ADR 0004 ainda não foi implementada; por isso a
+  PR referencia #44, mas não deve fechá-la.
+- Depois do merge de #103, rebasear #99 sobre origin/develop, repetir todos os
+  gates e obter nova aprovação do head resultante.
 
-1. Corrigir, revisar e decidir as propostas técnicas das PRs #94 e #95.
-2. Rebasear e revisar #97 isoladamente; depois retargetear #98, #99 e #100, uma
-   por vez, sempre sobre a `develop` atual e com checks próprios.
-3. Obter do cliente as decisões operacionais ainda pendentes de #44 e #46.
-4. Manter #25 e #44 abertas até configuração/teste real, mesmo que a fundação de
-   código seja integrada.
-5. Completar #26 e executar o aceite final de #27 em Windows limpo e HD real.
+### #100 — operação, LGPD e aceite Windows
 
-### Informações necessárias para destravar #46
+- URL: https://github.com/DELTA-42-FORCE/delta-force/pull/100
+- Branch: codex/26-operations-lgpd; base empilhada: #99.
+- Contém docs/OPERATION_MANUAL.md e docs/WINDOWS_ACCEPTANCE_CHECKLIST.md.
+- Esta branch foi rebaseada localmente sobre adc265d; confirme o head publicado
+  e os checks antes de revisar.
+- O smoke antigo do instalador é evidência histórica, não substitui o aceite do
+  build final numa máquina Windows limpa, HD externo real e SMTP autorizado.
 
-- endereço e nome de exibição do remetente;
-- provedor/conta já utilizada e se oferece SMTP com senha de aplicativo ou outro
-  mecanismo de envio autorizado;
-- volume aproximado de destinatários por lote e frequência esperada;
+## Sequência segura
 
-O envio individual e o reenvio automático somente de falhas comprovadas já são
-decisões do time. Resultado desconhecido exige confirmação do proprietário. O
-time escolherá SMTP ou API conforme o provedor e definirá a guarda segura da
-credencial. Não registre senha, token ou segredo em issue, PR, banco, backup ou
-arquivo versionado.
+1. Caio/Vergueiro corrigem a #103; revisar o novo head e somente então aprovar.
+2. Integrar #103 em develop após aprovação e checks do mesmo commit.
+3. Rebasear #99 sobre o novo origin/develop, rodar just check,
+   just desktop-test e just audit, então obter nova aprovação.
+4. Implementar em PR separada a restauração autenticada sobre dados existentes,
+   com confirmação reforçada, geração anterior recuperável e testes de queda.
+5. Rebasear #100 sobre a base final, revisar manual/checklist e executar o aceite
+   #27 com build do commit candidato.
+6. Manter #25, #44, #26 e #27 abertas até seus respectivos gates reais.
 
-### Informações necessárias para destravar #44
+Nunca use merge automático. Em rebase já publicado, use somente
+git push --force-with-lease.
 
-- decisão confirmada: o backup poderá usar senha digitada pelo proprietário;
-- onde a senha ou chave de recuperação será guardada fora do computador e do HD
-  de backup;
-- quem poderá executar a restauração em um computador substituto;
-- procedimento aceito para perda da senha/chave;
-- frequência do backup e necessidade de lembrete no aplicativo;
-- quantidade de versões ou período de retenção no HD;
-- uso da restauração apenas em instalação vazia ou também sobre dados existentes;
-- proteção atual do Windows e do HD, como senha e BitLocker;
-- forma esperada de recuperar a conta do CRM se a senha de login também for
-  perdida após a troca do computador.
+## Gates externos e operacionais
 
-Não implemente um backup desprotegido nem uma chave vinculada somente ao
-computador perdido: ambos contrariam a recuperação por HD externo. Formato
-criptográfico, snapshot consistente e restauração atômica pertencem ao time e
-não são perguntas para o cliente.
+- O cliente ainda precisa fornecer o remetente/provedor real para o teste SMTP.
+  Não registrar a credencial no repositório nem no GitHub.
+- Custódia da senha do backup, pessoa autorizada a restaurar, frequência,
+  retenção no HD, BitLocker/proteção do equipamento e recuperação da conta devem
+  ser registrados no aceite/manual sem inventar dados pessoais.
+- O aceite final exige Windows limpo, HD externo de teste, conta SMTP e
+  destinatário sintéticos/autorizados, origem/hash do instalador e decisão sobre
+  assinatura/distribuição.
+- A exclusão integral auditada de cliente não existe nesta versão. Não apagar
+  dados manualmente; uma solicitação real de titular exige triagem e procedimento
+  aprovado.
 
-Para qualquer nova entrega, crie worktree/branch curta a partir de
-`origin/develop`, rode `just check`, abra PR para `develop` e solicite revisão:
+## Ambiente local e continuidade
 
-```powershell
-git fetch origin --prune
-git worktree add -b feature/ISSUE-resumo storage/worktrees/ISSUE-resumo origin/develop
-Set-Location storage/worktrees/ISSUE-resumo
-just install
-just check
-```
+A worktree usada para as PRs #99/#100 é:
 
-Antes de aprovar ou mesclar uma PR, confirme que ela continua baseada no
-`origin/develop` atual, que o `headRefOid` não mudou desde a revisão e que todos
-os checks obrigatórios pertencem a esse mesmo commit. Para mudanças no desktop,
-o job **Desktop Windows — sidecar and installer** é obrigatório.
+    C:\Users\thiag\.codex\worktrees\mvp-finalization\delta-force
 
-Não altere nem apague arquivos não rastreados da worktree principal: eles podem
-pertencer ao desenvolvedor local.
+A worktree principal contém um package-lock.json não rastreado que pode
+pertencer ao desenvolvedor. Não alterar nem apagar esse arquivo.
+
+Antes de qualquer aprovação ou merge:
+
+    git fetch origin --prune
+    gh pr view NUMERO --repo DELTA-42-FORCE/delta-force --json headRefOid,baseRefName,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup
+    just check
+
+Confirme que o head não mudou desde a revisão e que todos os checks pertencem ao
+mesmo commit. Para desktop/instalador, o job
+**Desktop Windows — sidecar and installer** é obrigatório.

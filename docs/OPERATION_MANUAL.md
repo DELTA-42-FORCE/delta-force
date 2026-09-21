@@ -11,6 +11,9 @@ segurança quando houver uma solicitação de titular ou um incidente real.
 - O backup é manual, criptografado e gravado em HD externo.
 - A restauração só é aceita numa instalação vazia, antes de criar a primeira
   conta. Ela não substitui uma instalação que já contém dados.
+- A ADR 0004 prevê uma evolução autenticada para substituir dados existentes,
+  mas esse fluxo ainda não está disponível nesta versão e não deve ser simulado
+  por cópia manual de arquivos.
 - A atualização é feita manualmente com um novo instalador aprovado. Não há
   atualização nem downgrade automáticos.
 - A desinstalação remove o programa e os atalhos, mas preserva os dados locais.
