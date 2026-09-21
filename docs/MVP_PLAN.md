@@ -17,9 +17,8 @@ PR continua curto, nasce de `develop`, referencia uma issue e volta para
    para criar cliente; demais dados e documentos são opcionais. Não há limite
    comercial fixo de PDF/JPEG: o aplicativo usa a capacidade livre do disco e
    escrita em streaming com falha segura.
-4. **#46 — remetente:** decisão fechada para SMTP configurável no aplicativo,
-   com credencial efêmera por sessão de envio. A conta real é necessária apenas
-   para o aceite; não bloqueia a implementação da #25.
+4. **#46 — remetente:** aguardar a conta/provedor informado pelo cliente e
+   documentar sua configuração segura.
 
 ### Próximos passos da entrega Windows
 
@@ -59,11 +58,11 @@ backup permanecem pendentes. O plano não antecipa essas escolhas como aprovadas
 
 ## Marco 3 — comunicação e aceite
 
-1. **#24 — em revisão:** modelos, seleção de candidatos, e-mail opcional do
-   cliente, prévia e variável única `{{nome}}` estão implementados.
-2. **#25 e #46 — em revisão:** SMTP configurável, envio individual, proteção
-   contra duplicidade, falha parcial e histórico auditável estão implementados;
-   Mailpit é exclusivamente local de desenvolvimento.
+1. **#24:** modelos de e-mail e seleção de candidatos por pendência. O backend
+   pode avançar sem provedor e sem expor endereços; renderização aguarda a
+   homologação dos modelos, das variáveis e do campo opcional de e-mail.
+2. **#25:** envio, histórico e tratamento de falhas usando o remetente definido
+   em #46; Mailpit é exclusivamente local de desenvolvimento.
 3. **#26:** consolidar operação local, LGPD, retenção, procedimento de incidente
    e manual de backup/restauração.
 4. **#27:** executar o aceite de ponta a ponta em instalação Windows limpa,

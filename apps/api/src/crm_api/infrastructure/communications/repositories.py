@@ -230,6 +230,7 @@ class SqlAlchemyCommunicationRepository:
             EmailDispatchModel.client_id == client_id,
             EmailDispatchModel.status.in_(
                 [
+                    EmailDeliveryStatus.PENDING.value,
                     EmailDeliveryStatus.SENT.value,
                     EmailDeliveryStatus.UNKNOWN.value,
                 ]

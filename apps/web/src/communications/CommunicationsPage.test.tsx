@@ -130,6 +130,54 @@ describe('CommunicationsPage', () => {
     expect(await screen.findByText('Envio configurado')).toBeVisible()
   })
 
+  it('requires an explicit review step before starting an external send', async () => {
+    const sendBatch = vi.fn().mockResolvedValue([
+      {
+        id: '00000000-0000-0000-0000-000000000044',
+        template_id: TEMPLATE_ID,
+        client_id: CLIENT_ID,
+        recipient_email: 'ana@example.com',
+        subject: 'Documentação pendente',
+        body: 'Revise os documentos indicados antes de responder.',
+        message_id: '<synthetic@delta-force.local>',
+        status: 'sent',
+        detail: null,
+        attempted_at: '2026-09-20T12:00:00Z',
+      },
+    ])
+    const user = userEvent.setup()
+    renderPage({ sendBatch })
+
+    await screen.findByText('Ana Souza')
+    await user.selectOptions(screen.getByLabelText('Modelo'), TEMPLATE_ID)
+    await user.click(screen.getByLabelText('Selecionar Ana Souza'))
+    await user.type(
+      screen.getByLabelText('Senha ou senha de aplicativo'),
+      'segredo-sintético',
+    )
+    await user.click(screen.getByRole('button', { name: 'Revisar envio' }))
+
+    expect(sendBatch).not.toHaveBeenCalled()
+    expect(
+      screen.getByText(/próximo clique iniciará um envio externo/),
+    ).toBeVisible()
+
+    await user.click(screen.getByRole('button', { name: 'Confirmar e enviar' }))
+
+    await waitFor(() => expect(sendBatch).toHaveBeenCalledTimes(1))
+    expect(sendBatch).toHaveBeenCalledWith({
+      template_id: TEMPLATE_ID,
+      client_ids: [CLIENT_ID],
+      credential: 'segredo-sintético',
+      confirm_repeat: false,
+    })
+    expect(
+      await screen.findByText(
+        '1 aceita(s), 0 rejeitada(s), 0 com resultado desconhecido e 0 sem e-mail.',
+      ),
+    ).toBeVisible()
+  })
+
   it('creates a static reusable template', async () => {
     const created = { ...TEMPLATE, name: 'Aviso de documento incorreto' }
     const createTemplate = vi.fn().mockResolvedValue(created)

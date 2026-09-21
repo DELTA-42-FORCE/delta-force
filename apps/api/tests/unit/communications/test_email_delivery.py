@@ -8,7 +8,9 @@ import pytest
 from crm_api.application.audit.record_audit_event import RecordAuditEventUseCase
 from crm_api.application.communications.email_delivery import (
     ConfigureEmailSenderUseCase,
+    RepeatConfirmationRequiredError,
     SendEmailBatchUseCase,
+    normalize_sender_settings,
 )
 from crm_api.domain.audit.entities import AuditEvent
 from crm_api.domain.clients.entities import ClientFolder
@@ -136,7 +138,12 @@ class FakeCommunications:
         return any(
             item.template_id == template_id
             and item.client_id == client_id
-            and item.status in {EmailDeliveryStatus.SENT, EmailDeliveryStatus.UNKNOWN}
+            and item.status
+            in {
+                EmailDeliveryStatus.PENDING,
+                EmailDeliveryStatus.SENT,
+                EmailDeliveryStatus.UNKNOWN,
+            }
             for item in self.dispatches
         )
 
@@ -240,7 +247,11 @@ async def test_batch_sends_individually_and_records_missing_email() -> None:
 
 @pytest.mark.parametrize(
     "previous_status",
-    [EmailDeliveryStatus.SENT, EmailDeliveryStatus.UNKNOWN],
+    [
+        EmailDeliveryStatus.PENDING,
+        EmailDeliveryStatus.SENT,
+        EmailDeliveryStatus.UNKNOWN,
+    ],
 )
 async def test_batch_requires_confirmation_before_repeating_uncertain_delivery(
     previous_status: EmailDeliveryStatus,
@@ -260,22 +271,46 @@ async def test_batch_requires_confirmation_before_repeating_uncertain_delivery(
     )
     sender = FakeSender(EmailDeliveryResult(EmailDeliveryStatus.SENT))
 
-    result = await SendEmailBatchUseCase(
-        communications=repository,  # type: ignore[arg-type]
-        clients=FakeClients({client.id: client}),  # type: ignore[arg-type]
-        sender=sender,
-        audit=RecordAuditEventUseCase(FakeAudit()),
-        transaction=FakeTransaction(),
-    ).execute(
-        actor_user_id=uuid4(),
-        template_id=template.id,
-        client_ids=[client.id],
-        credential="segredo-sintético",
-        confirm_repeat=False,
-    )
+    with pytest.raises(RepeatConfirmationRequiredError):
+        await SendEmailBatchUseCase(
+            communications=repository,  # type: ignore[arg-type]
+            clients=FakeClients({client.id: client}),  # type: ignore[arg-type]
+            sender=sender,
+            audit=RecordAuditEventUseCase(FakeAudit()),
+            transaction=FakeTransaction(),
+        ).execute(
+            actor_user_id=uuid4(),
+            template_id=template.id,
+            client_ids=[client.id],
+            credential="segredo-sintético",
+            confirm_repeat=False,
+        )
 
-    assert result[0].status is EmailDeliveryStatus.SKIPPED_DUPLICATE
     assert sender.messages == []
+    assert len(repository.dispatches) == 1
+
+
+def test_insecure_sender_settings_are_restricted_to_explicit_local_development() -> (
+    None
+):
+    arguments = {
+        "sender_name": "Escritório Sintético",
+        "sender_email": "contato@example.com",
+        "smtp_host": "localhost",
+        "smtp_port": 1025,
+        "security": SmtpSecurity.NONE_DEV,
+        "username": None,
+        "max_recipients": 50,
+    }
+
+    with pytest.raises(ValueError, match="local development"):
+        normalize_sender_settings(**arguments)
+
+    settings = normalize_sender_settings(
+        **arguments,
+        allow_insecure_local_smtp=True,
+    )
+    assert settings.security is SmtpSecurity.NONE_DEV
 
 
 async def test_batch_validates_every_client_before_sending_any_message() -> None:
@@ -303,6 +338,47 @@ async def test_batch_validates_every_client_before_sending_any_message() -> None
 
     assert sender.messages == []
     assert repository.dispatches == []
+
+
+async def test_batch_checks_repeat_confirmation_before_sending_fresh_clients() -> None:
+    template = _template()
+    fresh_client = _client("novo@example.com")
+    repeated_client = _client("anterior@example.com")
+    repository = FakeCommunications(settings=_settings(), template=template)
+    await repository.create_dispatch(
+        template_id=template.id,
+        client_id=repeated_client.id,
+        recipient_email=repeated_client.email,
+        subject="anterior",
+        body="anterior",
+        message_id="<anterior@delta-force.local>",
+        status=EmailDeliveryStatus.UNKNOWN,
+        detail="smtp_result_unknown",
+    )
+    sender = FakeSender(EmailDeliveryResult(EmailDeliveryStatus.SENT))
+
+    with pytest.raises(RepeatConfirmationRequiredError):
+        await SendEmailBatchUseCase(
+            communications=repository,  # type: ignore[arg-type]
+            clients=FakeClients(  # type: ignore[arg-type]
+                {
+                    fresh_client.id: fresh_client,
+                    repeated_client.id: repeated_client,
+                }
+            ),
+            sender=sender,
+            audit=RecordAuditEventUseCase(FakeAudit()),
+            transaction=FakeTransaction(),
+        ).execute(
+            actor_user_id=uuid4(),
+            template_id=template.id,
+            client_ids=[fresh_client.id, repeated_client.id],
+            credential="segredo-sintético",
+            confirm_repeat=False,
+        )
+
+    assert sender.messages == []
+    assert len(repository.dispatches) == 1
 
 
 async def test_smtp_adapter_never_allows_insecure_remote_delivery() -> None:

@@ -324,9 +324,7 @@ describe('owner authentication flow', () => {
       await screen.findByRole('heading', { name: 'Preparação de e-mails' }),
     ).toBeVisible()
     expect(await screen.findByText('Configure o remetente')).toBeVisible()
-    expect(
-      screen.getByRole('button', { name: 'Enviar mensagens' }),
-    ).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Revisar envio' })).toBeDisabled()
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(5))
     expect(fetch).toHaveBeenCalledWith(
       'http://localhost:8000/message-templates',

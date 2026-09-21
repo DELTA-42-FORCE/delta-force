@@ -1,5 +1,6 @@
 """Configuração, envio individual rastreável e histórico da mala direta."""
 
+import asyncio
 from dataclasses import dataclass
 import re
 from uuid import UUID, uuid4
@@ -30,9 +31,15 @@ from crm_api.domain.communications.repositories import (
 )
 
 _HOST_PATTERN = re.compile(r"^[A-Za-z0-9.-]+$")
+_LOCAL_SMTP_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+_EMAIL_BATCH_LOCK = asyncio.Lock()
 
 
 class EmailSenderNotConfiguredError(Exception):
+    pass
+
+
+class RepeatConfirmationRequiredError(Exception):
     pass
 
 
@@ -45,6 +52,7 @@ def normalize_sender_settings(
     security: SmtpSecurity,
     username: str | None,
     max_recipients: int,
+    allow_insecure_local_smtp: bool = False,
 ) -> EmailSenderSettings:
     name = " ".join(sender_name.split())
     if not name or len(name) > 120:
@@ -62,6 +70,10 @@ def normalize_sender_settings(
         raise ValueError("SMTP port must be between 1 and 65535")
     if not isinstance(security, SmtpSecurity):
         raise ValueError("SMTP security is invalid")
+    if security is SmtpSecurity.NONE_DEV and not (
+        allow_insecure_local_smtp and host in _LOCAL_SMTP_HOSTS
+    ):
+        raise ValueError("insecure SMTP is restricted to local development")
     normalized_username = username.strip() if isinstance(username, str) else None
     if normalized_username == "":
         normalized_username = None
@@ -85,6 +97,7 @@ class ConfigureEmailSenderUseCase:
     repository: CommunicationRepository
     audit: RecordAuditEventUseCase
     transaction: Transaction
+    allow_insecure_local_smtp: bool = False
 
     async def execute(
         self,
@@ -106,6 +119,7 @@ class ConfigureEmailSenderUseCase:
             security=security,
             username=username,
             max_recipients=max_recipients,
+            allow_insecure_local_smtp=self.allow_insecure_local_smtp,
         )
         try:
             saved = await self.repository.save_sender_settings(settings=settings)
@@ -216,6 +230,27 @@ class SendEmailBatchUseCase:
         credential: str | None,
         confirm_repeat: bool,
     ) -> tuple[EmailDispatch, ...]:
+        # O aplicativo possui um único processo local. Serializar lotes fecha a
+        # janela entre a verificação e a reserva `pending`, inclusive sob clique
+        # duplo ou duas requisições concorrentes.
+        async with _EMAIL_BATCH_LOCK:
+            return await self._execute_locked(
+                actor_user_id=actor_user_id,
+                template_id=template_id,
+                client_ids=client_ids,
+                credential=credential,
+                confirm_repeat=confirm_repeat,
+            )
+
+    async def _execute_locked(
+        self,
+        *,
+        actor_user_id: UUID,
+        template_id: UUID,
+        client_ids: list[UUID],
+        credential: str | None,
+        confirm_repeat: bool,
+    ) -> tuple[EmailDispatch, ...]:
         settings = await self.communications.get_sender_settings()
         if settings is None:
             raise EmailSenderNotConfiguredError
@@ -236,6 +271,17 @@ class SendEmailBatchUseCase:
                 raise ValueError("one or more clients do not exist")
             selected_clients.append(client)
 
+        repeated_clients = [
+            client
+            for client in selected_clients
+            if client.email is not None
+            and await self.communications.has_delivery_requiring_confirmation(
+                template_id=template.id, client_id=client.id
+            )
+        ]
+        if repeated_clients and not confirm_repeat:
+            raise RepeatConfirmationRequiredError
+
         results: list[EmailDispatch] = []
         for client in selected_clients:
             subject = template.subject.replace("{{nome}}", client.display_name)
@@ -252,26 +298,6 @@ class SendEmailBatchUseCase:
                     message_id=message_id,
                     status=EmailDeliveryStatus.MISSING_EMAIL,
                     detail="client_email_missing",
-                )
-                await self.transaction.commit()
-                results.append(dispatch)
-                continue
-
-            requires_confirmation = (
-                await self.communications.has_delivery_requiring_confirmation(
-                    template_id=template.id, client_id=client.id
-                )
-            )
-            if requires_confirmation and not confirm_repeat:
-                dispatch = await self.communications.create_dispatch(
-                    template_id=template.id,
-                    client_id=client.id,
-                    recipient_email=client.email,
-                    subject=subject,
-                    body=body,
-                    message_id=message_id,
-                    status=EmailDeliveryStatus.SKIPPED_DUPLICATE,
-                    detail="repeat_confirmation_required",
                 )
                 await self.transaction.commit()
                 results.append(dispatch)

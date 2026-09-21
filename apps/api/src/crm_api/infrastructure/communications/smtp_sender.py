@@ -4,6 +4,7 @@ import asyncio
 from dataclasses import dataclass
 from email.message import EmailMessage
 from email.utils import formataddr
+from ipaddress import ip_address
 import smtplib
 import socket
 import ssl
@@ -17,6 +18,18 @@ from crm_api.domain.communications.entities import (
 )
 
 _LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+
+def _resolves_only_to_loopback(host: str, port: int) -> bool:
+    if host.lower() not in _LOOPBACK_HOSTS:
+        return False
+    try:
+        addresses = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    except OSError:
+        return False
+    return bool(addresses) and all(
+        ip_address(address[4][0]).is_loopback for address in addresses
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,7 +59,10 @@ class SmtpEmailSender:
     ) -> EmailDeliveryResult:
         if settings.security is SmtpSecurity.NONE_DEV and not (
             self.allow_insecure_local_smtp
-            and settings.smtp_host.lower() in _LOOPBACK_HOSTS
+            and _resolves_only_to_loopback(
+                settings.smtp_host,
+                settings.smtp_port,
+            )
         ):
             return EmailDeliveryResult(
                 status=EmailDeliveryStatus.REJECTED,

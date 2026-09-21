@@ -157,6 +157,11 @@ def _stop_when_supervisor_disconnects(server: object) -> None:
     setattr(server, "should_exit", True)
 
 
+def _lock_down_packaged_email_transport() -> None:
+    """Impede que flags externas habilitem SMTP inseguro no pacote final."""
+    os.environ["ALLOW_INSECURE_LOCAL_SMTP"] = "0"
+
+
 def main() -> None:
     """Lê o segredo por stdin e inicia uma API de uma única execução local."""
     data_directory_value = os.environ.get("DELTA_FORCE_DATA_DIR")
@@ -171,6 +176,9 @@ def main() -> None:
     provision_document_storage(data_directory / DOCUMENTS_DIRECTORY_NAME)
     os.environ["DATABASE_URL"] = _database_url(database_path)
     os.environ["CORS_ALLOWED_ORIGINS"] = "http://tauri.localhost"
+    # O pacote distribuído nunca habilita SMTP em texto claro, mesmo que o
+    # ambiente externo do processo contenha uma flag de desenvolvimento.
+    _lock_down_packaged_email_transport()
     get_settings.cache_clear()
 
     listener = socket(AF_INET, SOCK_STREAM)

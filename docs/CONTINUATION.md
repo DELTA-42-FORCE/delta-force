@@ -5,7 +5,7 @@ conversa. Antes de agir, leia `AGENTS.md` e confirme o estado atual no GitHub;
 os dados abaixo são um retrato de **20 de setembro de 2026, após a integração da
 PR #101**.
 
-## Estado do MVP
+## Estado confirmado
 
 - `origin/develop` estava em `70e5619`, após o merge da PR #101.
 - Acesso local, clientes, documentos PDF/JPEG, status documental, ficha PDF,
@@ -25,7 +25,7 @@ PR #101**.
 - Use somente dados sintéticos. Não copie banco, documento, senha, token ou
   `.env` de cliente para branch, PR, issue ou log.
 
-## Decisões encerradas
+## Últimas integrações
 
 - **#79:** interface de modelos e triagem, sem envio real.
 - **#80:** E2E da preparação de comunicação, cobrindo status documental,
@@ -93,7 +93,7 @@ PR #101**.
    código seja integrada.
 5. Completar #26 e executar o aceite final de #27 em Windows limpo e HD real.
 
-## Alertas para quem continuar
+### Informações necessárias para destravar #46
 
 - endereço e nome de exibição do remetente;
 - provedor/conta já utilizada e se oferece SMTP com senha de aplicativo ou outro
@@ -130,8 +130,8 @@ Para qualquer nova entrega, crie worktree/branch curta a partir de
 
 ```powershell
 git fetch origin --prune
-git status --short --branch
-gh pr list --state open --limit 30
+git worktree add -b feature/ISSUE-resumo storage/worktrees/ISSUE-resumo origin/develop
+Set-Location storage/worktrees/ISSUE-resumo
 just install
 just check
 ```

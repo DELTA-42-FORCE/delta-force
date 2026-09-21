@@ -101,10 +101,12 @@ def get_render_message_template_use_case(
 def get_configure_email_sender_use_case(
     session: DatabaseSession,
 ) -> ConfigureEmailSenderUseCase:
+    settings = get_settings()
     return ConfigureEmailSenderUseCase(
         repository=_repository(session),
         audit=RecordAuditEventUseCase(SqlAlchemyAuditEventRepository(session)),
         transaction=SqlAlchemyTransaction(session),
+        allow_insecure_local_smtp=settings.allow_insecure_local_smtp,
     )
 
 

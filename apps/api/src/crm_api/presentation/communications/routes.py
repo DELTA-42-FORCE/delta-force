@@ -11,6 +11,7 @@ from crm_api.application.communications.email_delivery import (
     EmailSenderNotConfiguredError,
     GetEmailSenderSettingsUseCase,
     ListEmailDispatchesUseCase,
+    RepeatConfirmationRequiredError,
     SendEmailBatchUseCase,
 )
 from crm_api.application.communications.list_recipient_candidates import (
@@ -187,6 +188,11 @@ async def send_email_batch(
     except MessageTemplateNotFoundError:
         raise HTTPException(
             status_code=404, detail="message template not found"
+        ) from None
+    except RepeatConfirmationRequiredError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="repeat confirmation required",
         ) from None
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from None
