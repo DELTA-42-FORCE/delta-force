@@ -279,6 +279,14 @@ class SendEmailBatchUseCase:
                 raise ValueError("one or more clients do not exist")
             selected_clients.append(client)
 
+        # The packaged app has one API process and this flow holds its batch lock.
+        # A pending row visible here can only belong to an interrupted runtime.
+        await self.communications.reconcile_stale_pending_dispatches(
+            template_id=template.id,
+            client_ids=[client.id for client in selected_clients],
+        )
+        await self.transaction.commit()
+
         barriers = {
             client.id: barrier
             for client in selected_clients

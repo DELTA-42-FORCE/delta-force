@@ -69,6 +69,10 @@ class CommunicationRepository(Protocol):
         detail: str | None,
     ) -> EmailDispatch: ...
 
+    async def reconcile_stale_pending_dispatches(
+        self, *, template_id: UUID, client_ids: list[UUID]
+    ) -> None: ...
+
     async def latest_delivery_barrier(
         self, *, template_id: UUID, client_id: UUID
     ) -> EmailDispatch | None: ...
