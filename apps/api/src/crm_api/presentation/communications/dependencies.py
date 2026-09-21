@@ -85,4 +85,6 @@ def get_render_message_template_use_case(
     return RenderMessageTemplateUseCase(
         templates=_repository(session),
         clients=SqlAlchemyClientFolderRepository(session),
+        audit=RecordAuditEventUseCase(SqlAlchemyAuditEventRepository(session)),
+        transaction=SqlAlchemyTransaction(session),
     )

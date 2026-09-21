@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 
 import { ApiError } from '../lib/apiClient'
 import type { ClientFolder } from './clientsApi'
@@ -41,6 +41,8 @@ export function ClientFolderForm({
   )
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [emailError, setEmailError] = useState<string | null>(null)
+  const emailInputRef = useRef<HTMLInputElement>(null)
 
   function updateEntry(index: number, field: 'key' | 'value', value: string) {
     setEntries((current) =>
@@ -63,6 +65,14 @@ export function ClientFolderForm({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError(null)
+    setEmailError(null)
+    if (email.trim() && emailInputRef.current?.validity.typeMismatch) {
+      setEmailError(
+        'Informe um endereço de e-mail válido ou deixe o campo vazio.',
+      )
+      emailInputRef.current.focus()
+      return
+    }
     setIsSubmitting(true)
     try {
       const profileData = Object.fromEntries(
@@ -77,7 +87,7 @@ export function ClientFolderForm({
       })
     } catch (submitError) {
       if (submitError instanceof ApiError && submitError.status === 422) {
-        setError('Verifique o nome informado e tente novamente.')
+        setError('Verifique o nome, o e-mail e os dados adicionais informados.')
       } else {
         setError('Não foi possível salvar a pasta do cliente. Tente novamente.')
       }
@@ -87,7 +97,7 @@ export function ClientFolderForm({
   }
 
   return (
-    <form className="client-folder-form" onSubmit={handleSubmit}>
+    <form className="client-folder-form" onSubmit={handleSubmit} noValidate>
       <div className="field">
         <label htmlFor="client-display-name">Nome do cliente</label>
         <input
@@ -105,13 +115,26 @@ export function ClientFolderForm({
           E-mail para comunicações (opcional)
         </label>
         <input
+          ref={emailInputRef}
           id="client-email"
           type="email"
           value={email}
-          onChange={(event) => setEmail(event.target.value)}
+          onChange={(event) => {
+            setEmail(event.target.value)
+            if (emailError !== null) setEmailError(null)
+          }}
           placeholder="cliente@exemplo.com"
           autoComplete="email"
+          aria-invalid={emailError !== null}
+          aria-describedby={
+            emailError !== null ? 'client-email-error' : undefined
+          }
         />
+        {emailError !== null && (
+          <p id="client-email-error" className="feedback feedback--error">
+            {emailError}
+          </p>
+        )}
       </div>
 
       <div className="client-folder-form__profile">

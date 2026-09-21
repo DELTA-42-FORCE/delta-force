@@ -97,9 +97,9 @@ async def preview_message_template(
         Depends(get_render_message_template_use_case),
     ],
 ) -> MessageTemplatePreviewResponse:
-    del current_user
     try:
         preview = await use_case.execute(
+            actor_user_id=current_user.id,
             template_id=template_id,
             client_id=payload.client_id,
         )

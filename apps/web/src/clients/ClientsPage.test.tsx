@@ -204,6 +204,37 @@ describe('ClientsPage', () => {
     ).toBeVisible()
   })
 
+  it('keeps the form open and identifies an invalid optional email', async () => {
+    const loadPage = vi.fn().mockResolvedValue({ items: [], nextCursor: null })
+    const createFolder = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <ClientsPage
+        onOpenDocuments={vi.fn()}
+        exportProfile={vi.fn()}
+        loadPage={loadPage}
+        createFolder={createFolder}
+        updateFolder={vi.fn()}
+      />,
+    )
+    await waitFor(() => expect(loadPage).toHaveBeenCalledTimes(1))
+
+    await user.click(screen.getByRole('button', { name: 'Novo cliente' }))
+    await user.type(screen.getByLabelText('Nome do cliente'), 'Ana Souza')
+    const email = screen.getByLabelText('E-mail para comunicações (opcional)')
+    await user.type(email, 'email-invalido')
+    await user.click(screen.getByRole('button', { name: 'Criar cliente' }))
+
+    expect(createFolder).not.toHaveBeenCalled()
+    expect(email).toHaveAttribute('aria-invalid', 'true')
+    expect(
+      screen.getByText(
+        'Informe um endereço de e-mail válido ou deixe o campo vazio.',
+      ),
+    ).toBeVisible()
+    expect(email).toHaveFocus()
+  })
+
   it('edits an existing client', async () => {
     const loadPage = vi
       .fn<
