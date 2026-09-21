@@ -3,7 +3,8 @@
 Este arquivo permite retomar o trabalho sem depender do histórico de uma
 conversa. Antes de agir, leia AGENTS.md, execute git fetch origin --prune e
 confirme o estado no GitHub. Este retrato foi atualizado em **20 de setembro de
-2026**, após o rebase e a correção de segurança da PR #99.
+2026**, após a abertura da correção independente #104 para os bloqueios da
+#103.
 
 ## Estado integrado em develop
 
@@ -29,7 +30,8 @@ confirme o estado no GitHub. Este retrato foi atualizado em **20 de setembro de
 - Head conferido: aacb4d5.
 - Os sete checks do GitHub estão verdes, mas a revisão continua em
   **changes requested**.
-- Não aprovar enquanto o head não corrigir:
+- A PR #104 corrige os seis pontos abaixo sem reescrever diretamente a branch
+  do Caio. Não aprovar a #103 antes de integrar a #104 e revalidar o novo head:
   1. entrega SENT nunca pode ser repetida;
   2. credencial SMTP não pode usar/autosalvar a senha do CRM;
   3. falhas inequivocamente anteriores a DATA não podem virar UNKNOWN;
@@ -37,6 +39,23 @@ confirme o estado no GitHub. Este retrato foi atualizado em **20 de setembro de
   5. auditoria do lote precisa começar antes do primeiro efeito e concluir/falhar
      com contagens;
   6. constraints ORM precisam permanecer em paridade com o catálogo migrado.
+
+### #104 — correções da revisão de envio seguro
+
+- URL: https://github.com/DELTA-42-FORCE/delta-force/pull/104
+- Branch: fix/103-email-review-blockers; base: codex/25-email-sending-history.
+- Head publicado: df89ddc.
+- Implementa os seis bloqueios listados na #103 e preserva o trabalho do Caio
+  numa PR pequena e integrável na branch dele.
+- Evidência local: 323 testes da API, 47 integrações SQLite, 140 testes web,
+  10 testes desktop Python e 8 Rust; Bandit, pip-audit e npm audit sem bloqueio;
+  cargo-audit offline sem vulnerabilidade bloqueante e com os 7 alertas
+  transitivos já permitidos.
+- Uma repetição longa do gate agregado teve timeouts transitórios de 5 segundos
+  em dois testes antigos; ambos passaram isoladamente e existe execução completa
+  verde da suíte web. Exigir os checks do GitHub no head df89ddc.
+- Revisores solicitados: aglisonnn, CaioSTAM e SecVergueiro. Não mesclar sem
+  revisão e não marcar as discussões originais como resolvidas antecipadamente.
 
 ### #99 — backup cifrado e restauração
 
@@ -63,16 +82,19 @@ confirme o estado no GitHub. Este retrato foi atualizado em **20 de setembro de
 - URL: https://github.com/DELTA-42-FORCE/delta-force/pull/100
 - Branch: codex/26-operations-lgpd; base empilhada: #99.
 - Contém docs/OPERATION_MANUAL.md e docs/WINDOWS_ACCEPTANCE_CHECKLIST.md.
-- Esta branch foi rebaseada localmente sobre adc265d; confirme o head publicado
-  e os checks antes de revisar.
+- Head publicado: 03b97f2, rebaseado sobre adc265d; confirme o head e os checks
+  antes de revisar.
 - O smoke antigo do instalador é evidência histórica, não substitui o aceite do
   build final numa máquina Windows limpa, HD externo real e SMTP autorizado.
 
 ## Sequência segura
 
-1. Caio/Vergueiro corrigem a #103; revisar o novo head e somente então aprovar.
-2. Integrar #103 em develop após aprovação e checks do mesmo commit.
-3. Rebasear #99 sobre o novo origin/develop, rodar just check,
+1. Revisar a #104 no head df89ddc e integrá-la somente na branch
+   codex/25-email-sending-history.
+2. Aguardar todos os checks da #103 no novo head, revisar as discussões e somente
+   então aprovar e integrar #103 em develop.
+3. Rebasear #99 sobre o novo origin/develop, resolver a migration 0017 sem
+   remover retry_of/auditoria de e-mail, rodar just check,
    just desktop-test e just audit, então obter nova aprovação.
 4. Implementar em PR separada a restauração autenticada sobre dados existentes,
    com confirmação reforçada, geração anterior recuperável e testes de queda.
