@@ -254,6 +254,10 @@ class SqlAlchemyCommunicationRepository:
             .where(
                 EmailDispatchModel.template_id == template_id,
                 EmailDispatchModel.client_id == client_id,
+                # An omitted address is a local data-quality result, not a
+                # delivery attempt. It must not hide an earlier delivery
+                # barrier from the same template/client pair.
+                EmailDispatchModel.status != EmailDeliveryStatus.MISSING_EMAIL.value,
             )
             .order_by(
                 EmailDispatchModel.attempted_at.desc(),

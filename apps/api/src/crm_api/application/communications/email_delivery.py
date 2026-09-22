@@ -290,8 +290,7 @@ class SendEmailBatchUseCase:
         barriers = {
             client.id: barrier
             for client in selected_clients
-            if client.email is not None
-            and (
+            if (
                 barrier := await self.communications.latest_delivery_barrier(
                     template_id=template.id, client_id=client.id
                 )

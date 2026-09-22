@@ -531,3 +531,61 @@ async def test_latest_definitive_failure_supersedes_older_unknown() -> None:
         ).latest_delivery_barrier(template_id=template_id, client_id=client_id)
 
     assert barrier is None
+
+
+async def test_missing_email_does_not_hide_confirmed_delivery_in_sqlite() -> None:
+    _requires_disposable_sqlite()
+    client_id = uuid4()
+    template_id = uuid4()
+    now = datetime.now(UTC)
+    async with get_session_factory()() as session:
+        session.add_all(
+            [
+                ClientFolderModel(
+                    id=client_id,
+                    display_name=f"{_CLIENT_PREFIX}Sem endereço",
+                    email=None,
+                    profile_data={},
+                ),
+                MessageTemplateModel(
+                    id=template_id,
+                    name="Sem endereço",
+                    subject="Sem endereço",
+                    body="Sem endereço",
+                ),
+                EmailDispatchModel(
+                    template_id=template_id,
+                    client_id=client_id,
+                    recipient_email="sent@example.com",
+                    subject="confirmado",
+                    body="confirmado",
+                    message_id="<confirmed-before-missing@delta-force.local>",
+                    retry_of_id=None,
+                    retry_of_message_id=None,
+                    status=EmailDeliveryStatus.SENT.value,
+                    detail=None,
+                    attempted_at=now,
+                ),
+                EmailDispatchModel(
+                    template_id=template_id,
+                    client_id=client_id,
+                    recipient_email=None,
+                    subject="sem endereço",
+                    body="sem endereço",
+                    message_id="<missing-after-confirmed@delta-force.local>",
+                    retry_of_id=None,
+                    retry_of_message_id=None,
+                    status=EmailDeliveryStatus.MISSING_EMAIL.value,
+                    detail="client_email_missing",
+                    attempted_at=now + timedelta(seconds=1),
+                ),
+            ]
+        )
+        await session.commit()
+
+        barrier = await SqlAlchemyCommunicationRepository(
+            session
+        ).latest_delivery_barrier(template_id=template_id, client_id=client_id)
+
+    assert barrier is not None
+    assert barrier.status is EmailDeliveryStatus.SENT

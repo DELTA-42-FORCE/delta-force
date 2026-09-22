@@ -159,7 +159,9 @@ class FakeCommunications:
         matches = [
             item
             for item in self.dispatches
-            if item.template_id == template_id and item.client_id == client_id
+            if item.template_id == template_id
+            and item.client_id == client_id
+            and item.status is not EmailDeliveryStatus.MISSING_EMAIL
         ]
         if not matches or matches[-1].status not in {
             EmailDeliveryStatus.PENDING,
@@ -507,6 +509,78 @@ async def test_confirmed_delivery_is_never_repeated_even_with_confirmation() -> 
             confirm_repeat=True,
         )
 
+    assert sender.messages == []
+
+
+async def test_missing_email_never_hides_a_confirmed_delivery_barrier() -> None:
+    template = _template()
+    client = _client("cliente@example.com")
+    client_without_email = replace(client, email=None)
+    repository = FakeCommunications(settings=_settings(), template=template)
+    confirmed = await repository.create_dispatch(
+        template_id=template.id,
+        client_id=client.id,
+        recipient_email=client.email,
+        subject="anterior",
+        body="anterior",
+        message_id="<confirmed@delta-force.local>",
+        retry_of_id=None,
+        retry_of_message_id=None,
+        status=EmailDeliveryStatus.SENT,
+        detail=None,
+    )
+    sender = FakeSender(EmailDeliveryResult(EmailDeliveryStatus.SENT))
+    use_case = SendEmailBatchUseCase(
+        communications=repository,  # type: ignore[arg-type]
+        clients=FakeClients(
+            {client.id: client_without_email}
+        ),  # type: ignore[arg-type]
+        sender=sender,
+        audit=RecordAuditEventUseCase(FakeAudit()),
+        transaction=FakeTransaction(),
+    )
+
+    with pytest.raises(DeliveryAlreadyConfirmedError):
+        await use_case.execute(
+            actor_user_id=uuid4(),
+            template_id=template.id,
+            client_ids=[client.id],
+            credential="segredo-sintético",
+            confirm_repeat=True,
+        )
+
+    await repository.create_dispatch(
+        template_id=template.id,
+        client_id=client.id,
+        recipient_email=None,
+        subject="sem endereço",
+        body="sem endereço",
+        message_id="<missing@delta-force.local>",
+        retry_of_id=None,
+        retry_of_message_id=None,
+        status=EmailDeliveryStatus.MISSING_EMAIL,
+        detail="client_email_missing",
+    )
+
+    with pytest.raises(DeliveryAlreadyConfirmedError):
+        await SendEmailBatchUseCase(
+            communications=repository,  # type: ignore[arg-type]
+            clients=FakeClients({client.id: client}),  # type: ignore[arg-type]
+            sender=sender,
+            audit=RecordAuditEventUseCase(FakeAudit()),
+            transaction=FakeTransaction(),
+        ).execute(
+            actor_user_id=uuid4(),
+            template_id=template.id,
+            client_ids=[client.id],
+            credential="segredo-sintético",
+            confirm_repeat=False,
+        )
+
+    assert [dispatch.status for dispatch in repository.dispatches] == [
+        confirmed.status,
+        EmailDeliveryStatus.MISSING_EMAIL,
+    ]
     assert sender.messages == []
 
 
