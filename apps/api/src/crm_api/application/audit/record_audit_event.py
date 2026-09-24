@@ -30,6 +30,12 @@ _ALLOWED_CONTEXT_KEYS = frozenset(
         "unreadable_count",
         "insufficient_space_count",
         "failed_count",
+        "requested_count",
+        "sent_count",
+        "rejected_count",
+        "unknown_count",
+        "missing_email_count",
+        "phase",
     }
 )
 _ALLOWED_HTTP_METHODS = frozenset(
@@ -154,7 +160,16 @@ class RecordAuditEventUseCase:
             "unreadable_count",
             "insufficient_space_count",
             "failed_count",
+            "requested_count",
+            "sent_count",
+            "rejected_count",
+            "unknown_count",
+            "missing_email_count",
         ):
             count = context.get(key)
             if count is not None and (not count.isascii() or not count.isdecimal()):
                 raise ValueError(f"context contains an invalid {key}")
+
+        phase = context.get("phase")
+        if phase is not None and phase not in {"started", "completed", "failed"}:
+            raise ValueError("context contains an invalid phase")

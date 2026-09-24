@@ -4,9 +4,12 @@ import {
   describeCandidateFailure,
   describeTemplateFailure,
 } from './communicationMessages'
+import { ApiError } from '../lib/apiClient'
 import type {
   MessageTemplate,
   MessageTemplatePayload,
+  EmailDispatch,
+  EmailSenderSettings,
   RecipientCandidate,
   RecipientCandidateCursor,
   RecipientCandidatePage,
@@ -25,6 +28,17 @@ interface CommunicationsPageProps {
     status: RecipientDocumentStatus,
     cursor: RecipientCandidateCursor | null,
   ) => Promise<RecipientCandidatePage>
+  loadSenderSettings: () => Promise<EmailSenderSettings>
+  saveSenderSettings: (
+    settings: EmailSenderSettings,
+  ) => Promise<EmailSenderSettings>
+  sendBatch: (input: {
+    template_id: string
+    client_ids: string[]
+    credential: string | null
+    confirm_repeat: boolean
+  }) => Promise<EmailDispatch[]>
+  loadDispatches: () => Promise<EmailDispatch[]>
   onBack: () => void
 }
 
@@ -39,6 +53,15 @@ const DATE_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
   year: 'numeric',
 })
 
+const DELIVERY_STATUS_LABELS: Record<EmailDispatch['status'], string> = {
+  pending: 'Envio em andamento',
+  sent: 'Aceito pelo provedor',
+  rejected: 'Rejeitado pelo provedor',
+  unknown: 'Resultado desconhecido',
+  skipped_duplicate: 'Reenvio não realizado',
+  missing_email: 'Cliente sem e-mail',
+}
+
 function formatUpdatedAt(value: string): string {
   const date = new Date(value)
   return Number.isNaN(date.valueOf())
@@ -46,12 +69,25 @@ function formatUpdatedAt(value: string): string {
     : `Atualizado em ${DATE_FORMATTER.format(date)}`
 }
 
-function CandidateList({ items }: { items: RecipientCandidate[] }) {
+function CandidateList({
+  items,
+  selected,
+  onToggle,
+}: {
+  items: RecipientCandidate[]
+  selected: Set<string>
+  onToggle: (clientId: string) => void
+}) {
   return (
     <ul className="recipient-list">
       {items.map((candidate) => (
         <li className="recipient-list__item" key={candidate.client_id}>
-          <span className="recipient-list__marker" aria-hidden="true" />
+          <input
+            type="checkbox"
+            aria-label={`Selecionar ${candidate.display_name}`}
+            checked={selected.has(candidate.client_id)}
+            onChange={() => onToggle(candidate.client_id)}
+          />
           <div>
             <strong>{candidate.display_name}</strong>
             <small>
@@ -78,6 +114,10 @@ export function CommunicationsPage({
   updateTemplate,
   deleteTemplate,
   loadCandidates,
+  loadSenderSettings,
+  saveSenderSettings,
+  sendBatch,
+  loadDispatches,
   onBack,
 }: CommunicationsPageProps) {
   const [templates, setTemplates] = useState<MessageTemplate[]>([])
@@ -117,6 +157,42 @@ export function CommunicationsPage({
     key: string
     request: Promise<RecipientCandidatePage>
   } | null>(null)
+  const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set())
+  const [selectedTemplateId, setSelectedTemplateId] = useState('')
+  const [credential, setCredential] = useState('')
+  const [showCredential, setShowCredential] = useState(false)
+  const [confirmRepeat, setConfirmRepeat] = useState(false)
+  const [sendConfirmationPending, setSendConfirmationPending] = useState(false)
+  const [sendState, setSendState] = useState<'idle' | 'sending'>('idle')
+  const [sendNotice, setSendNotice] = useState<string | null>(null)
+  const [sendError, setSendError] = useState<string | null>(null)
+  const [dispatches, setDispatches] = useState<EmailDispatch[]>([])
+  const [historyState, setHistoryState] = useState<
+    'loading' | 'ready' | 'error'
+  >('loading')
+  const [senderState, setSenderState] = useState<
+    'loading' | 'unconfigured' | 'ready' | 'saving' | 'error'
+  >('loading')
+  const [senderError, setSenderError] = useState<string | null>(null)
+  const [senderSettings, setSenderSettings] = useState<EmailSenderSettings>({
+    sender_name: '',
+    sender_email: '',
+    smtp_host: '',
+    smtp_port: 587,
+    security: 'starttls',
+    username: null,
+    max_recipients: 50,
+  })
+
+  function clearEphemeralCredential() {
+    setCredential('')
+    setShowCredential(false)
+  }
+
+  function cancelSendReview() {
+    if (sendConfirmationPending) clearEphemeralCredential()
+    setSendConfirmationPending(false)
+  }
 
   useEffect(() => {
     let active = true
@@ -171,6 +247,39 @@ export function CommunicationsPage({
       active = false
     }
   }, [candidateSequence, candidateStatus, loadCandidates])
+
+  useEffect(() => {
+    let active = true
+    void loadSenderSettings()
+      .then((settings) => {
+        if (!active) return
+        setSenderSettings(settings)
+        setSenderState('ready')
+      })
+      .catch((error: unknown) => {
+        if (!active) return
+        if (error instanceof ApiError && error.status === 404) {
+          setSenderState('unconfigured')
+          return
+        }
+        setSenderError(
+          'Não foi possível consultar a configuração do remetente.',
+        )
+        setSenderState('error')
+      })
+    void loadDispatches()
+      .then((items) => {
+        if (!active) return
+        setDispatches(items)
+        setHistoryState('ready')
+      })
+      .catch(() => {
+        if (active) setHistoryState('error')
+      })
+    return () => {
+      active = false
+    }
+  }, [loadDispatches, loadSenderSettings])
 
   const refreshTemplates = useCallback(() => {
     templatesRequestRef.current = null
@@ -245,6 +354,7 @@ export function CommunicationsPage({
         setTemplateNotice(`Modelo “${created.name}” criado.`)
       }
       setEditor({ mode: 'closed' })
+      cancelSendReview()
       setTemplatesState('ready')
     } catch (error) {
       setTemplateError(describeTemplateFailure(error, 'save'))
@@ -263,6 +373,7 @@ export function CommunicationsPage({
         current.filter((item) => item.id !== template.id),
       )
       setPendingDeleteId(null)
+      cancelSendReview()
       setTemplateNotice(`Modelo “${template.name}” removido.`)
     } catch (error) {
       setTemplateError(describeTemplateFailure(error, 'delete'))
@@ -279,8 +390,146 @@ export function CommunicationsPage({
     setCandidateCursor(null)
     setCandidateMoreState('idle')
     setCandidateError(null)
+    setSelectedClients(new Set())
+    cancelSendReview()
     setCandidateState('loading')
     setCandidateStatus(status)
+  }
+
+  function toggleCandidate(clientId: string) {
+    cancelSendReview()
+    setSelectedClients((current) => {
+      const next = new Set(current)
+      if (next.has(clientId)) next.delete(clientId)
+      else next.add(clientId)
+      return next
+    })
+  }
+
+  async function handleSaveSender(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setSenderError(null)
+    if (
+      !senderSettings.sender_name.trim() ||
+      !senderSettings.sender_email.trim() ||
+      !senderSettings.smtp_host.trim() ||
+      !Number.isInteger(senderSettings.smtp_port) ||
+      senderSettings.smtp_port < 1 ||
+      senderSettings.smtp_port > 65535 ||
+      !Number.isInteger(senderSettings.max_recipients) ||
+      senderSettings.max_recipients < 1 ||
+      senderSettings.max_recipients > 100
+    ) {
+      setSenderError(
+        'Revise os dados do remetente, a porta e o limite do lote.',
+      )
+      return
+    }
+    setSenderState('saving')
+    try {
+      const saved = await saveSenderSettings(senderSettings)
+      setSenderSettings(saved)
+      cancelSendReview()
+      setSenderState('ready')
+    } catch {
+      setSenderError('Não foi possível salvar a configuração do remetente.')
+      setSenderState('error')
+    }
+  }
+
+  async function handleSend(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setSendError(null)
+    setSendNotice(null)
+    if (!selectedTemplateId || selectedClients.size === 0) {
+      setSendError('Escolha um modelo e pelo menos um cliente.')
+      clearEphemeralCredential()
+      setSendConfirmationPending(false)
+      return
+    }
+    if (senderSettings.username && !credential) {
+      setSendError('Informe a senha ou senha de aplicativo desta sessão.')
+      return
+    }
+    if (!sendConfirmationPending) {
+      setSendConfirmationPending(true)
+      return
+    }
+    setSendState('sending')
+    try {
+      const results = await sendBatch({
+        template_id: selectedTemplateId,
+        client_ids: [...selectedClients],
+        credential: credential || null,
+        confirm_repeat: confirmRepeat,
+      })
+      const sent = results.filter((item) => item.status === 'sent').length
+      const unknown = results.filter((item) => item.status === 'unknown').length
+      const rejected = results.filter(
+        (item) => item.status === 'rejected',
+      ).length
+      const missing = results.filter(
+        (item) => item.status === 'missing_email',
+      ).length
+      setSendNotice(
+        `${sent} aceita(s), ${rejected} rejeitada(s), ${unknown} com resultado desconhecido e ${missing} sem e-mail.`,
+      )
+      setConfirmRepeat(false)
+      setSendConfirmationPending(false)
+      try {
+        const history = await loadDispatches()
+        setDispatches(history)
+        setHistoryState('ready')
+      } catch {
+        // O envio externo já ocorreu. Falhar ao atualizar a tela não pode ser
+        // apresentado como falha de envio, pois isso incentivaria duplicidade.
+        setHistoryState('error')
+      }
+    } catch (error) {
+      if (
+        error instanceof ApiError &&
+        error.status === 409 &&
+        error.message === 'repeat confirmation required'
+      ) {
+        setSendError(
+          'Há destinatários com resultado desconhecido. Marque a confirmação de nova tentativa para assumir o risco de duplicidade.',
+        )
+      } else if (
+        error instanceof ApiError &&
+        error.status === 409 &&
+        error.message === 'delivery already confirmed'
+      ) {
+        setSendError(
+          'Há destinatários com entrega já confirmada. Eles nunca são reenviados.',
+        )
+      } else if (
+        error instanceof ApiError &&
+        error.status === 409 &&
+        error.message === 'delivery already in progress'
+      ) {
+        setSendError(
+          'Há destinatários com tentativa ainda em andamento. Consulte o histórico antes de tentar novamente.',
+        )
+      } else {
+        setSendError(
+          'Não foi possível concluir o envio. Revise a configuração.',
+        )
+      }
+    } finally {
+      clearEphemeralCredential()
+      setSendConfirmationPending(false)
+      setSendState('idle')
+    }
+  }
+
+  async function retryDispatchHistory() {
+    setHistoryState('loading')
+    try {
+      setDispatches(await loadDispatches())
+      setHistoryState('ready')
+    } catch {
+      setHistoryState('error')
+    }
   }
 
   async function loadMoreCandidates() {
@@ -319,12 +568,15 @@ export function CommunicationsPage({
           <p className="eyebrow">Comunicações</p>
           <h1 id="communications-title">Preparação de e-mails</h1>
           <p>
-            Mantenha textos reutilizáveis e consulte clientes por situação
-            documental. Nenhuma mensagem é enviada nesta etapa.
+            Mantenha textos reutilizáveis, selecione clientes por situação
+            documental e acompanhe cada envio.
           </p>
         </div>
         <span className="status-pill status-pill--waiting">
-          <span aria-hidden="true">●</span> Envio desativado
+          <span aria-hidden="true">●</span>{' '}
+          {senderState === 'ready'
+            ? 'Envio configurado'
+            : 'Configure o remetente'}
         </span>
       </div>
 
@@ -346,14 +598,255 @@ export function CommunicationsPage({
             <small>Disponível</small>
           </div>
         </li>
-        <li className="communication-readiness__step">
+        <li
+          className={`communication-readiness__step${senderState === 'ready' ? ' communication-readiness__step--active' : ''}`}
+        >
           <span>03</span>
           <div>
             <strong>Envio e histórico</strong>
-            <small>Aguardando remetente</small>
+            <small>
+              {senderState === 'ready'
+                ? 'Disponível'
+                : 'Configuração necessária'}
+            </small>
           </div>
         </li>
       </ol>
+
+      <div className="communication-workspace">
+        <form
+          className="communication-card"
+          aria-labelledby="sender-settings-title"
+          onSubmit={handleSaveSender}
+          noValidate
+        >
+          <div className="communication-card__heading">
+            <div>
+              <p className="eyebrow">Remetente</p>
+              <h2 id="sender-settings-title">Configuração SMTP</h2>
+              <p>A senha não é salva; ela será pedida somente no envio.</p>
+            </div>
+          </div>
+          <div className="message-template-form__field">
+            <label htmlFor="sender-name">Nome do remetente</label>
+            <input
+              id="sender-name"
+              required
+              value={senderSettings.sender_name}
+              onChange={(event) =>
+                setSenderSettings((current) => ({
+                  ...current,
+                  sender_name: event.target.value,
+                }))
+              }
+            />
+          </div>
+          <div className="message-template-form__field">
+            <label htmlFor="sender-email">E-mail do remetente</label>
+            <input
+              id="sender-email"
+              type="email"
+              required
+              value={senderSettings.sender_email}
+              onChange={(event) =>
+                setSenderSettings((current) => ({
+                  ...current,
+                  sender_email: event.target.value,
+                }))
+              }
+            />
+          </div>
+          <div className="message-template-form__field">
+            <label htmlFor="smtp-host">Servidor SMTP</label>
+            <input
+              id="smtp-host"
+              required
+              placeholder="smtp.exemplo.com"
+              value={senderSettings.smtp_host}
+              onChange={(event) =>
+                setSenderSettings((current) => ({
+                  ...current,
+                  smtp_host: event.target.value,
+                }))
+              }
+            />
+          </div>
+          <div className="message-template-form__field">
+            <label htmlFor="smtp-port">Porta</label>
+            <input
+              id="smtp-port"
+              type="number"
+              min={1}
+              max={65535}
+              required
+              value={senderSettings.smtp_port}
+              onChange={(event) =>
+                setSenderSettings((current) => ({
+                  ...current,
+                  smtp_port: Number(event.target.value),
+                }))
+              }
+            />
+          </div>
+          <div className="message-template-form__field">
+            <label htmlFor="smtp-security">Segurança</label>
+            <select
+              id="smtp-security"
+              value={senderSettings.security}
+              onChange={(event) =>
+                setSenderSettings((current) => ({
+                  ...current,
+                  security: event.target
+                    .value as EmailSenderSettings['security'],
+                }))
+              }
+            >
+              <option value="starttls">STARTTLS</option>
+              <option value="tls">TLS direto</option>
+            </select>
+          </div>
+          <div className="message-template-form__field">
+            <label htmlFor="smtp-username">Usuário SMTP (opcional)</label>
+            <input
+              id="smtp-username"
+              value={senderSettings.username ?? ''}
+              autoComplete="username"
+              onChange={(event) =>
+                setSenderSettings((current) => ({
+                  ...current,
+                  username: event.target.value || null,
+                }))
+              }
+            />
+          </div>
+          <div className="message-template-form__field">
+            <label htmlFor="smtp-max-recipients">
+              Máximo de destinatários por lote
+            </label>
+            <input
+              id="smtp-max-recipients"
+              type="number"
+              min={1}
+              max={100}
+              value={senderSettings.max_recipients}
+              onChange={(event) =>
+                setSenderSettings((current) => ({
+                  ...current,
+                  max_recipients: Number(event.target.value),
+                }))
+              }
+            />
+          </div>
+          {senderError !== null && <p role="alert">{senderError}</p>}
+          <button
+            className="primary-button compact-button"
+            type="submit"
+            disabled={senderState === 'saving'}
+          >
+            {senderState === 'saving' ? 'Salvando…' : 'Salvar configuração'}
+          </button>
+        </form>
+
+        <form
+          className="communication-card"
+          aria-labelledby="batch-send-title"
+          onSubmit={handleSend}
+          noValidate
+        >
+          <div className="communication-card__heading">
+            <div>
+              <p className="eyebrow">Disparo</p>
+              <h2 id="batch-send-title">Enviar selecionados</h2>
+              <p>O envio é individual e o resultado fica no histórico.</p>
+            </div>
+          </div>
+          <div className="message-template-form__field">
+            <label htmlFor="send-template">Modelo</label>
+            <select
+              id="send-template"
+              value={selectedTemplateId}
+              onChange={(event) => {
+                setSelectedTemplateId(event.target.value)
+                cancelSendReview()
+              }}
+            >
+              <option value="">Selecione um modelo</option>
+              {templates.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="message-template-form__field">
+            <label htmlFor="smtp-credential">
+              Senha ou senha de aplicativo
+            </label>
+            <div className="password-input">
+              <input
+                id="smtp-credential"
+                name="smtp-session-secret"
+                type={showCredential ? 'text' : 'password'}
+                autoComplete="off"
+                data-1p-ignore="true"
+                data-lpignore="true"
+                value={credential}
+                onChange={(event) => setCredential(event.target.value)}
+              />
+              <button
+                className="text-button"
+                type="button"
+                aria-pressed={showCredential}
+                onClick={() => setShowCredential((current) => !current)}
+              >
+                {showCredential ? 'Ocultar' : 'Mostrar'}
+              </button>
+            </div>
+          </div>
+          <label>
+            <input
+              type="checkbox"
+              checked={confirmRepeat}
+              onChange={(event) => {
+                setConfirmRepeat(event.target.checked)
+                cancelSendReview()
+              }}
+            />{' '}
+            Confirmo uma nova tentativa quando o resultado anterior for
+            desconhecido
+          </label>
+          <p>{selectedClients.size} cliente(s) selecionado(s).</p>
+          {sendConfirmationPending && (
+            <div className="feedback feedback--warning" role="status">
+              Revise o modelo e os {selectedClients.size} destinatário(s). O
+              próximo clique iniciará um envio externo que não pode ser
+              desfeito.
+            </div>
+          )}
+          {sendError !== null && <p role="alert">{sendError}</p>}
+          {sendNotice !== null && <p role="status">{sendNotice}</p>}
+          <button
+            className="primary-button compact-button"
+            type="submit"
+            disabled={senderState !== 'ready' || sendState === 'sending'}
+          >
+            {sendState === 'sending'
+              ? 'Enviando…'
+              : sendConfirmationPending
+                ? 'Confirmar e enviar'
+                : 'Revisar envio'}
+          </button>
+          {sendConfirmationPending && sendState !== 'sending' && (
+            <button
+              className="secondary-button compact-button"
+              type="button"
+              onClick={cancelSendReview}
+            >
+              Cancelar revisão
+            </button>
+          )}
+        </form>
+      </div>
 
       <div className="communication-workspace">
         <section
@@ -436,6 +929,7 @@ export function CommunicationsPage({
                 <label htmlFor="message-template-body">Conteúdo</label>
                 <textarea
                   id="message-template-body"
+                  className="resize-none"
                   value={body}
                   maxLength={20_000}
                   rows={10}
@@ -637,7 +1131,11 @@ export function CommunicationsPage({
 
           {candidateState === 'ready' && candidates.length > 0 && (
             <>
-              <CandidateList items={candidates} />
+              <CandidateList
+                items={candidates}
+                selected={selectedClients}
+                onToggle={toggleCandidate}
+              />
               {(candidateCursor !== null || candidateMoreState === 'error') && (
                 <div className="candidate-more">
                   {candidateMoreState === 'error' && (
@@ -670,6 +1168,53 @@ export function CommunicationsPage({
           </div>
         </aside>
       </div>
+
+      <section
+        className="communication-card"
+        aria-labelledby="dispatch-history-title"
+      >
+        <div className="communication-card__heading">
+          <div>
+            <p className="eyebrow">Rastreabilidade</p>
+            <h2 id="dispatch-history-title">Histórico de envios</h2>
+          </div>
+        </div>
+        {historyState === 'loading' ? (
+          <div className="activity-state" aria-busy="true">
+            <span className="loader" aria-hidden="true" />
+            <p>Carregando histórico…</p>
+          </div>
+        ) : historyState === 'error' ? (
+          <div className="activity-state">
+            <p role="alert">Não foi possível consultar o histórico.</p>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => void retryDispatchHistory()}
+            >
+              Tentar novamente
+            </button>
+          </div>
+        ) : dispatches.length === 0 ? (
+          <p>Nenhum envio registrado.</p>
+        ) : (
+          <ul className="message-template-list">
+            {dispatches.map((dispatch) => (
+              <li className="message-template-list__item" key={dispatch.id}>
+                <strong>{dispatch.subject}</strong>
+                <span>{dispatch.recipient_email ?? 'Cliente sem e-mail'}</span>
+                <small>{DELIVERY_STATUS_LABELS[dispatch.status]}</small>
+                <small>Message-ID: {dispatch.message_id}</small>
+                {dispatch.retry_of_id != null && (
+                  <small>
+                    Nova tentativa de: {dispatch.retry_of_message_id}
+                  </small>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </section>
   )
 }

@@ -1,24 +1,42 @@
 """Persistência SQLite dos modelos e seleção por status documental."""
 
 from collections.abc import AsyncIterator
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 
 from crm_api.application.audit.record_audit_event import RecordAuditEventUseCase
 from crm_api.application.communications.list_recipient_candidates import (
     ListRecipientCandidatesUseCase,
 )
+from crm_api.application.communications.email_delivery import (
+    ConfigureEmailSenderUseCase,
+    SendEmailBatchUseCase,
+)
 from crm_api.application.communications.templates import CreateMessageTemplateUseCase
 from crm_api.domain.documents.entities import DocumentStatus
+from crm_api.domain.communications.entities import (
+    EmailDeliveryResult,
+    EmailDeliveryStatus,
+    EmailSenderSettings,
+    OutboundEmail,
+    SmtpSecurity,
+)
 from crm_api.infrastructure.audit.models import AuditEventModel
 from crm_api.infrastructure.audit.repositories import SqlAlchemyAuditEventRepository
 from crm_api.infrastructure.audit.transactions import SqlAlchemyTransaction
 from crm_api.infrastructure.auth.models import UserModel
 from crm_api.infrastructure.clients.models import ClientFolderModel
-from crm_api.infrastructure.communications.models import MessageTemplateModel
+from crm_api.infrastructure.clients.repositories import SqlAlchemyClientFolderRepository
+from crm_api.infrastructure.communications.models import (
+    EmailDispatchModel,
+    EmailSenderSettingsModel,
+    MessageTemplateModel,
+)
 from crm_api.infrastructure.communications.repositories import (
     SqlAlchemyCommunicationRepository,
 )
@@ -53,9 +71,19 @@ async def clear_communication_rows() -> AsyncIterator[None]:
             ClientFolderModel.display_name.like(f"{_CLIENT_PREFIX}%")
         )
         await session.execute(
+            update(EmailDispatchModel).values(
+                retry_of_id=None,
+                retry_of_message_id=None,
+            )
+        )
+        await session.execute(delete(EmailDispatchModel))
+        await session.execute(delete(EmailSenderSettingsModel))
+        await session.execute(
             delete(AuditEventModel).where(
                 (AuditEventModel.resource_type == "message_template")
                 | (AuditEventModel.action == "recipient_candidates.viewed")
+                | (AuditEventModel.resource_type == "email_sender_settings")
+                | (AuditEventModel.resource_type == "email_dispatch")
             )
         )
         await session.execute(delete(MessageTemplateModel))
@@ -71,6 +99,23 @@ async def clear_communication_rows() -> AsyncIterator[None]:
             delete(UserModel).where(UserModel.email.like(f"%{_OWNER_DOMAIN}"))
         )
         await session.commit()
+
+
+@dataclass
+class SuccessfulSender:
+    recipients: list[str]
+
+    async def send(
+        self,
+        *,
+        settings: EmailSenderSettings,
+        message: OutboundEmail,
+        credential: str | None,
+    ) -> EmailDeliveryResult:
+        assert settings.security is SmtpSecurity.STARTTLS
+        assert credential == "synthetic-session-secret"
+        self.recipients.append(message.recipient)
+        return EmailDeliveryResult(EmailDeliveryStatus.SENT)
 
 
 async def test_template_persists_and_records_sanitized_audit_event() -> None:
@@ -257,3 +302,290 @@ async def test_recipient_candidates_paginate_beyond_one_hundred_and_audit() -> N
     assert all(event.resource_type == "client_folder" for event in events)
     assert all(event.resource_id is None and event.context == {} for event in events)
     assert _CLIENT_PREFIX not in repr(events)
+
+
+async def test_sender_configuration_and_delivery_history_persist_without_secret() -> (
+    None
+):
+    _requires_disposable_sqlite()
+    owner_id = uuid4()
+    client_id = uuid4()
+    sender = SuccessfulSender([])
+    async with get_session_factory()() as session:
+        session.add_all(
+            [
+                UserModel(
+                    id=owner_id,
+                    email=f"owner-{owner_id}{_OWNER_DOMAIN}",
+                    full_name="Proprietário Sintético",
+                    password_hash="synthetic-password-hash",
+                    is_active=True,
+                ),
+                ClientFolderModel(
+                    id=client_id,
+                    display_name=f"{_CLIENT_PREFIX}Envio",
+                    email="recipient@example.com",
+                    profile_data={},
+                ),
+            ]
+        )
+        await session.flush()
+        repository = SqlAlchemyCommunicationRepository(session)
+        template = await repository.create_template(
+            name="Pendência",
+            subject="Pendência de {{nome}}",
+            body="Olá, {{nome}}.",
+        )
+        await ConfigureEmailSenderUseCase(
+            repository=repository,
+            audit=RecordAuditEventUseCase(SqlAlchemyAuditEventRepository(session)),
+            transaction=SqlAlchemyTransaction(session),
+        ).execute(
+            actor_user_id=owner_id,
+            sender_name="Escritório Sintético",
+            sender_email="sender@example.com",
+            smtp_host="smtp.example.com",
+            smtp_port=587,
+            security=SmtpSecurity.STARTTLS,
+            username="sender@example.com",
+            max_recipients=20,
+        )
+        dispatches = await SendEmailBatchUseCase(
+            communications=repository,
+            clients=SqlAlchemyClientFolderRepository(session),
+            sender=sender,
+            audit=RecordAuditEventUseCase(SqlAlchemyAuditEventRepository(session)),
+            transaction=SqlAlchemyTransaction(session),
+        ).execute(
+            actor_user_id=owner_id,
+            template_id=template.id,
+            client_ids=[client_id],
+            credential="synthetic-session-secret",
+            confirm_repeat=False,
+        )
+
+    assert dispatches[0].status is EmailDeliveryStatus.SENT
+    assert sender.recipients == ["recipient@example.com"]
+    async with get_session_factory()() as session:
+        stored_settings = await session.get(EmailSenderSettingsModel, 1)
+        stored_dispatch = await session.get(EmailDispatchModel, dispatches[0].id)
+        events = (
+            await session.scalars(
+                select(AuditEventModel).where(
+                    AuditEventModel.actor_user_id == owner_id,
+                    AuditEventModel.action.in_(
+                        [
+                            "email_sender_settings.updated",
+                            "email_dispatch.batch_started",
+                            "email_dispatch.batch_completed",
+                        ]
+                    ),
+                )
+            )
+        ).all()
+
+    assert stored_settings is not None
+    assert not hasattr(stored_settings, "credential")
+    assert stored_dispatch is not None
+    assert stored_dispatch.status == "sent"
+    assert "synthetic-session-secret" not in repr(
+        (stored_settings, stored_dispatch, events)
+    )
+    assert len(events) == 3
+
+
+async def test_stale_pending_is_reconciled_after_runtime_restart() -> None:
+    _requires_disposable_sqlite()
+    owner_id = uuid4()
+    client_id = uuid4()
+    async with get_session_factory()() as session:
+        session.add_all(
+            [
+                UserModel(
+                    id=owner_id,
+                    email=f"owner-{owner_id}{_OWNER_DOMAIN}",
+                    full_name="Proprietário Sintético",
+                    password_hash="synthetic-password-hash",
+                    is_active=True,
+                ),
+                ClientFolderModel(
+                    id=client_id,
+                    display_name=f"{_CLIENT_PREFIX}Reinício",
+                    email="restart@example.com",
+                    profile_data={},
+                ),
+            ]
+        )
+        await session.flush()
+        repository = SqlAlchemyCommunicationRepository(session)
+        template = await repository.create_template(
+            name="Reinício",
+            subject="Olá, {{nome}}",
+            body="Teste de reinício para {{nome}}.",
+        )
+        await ConfigureEmailSenderUseCase(
+            repository=repository,
+            audit=RecordAuditEventUseCase(SqlAlchemyAuditEventRepository(session)),
+            transaction=SqlAlchemyTransaction(session),
+        ).execute(
+            actor_user_id=owner_id,
+            sender_name="Escritório Sintético",
+            sender_email="sender@example.com",
+            smtp_host="smtp.example.com",
+            smtp_port=587,
+            security=SmtpSecurity.STARTTLS,
+            username="sender@example.com",
+            max_recipients=20,
+        )
+        pending = await repository.create_dispatch(
+            template_id=template.id,
+            client_id=client_id,
+            recipient_email="restart@example.com",
+            subject="interrompido",
+            body="interrompido",
+            message_id="<pending-restart@delta-force.local>",
+            retry_of_id=None,
+            retry_of_message_id=None,
+            status=EmailDeliveryStatus.PENDING,
+            detail=None,
+        )
+        await session.commit()
+
+    async with get_session_factory()() as session:
+        dispatches = await SendEmailBatchUseCase(
+            communications=SqlAlchemyCommunicationRepository(session),
+            clients=SqlAlchemyClientFolderRepository(session),
+            sender=SuccessfulSender([]),
+            audit=RecordAuditEventUseCase(SqlAlchemyAuditEventRepository(session)),
+            transaction=SqlAlchemyTransaction(session),
+        ).execute(
+            actor_user_id=owner_id,
+            template_id=template.id,
+            client_ids=[client_id],
+            credential="synthetic-session-secret",
+            confirm_repeat=True,
+        )
+
+        reconciled = await session.get(EmailDispatchModel, pending.id)
+
+    assert reconciled is not None
+    assert reconciled.status == EmailDeliveryStatus.UNKNOWN.value
+    assert reconciled.detail == "sender_interrupted"
+    assert dispatches[0].status is EmailDeliveryStatus.SENT
+    assert dispatches[0].retry_of_id == pending.id
+    assert dispatches[0].retry_of_message_id == pending.message_id
+
+
+async def test_latest_definitive_failure_supersedes_older_unknown() -> None:
+    _requires_disposable_sqlite()
+    client_id = uuid4()
+    template_id = uuid4()
+    now = datetime.now(UTC)
+    async with get_session_factory()() as session:
+        session.add_all(
+            [
+                ClientFolderModel(
+                    id=client_id,
+                    display_name=f"{_CLIENT_PREFIX}Ordem",
+                    email="order@example.com",
+                    profile_data={},
+                ),
+                MessageTemplateModel(
+                    id=template_id,
+                    name="Ordem",
+                    subject="Ordem",
+                    body="Ordem",
+                ),
+                EmailDispatchModel(
+                    template_id=template_id,
+                    client_id=client_id,
+                    recipient_email="order@example.com",
+                    subject="incerto",
+                    body="incerto",
+                    message_id="<older-unknown@delta-force.local>",
+                    retry_of_id=None,
+                    retry_of_message_id=None,
+                    status=EmailDeliveryStatus.UNKNOWN.value,
+                    detail="smtp_result_unknown",
+                    attempted_at=now,
+                ),
+                EmailDispatchModel(
+                    template_id=template_id,
+                    client_id=client_id,
+                    recipient_email="order@example.com",
+                    subject="rejeitado",
+                    body="rejeitado",
+                    message_id="<newer-rejected@delta-force.local>",
+                    retry_of_id=None,
+                    retry_of_message_id=None,
+                    status=EmailDeliveryStatus.REJECTED.value,
+                    detail="smtp_rejected",
+                    attempted_at=now + timedelta(seconds=1),
+                ),
+            ]
+        )
+        await session.commit()
+
+        barrier = await SqlAlchemyCommunicationRepository(
+            session
+        ).latest_delivery_barrier(template_id=template_id, client_id=client_id)
+
+    assert barrier is None
+
+
+async def test_missing_email_does_not_hide_confirmed_delivery_in_sqlite() -> None:
+    _requires_disposable_sqlite()
+    client_id = uuid4()
+    template_id = uuid4()
+    now = datetime.now(UTC)
+    async with get_session_factory()() as session:
+        session.add_all(
+            [
+                ClientFolderModel(
+                    id=client_id,
+                    display_name=f"{_CLIENT_PREFIX}Sem endereço",
+                    email=None,
+                    profile_data={},
+                ),
+                MessageTemplateModel(
+                    id=template_id,
+                    name="Sem endereço",
+                    subject="Sem endereço",
+                    body="Sem endereço",
+                ),
+                EmailDispatchModel(
+                    template_id=template_id,
+                    client_id=client_id,
+                    recipient_email="sent@example.com",
+                    subject="confirmado",
+                    body="confirmado",
+                    message_id="<confirmed-before-missing@delta-force.local>",
+                    retry_of_id=None,
+                    retry_of_message_id=None,
+                    status=EmailDeliveryStatus.SENT.value,
+                    detail=None,
+                    attempted_at=now,
+                ),
+                EmailDispatchModel(
+                    template_id=template_id,
+                    client_id=client_id,
+                    recipient_email=None,
+                    subject="sem endereço",
+                    body="sem endereço",
+                    message_id="<missing-after-confirmed@delta-force.local>",
+                    retry_of_id=None,
+                    retry_of_message_id=None,
+                    status=EmailDeliveryStatus.MISSING_EMAIL.value,
+                    detail="client_email_missing",
+                    attempted_at=now + timedelta(seconds=1),
+                ),
+            ]
+        )
+        await session.commit()
+
+        barrier = await SqlAlchemyCommunicationRepository(
+            session
+        ).latest_delivery_barrier(template_id=template_id, client_id=client_id)
+
+    assert barrier is not None
+    assert barrier.status is EmailDeliveryStatus.SENT

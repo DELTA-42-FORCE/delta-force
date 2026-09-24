@@ -1476,6 +1476,17 @@ button.workspace-nav__item--active:hover {
   gap: 0.4rem;
 }
 
+.password-input {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.password-input input {
+  min-width: 0;
+  flex: 1;
+}
+
 .message-template-form__field label {
   color: #425168;
   font-size: 0.75rem;
@@ -1506,10 +1517,14 @@ button.workspace-nav__item--active:hover {
   background: #f1f4f7;
 }
 
+.resize-none {
+  resize: none;
+}
+
 .message-template-form textarea {
   min-height: 12rem;
   line-height: 1.55;
-  resize: vertical;
+  resize: none;
 }
 
 .message-template-form input:focus,
