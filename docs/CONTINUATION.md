@@ -23,8 +23,9 @@ PR #103**.
   aguardando os dados do remetente/provedor (#46). A implementação de
   backup/restauração está decomposta nas issues #106 e #108–#112. O aceite
   completo em instalação Windows limpa continua pendente (#26/#27).
-- A PR #113 carrega esta atualização documental. A #106 está em desenvolvimento
-  numa worktree isolada; confira seu estado atual e os checks antes de retomar.
+- A PR #114 implementa a #106 e está em revisão/CI. A PR #113 carrega esta
+  atualização documental. Confira aprovação e checks antes de integrar ou
+  iniciar as issues dependentes.
 - Use somente dados sintéticos. Não copie banco, documento, senha, token ou
   `.env` de cliente para branch, PR, issue ou log.
 
@@ -85,7 +86,8 @@ PR #103**.
 - **PRs #99 e #100:** fechadas sem merge; o código grande de backup não será
   integrado em bloco. #104/#105 foram fechadas após correções/reorganização da
   base da #103. Não há PR aberta neste retrato.
-- Project: #44 e #106 em andamento; #108–#112 bloqueadas por suas dependências.
+- Project: #44 em andamento, #106 em revisão e #108–#112 bloqueadas por suas
+  dependências.
   Reconfirme o Project antes de alterar status.
 
 ## Próxima sequência segura
