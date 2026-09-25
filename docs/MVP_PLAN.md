@@ -23,13 +23,22 @@ PR continua curto, nasce de `develop`, referencia uma issue e volta para
 ### Próximos passos da entrega Windows
 
 A ADR 0002 já é a decisão de produção. A integração essencial foi entregue pela
-#57; os próximos passos específicos da entrega Windows são:
+#57. A ADR 0004 também foi aceita e definiu o formato seguro; o trabalho de
+backup/restauração agora segue em entregas pequenas, diretamente para `develop`:
 
-1. decidir na #44 a proteção e a recuperação do backup em HD externo;
-2. validar instalação, atualização manual, desinstalação e restauração na #27.
+1. **#106 — codec criptográfico DFCRMBK1 v1**;
+2. em paralelo após #106, **#108 — snapshot consistente** e **#110 — validação
+   da restauração em staging isolado**;
+3. após #108, **#109 — publicação segura em mídia externa Windows**; após #110,
+   **#111 — ativação recuperável com journal e rollback**;
+4. após #109 e #111, **#112 — rotas e fluxo autenticado no aplicativo Windows**;
+5. completar **#26** (operação, manual e incidente) e executar o aceite em
+   instalação Windows limpa e HD de teste pela **#27**.
 
-Versão/edição do Windows, proteção do disco, assinatura/custódia e recuperação do
-backup permanecem pendentes. O plano não antecipa essas escolhas como aprovadas.
+Custódia da senha, frequência/retenção do HD, proteção do equipamento e
+recuperação da conta continuam pendentes para calibrar o manual e o aceite em
+#26/#27; não bloqueiam o codec. O primeiro aceite deve usar dados sintéticos e
+HD de teste, nunca a única cópia de dados do cliente.
 
 ## Marco 1 — aplicação local segura
 
@@ -39,9 +48,9 @@ backup permanecem pendentes. O plano não antecipa essas escolhas como aprovadas
 2. **#17 — concluída:** a auditoria append-only e sua consulta autenticada estão
    integradas. A transição SQLite (#54) e a futura issue desktop devem provar
    esses eventos no arquivo local, inclusive negações do bootstrap/capability.
-3. Executar **#44** após a persistência SQLite e #43: backup protegido conforme
-   a decisão da própria issue, restauração testada por HD externo e proteção
-   contra alvo errado, arquivo corrompido e falta de espaço.
+3. Backup e restauração estão decompostos nas issues **#106 e #108–#112**,
+   conforme a sequência da seção de entrega Windows. A #44 só termina após
+   essas entregas e os gates operacionais/finais da #26 e #27.
 
 ## Marco 2 — clientes e documentos
 
@@ -58,11 +67,13 @@ backup permanecem pendentes. O plano não antecipa essas escolhas como aprovadas
 
 ## Marco 3 — comunicação e aceite
 
-1. **#24:** modelos de e-mail e seleção de candidatos por pendência. O backend
-   pode avançar sem provedor e sem expor endereços; renderização aguarda a
-   homologação dos modelos, das variáveis e do campo opcional de e-mail.
-2. **#25:** envio, histórico e tratamento de falhas usando o remetente definido
-   em #46; Mailpit é exclusivamente local de desenvolvimento.
+1. **#24 — concluída pela PR #97:** cadastro do e-mail opcional, modelos,
+   renderização e seleção de candidatos por pendência. Isso não exige nem
+   habilita envio real sem a configuração autorizada da #46.
+2. **#25:** a fundação de envio individual, histórico e tratamento de falhas foi
+   integrada pela PR #103. A configuração e o teste com o remetente real ainda
+   dependem dos dados do cliente na #46; Mailpit é exclusivamente local de
+   desenvolvimento.
 3. **#26:** consolidar operação local, LGPD, retenção, procedimento de incidente
    e manual de backup/restauração.
 4. **#27:** executar o aceite de ponta a ponta em instalação Windows limpa,
