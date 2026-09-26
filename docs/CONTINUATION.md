@@ -2,12 +2,12 @@
 
 Este arquivo permite retomar o trabalho sem depender do histórico de uma
 conversa. Antes de agir, leia `AGENTS.md` e confirme o estado atual no GitHub;
-os dados abaixo são um retrato de **24 de setembro de 2026, após a integração da
-PR #103**.
+os dados abaixo são um retrato de **25 de setembro de 2026, após as integrações
+das PRs #103 e #114**.
 
 ## Estado confirmado
 
-- `origin/develop` está em `d822eab`, após o merge da PR #103.
+- `origin/develop` está em `cc9f1af`, após o merge da PR #114.
 - Acesso local, clientes, documentos PDF/JPEG, status documental, ficha PDF,
   importação assistida, auditoria, modelos de mensagem e triagem estão
   integrados.
@@ -23,9 +23,10 @@ PR #103**.
   aguardando os dados do remetente/provedor (#46). A implementação de
   backup/restauração está decomposta nas issues #106 e #108–#112. O aceite
   completo em instalação Windows limpa continua pendente (#26/#27).
-- A PR #114 implementa a #106 e está em revisão/CI. A PR #113 carrega esta
-  atualização documental. Confira aprovação e checks antes de integrar ou
-  iniciar as issues dependentes.
+- A PR #114 implementou a #106 e foi aprovada, teve os sete checks concluídos
+  com sucesso (incluindo o instalador Windows) e foi integrada em 25/09/2026.
+  A PR #113 contém esta atualização documental e ainda precisa corrigir a
+  inconsistência apontada na revisão antes de ser aprovada.
 - Use somente dados sintéticos. Não copie banco, documento, senha, token ou
   `.env` de cliente para branch, PR, issue ou log.
 
@@ -62,6 +63,9 @@ PR #103**.
 - **#103:** envio individual, histórico auditável, proteção contra repetição e
   tratamento de resultado incerto; todos os sete checks passaram, incluindo
   integração SQLite e instalador Windows.
+- **#114:** codec criptográfico DFCRMBK1 v1 implementado em streaming, conforme
+  ADR 0004, com validação de quadros e escrita sem sobrescrever destino
+  existente; revisão independente e sete checks aprovados antes do merge.
 
 ## Bloqueios que não devem ser inventados
 
@@ -85,17 +89,17 @@ PR #103**.
   instalação Windows limpa.
 - **PRs #99 e #100:** fechadas sem merge; o código grande de backup não será
   integrado em bloco. #104/#105 foram fechadas após correções/reorganização da
-  base da #103. Não há PR aberta neste retrato.
-- Project: #44 em andamento, #106 em revisão e #108–#112 bloqueadas por suas
-  dependências.
+  base da #103. Neste retrato, #113 permanece aberta aguardando correção e
+  aprovação.
+- Project: #44 em andamento, #106 concluída e #108–#112 bloqueadas até a
+  integração do codec e a conclusão de suas dependências.
   Reconfirme o Project antes de alterar status.
 
 ## Próxima sequência segura
 
-1. Revisar e integrar a PR curta da #106 somente após aprovação independente e
-   todos os checks, especialmente o instalador Windows.
-2. Depois do merge da #106, desenvolver #108 e #110 em branches/PRs separadas;
-   continuar #109 após #108 e #111 após #110.
+1. Desenvolver #108 e #110 em branches/PRs separadas, ambas a partir da
+   `origin/develop` atualizada após o merge da #114.
+2. Continuar #109 após #108 e #111 após #110.
 3. Desenvolver #112 após #109 e #111, cobrindo o fluxo autenticado do aplicativo.
 4. Obter os dados públicos do remetente na #46 antes de homologar o envio real
    da #25; não registrar credenciais em issues, PRs ou arquivos.
