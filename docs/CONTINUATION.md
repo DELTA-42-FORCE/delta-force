@@ -2,12 +2,12 @@
 
 Este arquivo permite retomar o trabalho sem depender do histórico de uma
 conversa. Antes de agir, leia `AGENTS.md` e confirme o estado atual no GitHub;
-os dados abaixo são um retrato de **25 de setembro de 2026, após as integrações
-das PRs #103 e #114**.
+os dados abaixo são um retrato de **26 de setembro de 2026, após a integração
+da PR #115 e o rebase da #116**.
 
 ## Estado confirmado
 
-- `origin/develop` está em `cc9f1af`, após o merge da PR #114.
+- `origin/develop` está em `43fd0ca`, após o merge da PR #115 (snapshot #108).
 - Acesso local, clientes, documentos PDF/JPEG, status documental, ficha PDF,
   importação assistida, auditoria, modelos de mensagem e triagem estão
   integrados.
@@ -23,12 +23,17 @@ das PRs #103 e #114**.
   aguardando os dados do remetente/provedor (#46). A implementação de
   backup/restauração está decomposta nas issues #106 e #108–#112. O aceite
   completo em instalação Windows limpa continua pendente (#26/#27).
-- A PR #114 implementou a #106 e foi aprovada, teve os sete checks concluídos
-  com sucesso (incluindo o instalador Windows) e foi integrada em 25/09/2026.
-  A PR #113 contém esta atualização documental; a inconsistência apontada na
-  revisão foi corrigida e a PR aguarda nova aprovação.
-- As PRs #115 e #116 entregam respectivamente as issues #108 e #110; ambas
-  estão abertas para revisão, com os checks Windows ainda em execução.
+- A PR #114 implementou a #106 e foi integrada após revisão e checks verdes,
+  inclusive o instalador Windows.
+- A PR #115 implementou a #108 e foi integrada por squash em 26/09/2026;
+  snapshot consistente agora está na `develop`.
+- A PR #116 implementa a #110. Após a integração da #115, foi rebaseada sobre
+  `43fd0ca` no commit `e0f299d`. Os 9 testes focados passaram localmente; a CI
+  desse novo commit está rodando e ainda exige revisão independente.
+- A PR #113 contém esta atualização documental. A contradição apontada foi
+  corrigida; embora exista uma aprovação posterior, o GitHub ainda registra a
+  solicitação de mudanças anterior. O merge segue bloqueado até que esse estado
+  seja resolvido por uma revisão elegível.
 - Use somente dados sintéticos. Não copie banco, documento, senha, token ou
   `.env` de cliente para branch, PR, issue ou log.
 
@@ -92,15 +97,15 @@ das PRs #103 e #114**.
 - **PRs #99 e #100:** fechadas sem merge; o código grande de backup não será
   integrado em bloco. #104/#105 foram fechadas após correções/reorganização da
   base da #103. Neste retrato, #113 permanece aberta aguardando nova aprovação.
-- Project: #44 em andamento, #106 concluída, #108 e #110 em revisão, e #109,
-  #111 e #112 bloqueadas por suas dependências.
+- Project: #106 e #108 concluídas, #109 pronta, #110 em revisão, e #111 e #112
+  bloqueadas por suas dependências. A issue guarda-chuva #44 continua aberta.
   Reconfirme o Project antes de alterar status.
 
 ## Próxima sequência segura
 
-1. Revisar e integrar #108 e #110 depois da aprovação independente e dos checks
-   Windows das PRs #115 e #116.
-2. Continuar #109 após #108 e #111 após #110.
+1. Revisar e integrar #110 após a nova CI e aprovação independente da PR #116.
+2. Iniciar #109, agora liberada pela integração da #108; continuar #111 após
+   integrar #110.
 3. Desenvolver #112 após #109 e #111, cobrindo o fluxo autenticado do aplicativo.
 4. Obter os dados públicos do remetente na #46 antes de homologar o envio real
    da #25; não registrar credenciais em issues, PRs ou arquivos.
