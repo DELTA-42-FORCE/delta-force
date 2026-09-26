@@ -27,6 +27,8 @@ das PRs #103 e #114**.
   com sucesso (incluindo o instalador Windows) e foi integrada em 25/09/2026.
   A PR #113 contém esta atualização documental; a inconsistência apontada na
   revisão foi corrigida e a PR aguarda nova aprovação.
+- As PRs #115 e #116 entregam respectivamente as issues #108 e #110; ambas
+  estão abertas para revisão, com os checks Windows ainda em execução.
 - Use somente dados sintéticos. Não copie banco, documento, senha, token ou
   `.env` de cliente para branch, PR, issue ou log.
 
@@ -90,14 +92,14 @@ das PRs #103 e #114**.
 - **PRs #99 e #100:** fechadas sem merge; o código grande de backup não será
   integrado em bloco. #104/#105 foram fechadas após correções/reorganização da
   base da #103. Neste retrato, #113 permanece aberta aguardando nova aprovação.
-- Project: #44 em andamento, #106 concluída, #108 e #110 em andamento, e #109,
+- Project: #44 em andamento, #106 concluída, #108 e #110 em revisão, e #109,
   #111 e #112 bloqueadas por suas dependências.
   Reconfirme o Project antes de alterar status.
 
 ## Próxima sequência segura
 
-1. Concluir #108 e #110 em branches/PRs separadas, ambas baseadas na
-   `origin/develop` atualizada após o merge da #114.
+1. Revisar e integrar #108 e #110 depois da aprovação independente e dos checks
+   Windows das PRs #115 e #116.
 2. Continuar #109 após #108 e #111 após #110.
 3. Desenvolver #112 após #109 e #111, cobrindo o fluxo autenticado do aplicativo.
 4. Obter os dados públicos do remetente na #46 antes de homologar o envio real
