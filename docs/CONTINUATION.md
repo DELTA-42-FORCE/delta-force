@@ -25,8 +25,8 @@ das PRs #103 e #114**.
   completo em instalação Windows limpa continua pendente (#26/#27).
 - A PR #114 implementou a #106 e foi aprovada, teve os sete checks concluídos
   com sucesso (incluindo o instalador Windows) e foi integrada em 25/09/2026.
-  A PR #113 contém esta atualização documental e ainda precisa corrigir a
-  inconsistência apontada na revisão antes de ser aprovada.
+  A PR #113 contém esta atualização documental; a inconsistência apontada na
+  revisão foi corrigida e a PR aguarda nova aprovação.
 - Use somente dados sintéticos. Não copie banco, documento, senha, token ou
   `.env` de cliente para branch, PR, issue ou log.
 
@@ -89,15 +89,14 @@ das PRs #103 e #114**.
   instalação Windows limpa.
 - **PRs #99 e #100:** fechadas sem merge; o código grande de backup não será
   integrado em bloco. #104/#105 foram fechadas após correções/reorganização da
-  base da #103. Neste retrato, #113 permanece aberta aguardando correção e
-  aprovação.
-- Project: #44 em andamento, #106 concluída e #108–#112 bloqueadas até a
-  integração do codec e a conclusão de suas dependências.
+  base da #103. Neste retrato, #113 permanece aberta aguardando nova aprovação.
+- Project: #44 em andamento, #106 concluída, #108 e #110 em andamento, e #109,
+  #111 e #112 bloqueadas por suas dependências.
   Reconfirme o Project antes de alterar status.
 
 ## Próxima sequência segura
 
-1. Desenvolver #108 e #110 em branches/PRs separadas, ambas a partir da
+1. Concluir #108 e #110 em branches/PRs separadas, ambas baseadas na
    `origin/develop` atualizada após o merge da #114.
 2. Continuar #109 após #108 e #111 após #110.
 3. Desenvolver #112 após #109 e #111, cobrindo o fluxo autenticado do aplicativo.
