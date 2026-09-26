@@ -74,7 +74,7 @@ def _backup(
     payload = tmp_path / "payload.tar"
     import io
 
-    with tarfile.open(payload, "w", format=tarfile.USTAR_FORMAT) as archive:
+    with tarfile.open(payload, "w|", format=tarfile.USTAR_FORMAT) as archive:
         archive.addfile(
             _archive_member("manifest.json", len(manifest_bytes)),
             io.BytesIO(manifest_bytes),
