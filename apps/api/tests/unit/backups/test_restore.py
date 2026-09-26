@@ -1,5 +1,6 @@
 """Testes sintéticos da validação/restauração isolada de backups."""
 
+import errno
 import hashlib
 import json
 import os
@@ -224,5 +225,29 @@ def test_restore_checks_space_before_running_scrypt(
             temporary_root=staging,
         ):
             pytest.fail("insufficient space must stop restore")
+
+    assert list(staging.iterdir()) == []
+
+
+def test_restore_reports_space_lost_during_decryption_and_cleans_staging(
+    tmp_path: Path, monkeypatch
+) -> None:
+    source = _backup(tmp_path)
+    staging = tmp_path / "private-staging"
+
+    def fail_decryption(**_kwargs) -> None:
+        raise OSError(errno.ENOSPC, "synthetic disk full")
+
+    monkeypatch.setattr(
+        "crm_api.infrastructure.backups.restore.decrypt_payload", fail_decryption
+    )
+
+    with pytest.raises(InsufficientRestoreSpaceError):
+        with stage_backup_restore(
+            source_path=source,
+            passphrase=_PASSPHRASE,
+            temporary_root=staging,
+        ):
+            pytest.fail("disk full during decryption must not yield a candidate")
 
     assert list(staging.iterdir()) == []

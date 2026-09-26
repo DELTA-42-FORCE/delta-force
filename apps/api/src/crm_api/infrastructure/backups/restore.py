@@ -89,7 +89,15 @@ def stage_backup_restore(
                 destination_path=encrypted_payload,
                 passphrase=passphrase,
             )
-        except (BackupContainerError, OSError, ValueError):
+        except OSError as error:
+            if error.errno == errno.ENOSPC or getattr(error, "winerror", None) == 112:
+                raise InsufficientRestoreSpaceError(
+                    "there is not enough free space to validate this backup"
+                ) from None
+            raise InvalidRestoreBackupError(
+                "backup is invalid or could not be restored"
+            ) from None
+        except (BackupContainerError, ValueError):
             raise InvalidRestoreBackupError(
                 "backup is invalid or could not be restored"
             ) from None
