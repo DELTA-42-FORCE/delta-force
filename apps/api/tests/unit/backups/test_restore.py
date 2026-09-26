@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import os
 from pathlib import Path
 import sqlite3
 import tarfile
@@ -91,6 +92,19 @@ def _backup(
     elif tar_mutation == "append":
         with payload.open("ab") as stream:
             stream.write(b"unexpected trailing bytes")
+    elif tar_mutation == "member-padding":
+        with tarfile.open(payload, "r:") as archive:
+            manifest_member = archive.next()
+            assert manifest_member is not None
+            padding_offset = manifest_member.offset_data + manifest_member.size
+            assert manifest_member.size % 512 != 0
+        with payload.open("r+b") as stream:
+            stream.seek(padding_offset)
+            stream.write(b"X")
+    elif tar_mutation == "end-padding":
+        with payload.open("r+b") as stream:
+            stream.seek(-1, os.SEEK_END)
+            stream.write(b"X")
     source = tmp_path / "synthetic.dfcrmbak"
     encrypt_payload(
         payload_path=payload,
@@ -126,8 +140,10 @@ def test_restore_stages_verified_candidate_without_touching_active_files(
     assert list(staging.iterdir()) == []
 
 
-@pytest.mark.parametrize("mutation", ["truncate", "append"])
-def test_restore_rejects_truncated_or_extra_tar_bytes(
+@pytest.mark.parametrize(
+    "mutation", ["truncate", "append", "member-padding", "end-padding"]
+)
+def test_restore_rejects_truncated_extra_or_noncanonical_tar_bytes(
     tmp_path: Path, mutation: str
 ) -> None:
     source = _backup(tmp_path, tar_mutation=mutation)
