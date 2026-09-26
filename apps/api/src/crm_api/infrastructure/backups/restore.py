@@ -21,6 +21,7 @@ import stat
 import sys
 import tarfile
 import tempfile
+from typing import BinaryIO
 
 from alembic.config import Config
 from alembic.script import ScriptDirectory
@@ -222,10 +223,17 @@ def _materialize_payload(
     documents_root = candidate_root / "documents"
     documents_root.mkdir(mode=0o700)
     try:
-        with tarfile.open(payload_path, mode="r:") as archive:
+        with (
+            tarfile.open(payload_path, mode="r:") as archive,
+            payload_path.open("rb") as raw_archive,
+        ):
+            expected_offset = 0
             manifest_member = archive.next()
             if manifest_member is None or manifest_member.name != "manifest.json":
                 raise _InvalidPayload
+            expected_offset = _validate_member_layout(
+                raw_archive, manifest_member, expected_offset
+            )
             manifest_bytes = _read_member_bytes(
                 archive, manifest_member, maximum=_MAX_MANIFEST_BYTES
             )
@@ -235,6 +243,9 @@ def _materialize_payload(
             database_member = archive.next()
             if database_member is None or database_member.name != "db.sqlite3":
                 raise _InvalidPayload
+            expected_offset = _validate_member_layout(
+                raw_archive, database_member, expected_offset
+            )
             _materialize_member(
                 archive,
                 database_member,
@@ -249,6 +260,9 @@ def _materialize_payload(
                 expected_name = f"documents/{item['storage_key']}"
                 if member is None or member.name != expected_name:
                     raise _InvalidPayload
+                expected_offset = _validate_member_layout(
+                    raw_archive, member, expected_offset
+                )
                 destination = documents_root.joinpath(*item["storage_key"].split("/"))
                 destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
                 _materialize_member(
@@ -259,6 +273,9 @@ def _materialize_payload(
                     expected_digest=item["sha256"],
                 )
             if archive.next() is not None:
+                raise _InvalidPayload
+            raw_archive.seek(expected_offset)
+            if any(raw_archive.read()):
                 raise _InvalidPayload
     except (tarfile.TarError, OSError, ValueError, KeyError, TypeError):
         raise _InvalidPayload from None
@@ -384,6 +401,20 @@ def _validate_tar_size(payload_path: Path, manifest: dict[str, object]) -> None:
     expected_size = ((member_region + 1024 + 10239) // 10240) * 10240
     if payload_path.stat().st_size != expected_size:
         raise _InvalidPayload
+
+
+def _validate_member_layout(
+    raw_archive: BinaryIO, member: tarfile.TarInfo, expected_offset: int
+) -> int:
+    """Rejeita cabeçalhos ocultos e padding não canônico entre membros."""
+    data_offset = expected_offset + 512
+    if member.offset != expected_offset or member.offset_data != data_offset:
+        raise _InvalidPayload
+    padding_size = (-member.size) % 512
+    raw_archive.seek(data_offset + member.size)
+    if raw_archive.read(padding_size) != bytes(padding_size):
+        raise _InvalidPayload
+    return data_offset + member.size + padding_size
 
 
 def _materialize_member(
