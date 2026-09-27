@@ -27,9 +27,11 @@ O produto é um CRM **interno** de gestão de clientes. Ele manipulará dados pe
 
 Não implemente item fora do MVP sem issue e decisão explícita. As decisões
 confirmadas estão em `docs/CLIENT_DECISIONS.md` e o caminho de entrega em
-`docs/MVP_PLAN.md`. Regras ainda pendentes — criptografia/recuperação do backup
-e provedor de e-mail — estão no backlog. Não as invente: registre a dependência
-e peça definição.
+`docs/MVP_PLAN.md`. A ADR 0004 já definiu o formato criptográfico do backup;
+implementação e aceite seguem nas issues #106 e #108–#112, com pendências
+operacionais de manual/aceite em #26/#27. Remetente e provedor de e-mail ainda
+dependem dos dados do cliente na #46. Não invente respostas: registre a
+dependência e peça definição.
 
 ## Fontes de verdade
 

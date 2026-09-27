@@ -102,8 +102,12 @@ continuam fora desta entrega e exigem suas próprias issues.
 
 A ADR 0002 e a issue #57 já definiram e implementaram o shell/empacotamento
 Windows, o diretório privado, a primeira execução e a estratégia de atualização
-manual. O formato criptográfico, a custódia/recuperação da senha do backup e o
-provedor de e-mail seguem pendentes.
+manual. A ADR 0004 definiu o formato criptográfico do backup (DFCRMBK1 v1,
+scrypt e AES-256-GCM), cuja implementação foi dividida em #106 e #108–#112.
+Custódia da senha, frequência/retenção do HD e outros procedimentos operacionais
+continuam para o manual e o aceite em #26/#27. A ADR 0005 definiu a porta e a
+estratégia segura de envio/credencial de e-mail; remetente, provedor e volume
+continuam pendentes na #46.
 
 ## Decisões do time para e-mail (#46) e backup (#44)
 
@@ -180,6 +184,8 @@ Já confirmado: o backup poderá usar uma senha digitada pelo proprietário.
    também tenha esquecido a senha de login? A senha do backup não deve revelar
    nem reutilizar a senha de login.
 
-O time definirá o formato criptográfico, o snapshot consistente de banco e
-documentos e a restauração atômica com validação antes de substituir dados. A
-senha do backup não será persistida pelo aplicativo nem incluída no backup.
+O formato criptográfico, o snapshot consistente, a validação e a ativação
+recuperável com rollback foram definidos pelo time na ADR 0004 e estão
+decompostos nas issues #106 e #108–#112. A senha do backup não será persistida
+pelo aplicativo nem incluída no backup. As respostas acima calibram a operação
+e o aceite; não bloqueiam as entregas técnicas.

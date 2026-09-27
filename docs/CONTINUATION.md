@@ -1,145 +1,78 @@
 # Continuação do projeto
 
-Este arquivo permite retomar o trabalho sem depender do histórico de uma
-conversa. Antes de agir, leia `AGENTS.md` e confirme o estado atual no GitHub;
-os dados abaixo são um retrato de **20 de setembro de 2026, após a integração da
-PR #101**.
+Este arquivo é um retrato de **27 de setembro de 2026**. Ele ajuda a retomar o
+trabalho, mas não substitui a checagem dos estados atuais no GitHub. Leia
+`AGENTS.md`, a issue escolhida e `skills/delta-force-development/SKILL.md` antes
+de iniciar uma tarefa.
 
 ## Estado confirmado
 
-- `origin/develop` estava em `70e5619`, após o merge da PR #101.
-- Acesso local, clientes, documentos PDF/JPEG, status documental, ficha PDF,
-  importação assistida, auditoria, modelos de mensagem e triagem estão
-  integrados.
-- O E2E da preparação de comunicação, o texto de progresso do painel e a
-  inicialização do SQLite no aplicativo Windows instalado também estão
-  integrados.
-- As GitHub Actions obrigatórias usam versões com runtime Node 24; o Node 22 da
-  aplicação permanece inalterado.
-- As falhas de inicialização do aplicativo instalado agora produzem diagnóstico
-  sanitizado, e a PR #92 reforça upload/download de documentos, auditoria da
-  importação, limites técnicos e auditoria de dependências.
-- O envio real de e-mail, backup/restauração e o aceite completo do MVP em uma
-  instalação Windows limpa ainda não estão concluídos. Confirme no GitHub as
-  PRs abertas antes de iniciar ou integrar qualquer trabalho.
-- Use somente dados sintéticos. Não copie banco, documento, senha, token ou
-  `.env` de cliente para branch, PR, issue ou log.
+- O produto continua sendo um aplicativo local Windows, para um único
+  proprietário, com SQLite local e documentos em filesystem privado.
+- O fluxo de trabalho normal não usa PR para `develop`: reivindique a issue no
+  Project, crie branch curta de `origin/develop`, faça preflight, rode
+  `just check`, publique para CI e integre o mesmo commit por fast-forward após
+  todos os checks obrigatórios passarem. Se `develop` avançar depois da
+  publicação, crie uma branch nova da ponta atual e reaplique os commits; não
+  reescreva a branch publicada nem use force push. PR continua obrigatória para
+  integrar em `main`.
+- `#110` (validação da restauração em staging) foi integrada diretamente em
+  `develop` no commit `b351d9b` depois de `just check` e dos sete checks remotos,
+  incluindo build e smoke test Windows. A antiga PR #116 foi fechada sem merge.
+- A PR #113 foi fechada após seu conteúdo documental ainda válido ser
+  sincronizado com a base atual; as instruções antigas de PR para `develop` e
+  os retratos de estado desatualizados não foram reaplicados.
+- Não use dados reais do cliente, senhas, tokens ou `.env` em testes, issues,
+  branches ou logs.
 
-## Últimas integrações
+## Backup e restauração
 
-- **#79:** interface de modelos e triagem, sem envio real.
-- **#80:** E2E da preparação de comunicação, cobrindo status documental,
-  criação de modelo, triagem e auditoria.
-- **#81:** texto de progresso do painel alinhado ao estado atual.
-- **#82:** handoff inicial para continuidade do projeto.
-- **#83:** inclusão do driver SQLite no sidecar instalado e smoke test cauteloso
-  do instalador Windows.
-- **#84:** consulta autenticada de modelo por ID e cobertura HTTP do ciclo CRUD.
-- **#87:** atualização das GitHub Actions para runtime Node 24, preservando
-  versões, caches, permissões e comandos da aplicação.
-- **#89:** diagnóstico sanitizado para falhas de inicialização do desktop
-  empacotado; nenhum segredo, dado pessoal ou caminho privado é persistido.
-- **#90:** registro das confirmações do cliente sobre parcelamento futuro, sem
-  ampliar o MVP atual.
-- **#91:** registro objetivo das perguntas que ainda bloqueiam e-mail (#46) e
-  backup (#44).
-- **#92:** reforço de documentos, importação, limites de campos, dependências e
-  tolerância da primeira abertura no Windows; os sete checks passaram na revisão
-  integrada, inclusive o smoke test do instalador.
-- **#96:** contratos e parcelamento da etapa posterior ao MVP, com valores em
-  centavos, vencimentos civis, pagamentos, cancelamento, auditoria e interface.
-- **#101:** `just audit` portátil para Linux e PowerShell, executando todos os
-  scanners obrigatórios e agregando falhas sem atualizar dependências.
-- **#102:** decisões do time sobre envio individual, resultado SMTP desconhecido,
-  lembrete de backup e restauração com proteção dos dados existentes.
+- A ADR 0004 define o contêiner criptográfico DFCRMBK1 v1, scrypt e AES-256-GCM.
+- #106 (codec), #108 (snapshot consistente) e #110 (validação isolada) estão
+  concluídas.
+- #109 está **Ready**: publicação segura em mídia externa no Windows.
+- #111 está **Ready**: ativação com journal durável e rollback; a dependência
+  #110 foi concluída. Não inicia antes de alguém reivindicá-la no Project.
+- #112 continua **Blocked** até #109 e #111: rotas e fluxo autenticado no
+  aplicativo.
+- #44 é a issue guarda-chuva e permanece **In progress** até concluir as
+  entregas técnicas e os gates operacionais de #26/#27.
+- Custódia/recuperação da senha, frequência/retenção do HD, proteção do
+  equipamento e recuperação de conta são decisões operacionais pendentes para
+  o manual e o aceite; não invente respostas nem bloqueie o código já definido.
 
-## Bloqueios que não devem ser inventados
+## E-mail e aceite
 
-- **#24:** CRUD, triagem e interface estão integrados; faltam homologar as
-  variáveis de modelo e onde cadastrar/validar o e-mail opcional do cliente.
-- **#46:** o cliente ainda precisa informar remetente, provedor/conta e os
-  mecanismos de envio autorizados pelo provedor, além do volume/frequência. O
-  envio individual, o tratamento de falhas e resultados desconhecidos já foram
-  decididos na #102. O time escolhe o adaptador e a guarda segura da credencial;
-  isso não deve ser delegado ao cliente. A proposta técnica está na PR #95 e
-  ainda aguarda correções.
-- **#44:** o HD externo e o uso de senha digitada pelo proprietário foram
-  confirmados; ainda faltam decisões operacionais sobre custódia/recuperação da
-  senha, responsáveis, frequência, retenção, modo de restauração e proteção dos
-  equipamentos. O formato criptográfico, snapshot consistente e restauração
-  atômica são decisões do time; a proposta técnica está na PR #94 e ainda
-  aguarda revisão. Não implemente backup desprotegido.
-- **ADR 0002/#43:** a arquitetura está **Aceita** e a issue #43 está concluída.
-  A PR #48 aprovou Tauri 2, React, FastAPI empacotada como sidecar e
-  SQLite/filesystem privado; a integração essencial foi entregue pela #57.
-  Permanecem pendentes somente os gates operacionais e de release registrados
-  na própria ADR, como proteção do equipamento, assinatura e recuperação do
-  backup.
-- **#26:** depende das decisões operacionais restantes e da entrega #44.
-- **#27:** permanece aberta até envio/histórico, backup/restauração e aceite em
-  instalação Windows limpa.
-- As PRs #94 e #95 propõem as decisões técnicas de backup e e-mail, mas continuam
-  com correções solicitadas. As PRs funcionais #97–#100 estão empilhadas e não
-  podem ser integradas antes de rebase, revisão e checks próprios. Não retire
-  `status: blocked` nem feche issue com base apenas na existência dessas branches.
+- #24 está integrada. A fundação de envio/histórico da #25 existe, mas o envio
+  real continua dependente dos dados públicos de remetente/provedor/volume da
+  #46; nunca registre credenciais.
+- #46 está **Blocked** até resposta do cliente.
+- #26 (manual, operação e resposta a incidentes) e #27 (aceite ponta a ponta em
+  Windows limpo e HD de teste) continuam **Blocked** pelos gates externos e pela
+  conclusão do backup. Use dados sintéticos e mídia de teste.
 
-## Próxima sequência segura
+## Próxima sequência
 
-1. Corrigir, revisar e decidir as propostas técnicas das PRs #94 e #95.
-2. Rebasear e revisar #97 isoladamente; depois retargetear #98, #99 e #100, uma
-   por vez, sempre sobre a `develop` atual e com checks próprios.
-3. Obter do cliente as decisões operacionais ainda pendentes de #44 e #46.
-4. Manter #25 e #44 abertas até configuração/teste real, mesmo que a fundação de
-   código seja integrada.
-5. Completar #26 e executar o aceite final de #27 em Windows limpo e HD real.
+1. Escolher e reivindicar #109 ou #111 — ambas estão prontas e podem avançar em
+   paralelo, cada uma em sua branch curta e separada.
+2. Depois das duas, desenvolver #112 e completar o fluxo autenticado no
+   aplicativo.
+3. Atualizar #26 e executar #27 em Windows limpo; então concluir a guarda-chuva
+   #44.
+4. Retomar o envio real somente quando o cliente fornecer os dados não secretos
+   da #46 e o adaptador puder ser configurado com credencial protegida.
 
-### Informações necessárias para destravar #46
+## Checklist rápido antes de qualquer integração
 
-- endereço e nome de exibição do remetente;
-- provedor/conta já utilizada e se oferece SMTP com senha de aplicativo ou outro
-  mecanismo de envio autorizado;
-- volume aproximado de destinatários por lote e frequência esperada;
-
-O envio individual e o reenvio automático somente de falhas comprovadas já são
-decisões do time. Resultado desconhecido exige confirmação do proprietário. O
-time escolherá SMTP ou API conforme o provedor e definirá a guarda segura da
-credencial. Não registre senha, token ou segredo em issue, PR, banco, backup ou
-arquivo versionado.
-
-### Informações necessárias para destravar #44
-
-- decisão confirmada: o backup poderá usar senha digitada pelo proprietário;
-- onde a senha ou chave de recuperação será guardada fora do computador e do HD
-  de backup;
-- quem poderá executar a restauração em um computador substituto;
-- procedimento aceito para perda da senha/chave;
-- frequência do backup e necessidade de lembrete no aplicativo;
-- quantidade de versões ou período de retenção no HD;
-- uso da restauração apenas em instalação vazia ou também sobre dados existentes;
-- proteção atual do Windows e do HD, como senha e BitLocker;
-- forma esperada de recuperar a conta do CRM se a senha de login também for
-  perdida após a troca do computador.
-
-Não implemente um backup desprotegido nem uma chave vinculada somente ao
-computador perdido: ambos contrariam a recuperação por HD externo. Formato
-criptográfico, snapshot consistente e restauração atômica pertencem ao time e
-não são perguntas para o cliente.
-
-Para qualquer nova entrega, crie worktree/branch curta a partir de
-`origin/develop`, rode `just check`, abra PR para `develop` e solicite revisão:
-
-```powershell
-git fetch origin --prune
-git worktree add -b feature/ISSUE-resumo storage/worktrees/ISSUE-resumo origin/develop
-Set-Location storage/worktrees/ISSUE-resumo
-just install
+```bash
+git fetch origin
+git switch -c feature/ISSUE-resumo origin/develop
 just check
+git push -u origin HEAD
 ```
 
-Antes de aprovar ou mesclar uma PR, confirme que ela continua baseada no
-`origin/develop` atual, que o `headRefOid` não mudou desde a revisão e que todos
-os checks obrigatórios pertencem a esse mesmo commit. Para mudanças no desktop,
-o job **Desktop Windows — sidecar and installer** é obrigatório.
-
-Não altere nem apague arquivos não rastreados da worktree principal: eles podem
-pertencer ao desenvolvedor local.
+Antes de publicar a branch, sincronize-a com `origin/develop` por rebase. Depois
+de publicada, não reescreva seu histórico: se a base avançar, use uma branch
+nova e reaplique os commits. Integre somente quando o SHA testado for exatamente
+o SHA publicado e todos os checks obrigatórios estiverem verdes. Atualize o
+Project e feche a issue apenas após a integração e o aceite.
