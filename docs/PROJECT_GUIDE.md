@@ -9,11 +9,13 @@
 | `apps/desktop` | Shell Tauri Windows, sidecar FastAPI e build do instalador. |
 | `infra` | Recursos locais que simulam dependências externas. |
 | `docs` | Requisitos, decisões arquiteturais e material operacional. |
-| `.github` | Proteções de qualidade que rodam em pull requests. |
+| `.github` | Proteções de qualidade que rodam em pushes de desenvolvimento e pull requests para `main`. |
 
-## Fluxo de Git
+## Fluxo de Git e coordenação
 
-`main` representa versões estáveis e `develop` é a integração do trabalho aprovado. Cada issue é implementada em uma branch curta, criada a partir de `develop`:
+`main` representa versões estáveis. `develop` integra trabalho concluído, sem PRs normais. Cada issue é reservada no GitHub Project antes da implementação: atribua ao responsável, mova para **In progress** e deixe um comentário com a branch. Isso sinaliza ao restante do time que a issue já está em andamento.
+
+Crie uma branch curta a partir da ponta atual de `origin/develop`:
 
 ```text
 feature/123-cadastro-clientes
@@ -21,25 +23,40 @@ fix/456-status-documento
 chore/789-configurar-backup
 ```
 
-Antes de começar e imediatamente antes de pedir revisão:
+Antes de começar, leia a issue e a documentação relacionada, confira se não há claim ativo e faça a varredura preflight definida em `skills/delta-force-development/SKILL.md`. Corrija falhas críticas, de segurança, perda de dados ou bugs reproduzíveis antes de uma nova tarefa; registre os achados não críticos fora do escopo como follow-up, sem incorporá-los automaticamente.
+
+Implemente na branch e valide localmente:
+
+```bash
+git fetch origin
+git switch -c feature/123-resumo origin/develop
+just check
+```
+
+Envie a branch de trabalho para origin para disparar os checks de CI. Antes de integrar, atualize-a com `origin/develop` por rebase e rode `just check` novamente. Aguarde verdes todos os checks obrigatórios da ponta exata da branch — incluindo **Desktop Windows — sidecar and installer** para mudanças aplicáveis.
+
+Integre sem PR apenas por fast-forward, apontando `develop` ao mesmo commit que passou pelos checks:
 
 ```bash
 git fetch origin
 git rebase origin/develop
 just check
+git push origin HEAD:develop
 ```
 
-Se houver conflito, resolva-o na própria branch, execute `just check` de novo e faça `git push --force-with-lease` — nunca `--force` simples. Um pull request deve apontar para `develop`, referenciar a issue (`Closes #123`) e passar todos os checks. A integração em `develop` será por **squash merge** após uma aprovação. Releases usam PR de `develop` para `main`.
+O push direto é protegido pelos status checks obrigatórios de `develop`; não use merge commit não testado, `--force`, bypass ou push se algum check estiver pendente/falho. Se `develop` avançar e o fast-forward for rejeitado, rebaseie, rode os checks novamente e só então tente de novo. Uma falha de push não autoriza contornar as proteções.
+
+Mudanças em `apps/desktop` também precisam da aprovação de outro integrante antes da integração, registrada como comentário na issue; essa revisão curta não exige PR. Releases de `develop` para `main` continuam exigindo PR, aprovação independente e todos os checks.
 
 ## Convenções de commits e PRs
 
-Use Conventional Commits: `feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`. Mantenha um único objetivo por PR. Não suba arquivos `.env`, dumps de banco, documentos reais de clientes, chaves ou tokens.
+Use Conventional Commits: `feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`. Mantenha branches e commits de um único objetivo. PRs são reservadas para releases/hotfixes destinados a `main`; não integre trabalho normal em `develop` por PR. Não suba arquivos `.env`, dumps de banco, documentos reais de clientes, chaves ou tokens.
 
 ## Qualidade local
 
 | Comando | Finalidade |
 | --- | --- |
-| `just check` | Validação completa exigida no PR. |
+| `just check` | Validação completa local antes de publicar a branch e integrar em `develop`. |
 | `just audit` | Auditoria manual: Bandit, pip-audit, npm audit (web/desktop) e cargo-audit, com relatório informativo de versões novas. Requer `cargo-audit` instalado (`cargo install cargo-audit --locked`). Não atualiza dependências. |
 | `just api-check` | Black, Flake8 e testes unitários da API. |
 | `just api-migrate` | Durante a transição, aplica migrations no banco atualmente configurado. O alvo final é SQLite em arquivo. |
@@ -69,11 +86,11 @@ Crie um GitHub Project com as colunas: **Backlog**, **Ready**, **In progress**, 
 - Prioridade: `priority: mvp`, `priority: next`, `priority: future`.
 - Estado: `status: triage`, `status: ready`, `status: blocked`.
 
-Configure automações do Project para mover issues abertas para **Backlog**, itens atribuídos para **In progress**, PR aberto para **In review** e issues fechadas para **Done**.
+Configure automações do Project para mover issues abertas para **Backlog**, itens atribuídos para **In progress**, PR aberto para **In review** e issues fechadas para **Done**. Para trabalho sem PR, o responsável atualiza a issue para **Done** e a fecha somente depois da integração e do aceite.
 
 ## Dependências e vulnerabilidades
 
-Não usamos atualização automática de dependências por pull request. Em uma rotina de manutenção ou antes de atualizar uma biblioteca, execute `just audit`. Corrija vulnerabilidades prioritárias em uma issue/PR próprio; versões novas listadas pelo comando são informativas e só devem ser adotadas após o time avaliar compatibilidade, changelog e impacto.
+Não usamos atualização automática de dependências por pull request. Em uma rotina de manutenção ou antes de atualizar uma biblioteca, execute `just audit`. Corrija vulnerabilidades prioritárias em uma issue e branch próprias, integrando só após os checks; versões novas listadas pelo comando são informativas e só devem ser adotadas após o time avaliar compatibilidade, changelog e impacto.
 
 ## Shell Windows
 

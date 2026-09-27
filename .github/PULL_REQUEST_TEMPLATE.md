@@ -1,4 +1,6 @@
-## Contexto
+> Use este template para PRs de release/hotfix destinadas à `main`. O trabalho normal integra diretamente em `develop` após CI verde.
+
+## Contexto da release
 
 Closes #
 
@@ -15,6 +17,6 @@ Closes #
 
 ## Checklist de colaboração
 
-- [ ] Branch atualizada com `origin/develop` (ou `origin/main` para hotfix)
-- [ ] PR pequeno, com uma issue vinculada e título convencional
+- [ ] PR destinada à `main` e branch atualizada com `origin/develop`
+- [ ] PR de release/hotfix com as issues relevantes e título convencional
 - [ ] Critérios de aceite da issue foram atendidos

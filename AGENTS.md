@@ -39,7 +39,8 @@ e peça definição.
 4. `docs/ARCHITECTURE.md`: fronteiras arquiteturais.
 5. `docs/CLIENT_DECISIONS.md`: respostas confirmadas posteriormente pelo cliente.
 6. `docs/MVP_PLAN.md`: sequência de entrega e dependências do MVP local.
-7. A issue vinculada e as decisões aprovadas no pull request.
+7. A issue vinculada, o estado do GitHub Project e decisões aprovadas em PRs de release quando aplicável.
+8. `skills/delta-force-development/SKILL.md`, com o fluxo obrigatório de trabalho assistido por IA.
 
 ## Stack definida
 
@@ -110,18 +111,27 @@ Na API, evolua para as fronteiras `domain`, `application`, `infrastructure` e `p
 ## Forma de trabalhar
 
 1. Leia a issue, este arquivo e os documentos relacionados antes de mudar código.
-2. Confirme o escopo, as dependências e os critérios de aceite. Se faltar uma regra de negócio, pare e peça a decisão; não adivinhe.
-3. Trabalhe em branch curta, originada de `develop`: `feature/<issue>-<resumo>`, `fix/<issue>-<resumo>` ou `chore/<issue>-<resumo>`.
-4. Antes de codificar e antes de solicitar revisão, sincronize com `origin/develop` usando rebase.
-5. Execute a verificação aplicável e não marque uma tarefa como pronta sem evidência.
+2. Confira o GitHub Project e reserve a issue antes de editar: atribua-a ao responsável, mova-a para **In progress** e comente o nome da branch. Se já houver responsável ou trabalho ativo, coordene antes de começar.
+3. Faça a varredura preflight descrita em `skills/delta-force-development/SKILL.md`. Corrija primeiro falhas críticas, de segurança, perda de dados ou bugs reproduzíveis; registre achados não críticos fora do escopo sem ampliar automaticamente a tarefa.
+4. Confirme escopo, dependências e aceite. Se faltar regra de negócio, pare e peça decisão; não adivinhe.
+5. Trabalhe em branch curta criada de `origin/develop`: `feature/<issue>-<resumo>`, `fix/<issue>-<resumo>` ou `chore/<issue>-<resumo>`.
+6. Antes de integrar, sincronize com `origin/develop` usando rebase, rode `just check` e envie a branch de trabalho para origin. Aguarde os checks obrigatórios ficarem verdes, incluindo Windows quando aplicável.
+7. Integre sem PR avançando `develop` por fast-forward para o mesmo commit que passou nos checks. Nunca crie um merge commit não testado, nunca force push e nunca contorne checks. Se `develop` avançar, rebaseie e repita os checks.
+8. Atualize o Project e o handoff quando houver mudança relevante de status, decisão ou dependência. PRs são obrigatórias para `main`.
 
 ```bash
 git fetch origin
+git switch -c feature/123-resumo origin/develop
+# implementar e validar
+git fetch origin
 git rebase origin/develop
 just check
+git push -u origin HEAD
+# somente após CI verde e confirmação de que a base não avançou:
+git push origin HEAD:develop
 ```
 
-O projeto configura `pull.rebase=true`, `rebase.autoStash=true` e `fetch.prune=true`. Em caso de rebase já publicado, use somente `git push --force-with-lease`, nunca `--force` simples.
+O projeto configura `pull.rebase=true`, `rebase.autoStash=true` e `fetch.prune=true`. Não force push em branches de trabalho publicadas: se precisar rebasear uma branch já publicada, pare e coordene a atualização segura com o time.
 
 ## Qualidade e definição de pronto
 
@@ -135,9 +145,11 @@ Cada entrega deve ter testes proporcionais ao risco: unidade para regra de negó
 ## Git, PRs e Kanban
 
 - `main` contém versões estáveis; `develop` integra trabalho aprovado.
-- Pull requests normais apontam para `develop`, referenciam a issue (`Closes #123`) e usam squash merge após aprovação.
+- Trabalho normal integra diretamente em `develop`, sem PR, somente após CI verde na ponta da branch de trabalho e integração fast-forward. A proteção de `develop` mantém checks obrigatórios, bloqueio de force push e de exclusão.
+- PRs são usadas para releases/hotfixes destinados a `main`; `main` mantém aprovação independente e todos os checks obrigatórios.
+- Mudanças em `apps/desktop` ainda exigem aprovação de outro integrante antes da integração; registre-a em comentário na issue, além do check Windows obrigatório.
 - Use Conventional Commits: `feat:`, `fix:`, `docs:`, `test:`, `refactor:` ou `chore:`.
-- Mantenha PRs pequenos, coesos e revisáveis; não misture refatoração ampla com mudança funcional sem motivo.
+- Mantenha branches e commits pequenos e coesos; não misture refatoração ampla com mudança funcional sem motivo.
 - Atualize o item no GitHub Project: Backlog → Ready → In progress → In review → Done. Use **Blocked** quando uma decisão externa impedir avanço.
 
 ## Convenções por camada
@@ -177,6 +189,7 @@ Sinalize e corrija antes do merge, em especial:
 ## Para agentes de IA
 
 - Faça mudanças mínimas e verificáveis; preserve alterações de outros desenvolvedores.
-- Não faça `git reset --hard`, `git checkout --`, `push --force`, exclusões amplas, commits, pushes, criação de PR/issues ou chamadas externas sem autorização explícita do solicitante.
+- Não faça `git reset --hard`, `git checkout --`, `push --force` nem exclusões amplas. Um pedido explícito para implementar uma issue autoriza os commits necessários, o push da branch de trabalho e a integração fast-forward em `develop` somente após checks verdes e conforme este fluxo. Isso não autoriza push para `main`, bypass de proteção, alteração de permissões/regras do repositório ou criação de issues.
+- Atualizar a issue reivindicada e seu item/status no Project faz parte do fluxo autorizado. Não crie tarefas novas automaticamente para achados fora do escopo.
 - Não use credenciais fornecidas em conversa. Oriente o uso de integrações autorizadas ou tokens com menor privilégio, sem exibi-los.
 - Ao concluir, informe arquivos alterados, verificações executadas, limitações e decisões que ainda exigem o time.

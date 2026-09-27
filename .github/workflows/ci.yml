@@ -1,11 +1,15 @@
-name: Pull request checks
+name: Quality and platform checks
 
 on:
+  push:
+    branches:
+      - "**"
+      - "!main"
   pull_request:
     branches: [main, develop]
 
 concurrency:
-  group: pr-${{ github.workflow }}-${{ github.event.pull_request.number }}
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:

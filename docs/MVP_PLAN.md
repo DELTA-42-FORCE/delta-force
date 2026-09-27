@@ -1,8 +1,9 @@
 # Plano de entrega do MVP local Windows
 
 Este plano organiza o trabalho por dependência, não por quem o executará. Cada
-PR continua curto, nasce de `develop`, referencia uma issue e volta para
-`develop` após revisão.
+issue é reivindicada no Project e implementada em branch curta baseada em
+`develop`; o commit só é integrado diretamente em `develop` depois dos checks
+obrigatórios. PRs continuam obrigatórias para releases em `main`.
 
 ## Marco 0 — fechar a base de decisão
 
