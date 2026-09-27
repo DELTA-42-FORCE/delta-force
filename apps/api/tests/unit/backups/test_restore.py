@@ -85,9 +85,27 @@ def _backup(
             _archive_member("db.sqlite3", len(database_bytes)),
             io.BytesIO(database_bytes),
         )
-        archive.addfile(
-            _archive_member(f"documents/{_KEY}", len(_DOCUMENT)), io.BytesIO(_DOCUMENT)
-        )
+        document_member = _archive_member(f"documents/{_KEY}", len(_DOCUMENT))
+        if tar_mutation in {"symlink", "hardlink"}:
+            document_member.type = (
+                tarfile.SYMTYPE if tar_mutation == "symlink" else tarfile.LNKTYPE
+            )
+            document_member.linkname = "../../outside.pdf"
+            document_member.size = 0
+            archive.addfile(document_member)
+        elif tar_mutation == "device":
+            document_member.type = tarfile.CHRTYPE
+            document_member.devmajor = 1
+            document_member.devminor = 3
+            document_member.size = 0
+            archive.addfile(document_member)
+        elif tar_mutation == "absolute-path":
+            document_member.name = "/outside.pdf"
+            archive.addfile(document_member, io.BytesIO(_DOCUMENT))
+        else:
+            archive.addfile(document_member, io.BytesIO(_DOCUMENT))
+        if tar_mutation == "duplicate":
+            archive.addfile(_archive_member("db.sqlite3", 0), io.BytesIO(b""))
     if tar_mutation == "truncate":
         payload.write_bytes(payload.read_bytes()[:-512])
     elif tar_mutation == "append":
@@ -142,7 +160,18 @@ def test_restore_stages_verified_candidate_without_touching_active_files(
 
 
 @pytest.mark.parametrize(
-    "mutation", ["truncate", "append", "member-padding", "end-padding"]
+    "mutation",
+    [
+        "truncate",
+        "append",
+        "member-padding",
+        "end-padding",
+        "symlink",
+        "hardlink",
+        "device",
+        "absolute-path",
+        "duplicate",
+    ],
 )
 def test_restore_rejects_truncated_extra_or_noncanonical_tar_bytes(
     tmp_path: Path, mutation: str
