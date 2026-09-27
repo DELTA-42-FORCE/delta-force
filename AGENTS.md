@@ -115,15 +115,17 @@ Na API, evolua para as fronteiras `domain`, `application`, `infrastructure` e `p
 3. Faça a varredura preflight descrita em `skills/delta-force-development/SKILL.md`. Corrija primeiro falhas críticas, de segurança, perda de dados ou bugs reproduzíveis; registre achados não críticos fora do escopo sem ampliar automaticamente a tarefa.
 4. Confirme escopo, dependências e aceite. Se faltar regra de negócio, pare e peça decisão; não adivinhe.
 5. Trabalhe em branch curta criada de `origin/develop`: `feature/<issue>-<resumo>`, `fix/<issue>-<resumo>` ou `chore/<issue>-<resumo>`.
-6. Antes de integrar, sincronize com `origin/develop` usando rebase, rode `just check` e envie a branch de trabalho para origin. Aguarde os checks obrigatórios ficarem verdes, incluindo Windows quando aplicável.
-7. Integre sem PR avançando `develop` por fast-forward para o mesmo commit que passou nos checks. Nunca crie um merge commit não testado, nunca force push e nunca contorne checks. Se `develop` avançar, rebaseie e repita os checks.
-8. Atualize o Project e o handoff quando houver mudança relevante de status, decisão ou dependência. PRs são obrigatórias para `main`.
+6. Antes de publicar a branch de trabalho, sincronize com `origin/develop` usando rebase, rode `just check` e envie a branch para origin. Aguarde os checks obrigatórios ficarem verdes, incluindo Windows quando aplicável.
+7. Logo antes de integrar, confirme novamente se `origin/develop` continua sendo ancestral do commit testado. Se avançou, não reescreva uma branch publicada: crie outra branch a partir do novo `origin/develop`, reaplique nela os commits da tarefa, rode `just check`, publique-a e aguarde CI verde nessa nova ponta.
+8. Integre sem PR avançando `develop` por fast-forward para o mesmo commit que passou nos checks. Nunca crie um merge commit não testado, nunca force push e nunca contorne checks.
+9. Atualize o Project e o handoff quando houver mudança relevante de status, decisão ou dependência. PRs são obrigatórias para `main`.
 
 ```bash
 git fetch origin
 git switch -c feature/123-resumo origin/develop
 # implementar e validar
 git fetch origin
+# se a branch ainda não foi publicada e develop avançou:
 git rebase origin/develop
 just check
 git push -u origin HEAD
@@ -131,7 +133,7 @@ git push -u origin HEAD
 git push origin HEAD:develop
 ```
 
-O projeto configura `pull.rebase=true`, `rebase.autoStash=true` e `fetch.prune=true`. Não force push em branches de trabalho publicadas: se precisar rebasear uma branch já publicada, pare e coordene a atualização segura com o time.
+Se `develop` avançar depois da publicação da branch, crie uma nova branch a partir de `origin/develop` e reaplique os commits da tarefa nela; rode e publique todos os checks de novo antes de integrar. Nunca force push ou reescreva branch publicada. O projeto configura `pull.rebase=true`, `rebase.autoStash=true` e `fetch.prune=true`.
 
 ## Qualidade e definição de pronto
 
