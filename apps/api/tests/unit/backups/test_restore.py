@@ -14,6 +14,8 @@ from crm_api.infrastructure.backups.container import encrypt_payload
 from crm_api.infrastructure.backups.restore import (
     InsufficientRestoreSpaceError,
     InvalidRestoreBackupError,
+    _InvalidPayload,
+    _validate_tar_size,
     stage_backup_restore,
 )
 
@@ -21,6 +23,20 @@ _REVISION = "20260920_0016"
 _KEY = "ab/cd/0123456789abcdef0123456789abcdef.pdf"
 _DOCUMENT = b"%PDF-1.7\nconteudo sintetico\n%%EOF"
 _PASSPHRASE = "senha sintetica forte"
+
+
+@pytest.mark.parametrize(
+    "manifest",
+    [
+        {"database": None, "documents": []},
+        {"database": {}, "documents": None},
+    ],
+)
+def test_tar_size_validation_rejects_unvalidated_manifest_types(
+    tmp_path: Path, manifest: dict
+) -> None:
+    with pytest.raises(_InvalidPayload):
+        _validate_tar_size(tmp_path / "payload.tar", manifest)
 
 
 def _archive_member(name: str, size: int) -> tarfile.TarInfo:

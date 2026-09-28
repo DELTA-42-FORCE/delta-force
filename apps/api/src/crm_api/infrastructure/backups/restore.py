@@ -397,7 +397,8 @@ def _assert_regular_member(member: tarfile.TarInfo) -> None:
 def _validate_tar_size(payload_path: Path, manifest: dict[str, object]) -> None:
     database = manifest["database"]
     documents = manifest["documents"]
-    assert isinstance(database, dict) and isinstance(documents, list)
+    if not isinstance(database, dict) or not isinstance(documents, list):
+        raise _InvalidPayload
     member_sizes = [
         len(
             json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode("utf-8")
