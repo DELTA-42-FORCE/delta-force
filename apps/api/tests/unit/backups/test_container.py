@@ -1,6 +1,7 @@
 """Testes do contêiner criptográfico de backup DFCRMBK1."""
 
 import json
+from io import BytesIO
 from pathlib import Path
 import struct
 
@@ -12,6 +13,7 @@ from crm_api.infrastructure.backups.container import (
     InvalidBackupFormatError,
     decrypt_payload,
     encrypt_payload,
+    encrypt_payload_to_stream,
     read_backup_header,
 )
 
@@ -50,6 +52,32 @@ def test_container_round_trip_streams_multiple_frames(tmp_path: Path) -> None:
     assert header.schema_revision == "synthetic_revision"
     assert restored.read_bytes() == content
     assert b"senha sintetica forte" not in source.read_bytes()
+
+
+def test_container_can_encrypt_to_caller_owned_partial_stream(tmp_path: Path) -> None:
+    payload = tmp_path / "payload.tar"
+    payload.write_bytes(b"synthetic stream payload")
+    output = BytesIO()
+
+    header = encrypt_payload_to_stream(
+        payload_path=payload,
+        output=output,
+        passphrase="senha sintetica forte",
+        app_version="0.1.0",
+        created_at="2026-09-19T20:00:00Z",
+        schema_revision="synthetic_revision",
+    )
+    destination = tmp_path / "backup.partial"
+    destination.write_bytes(output.getvalue())
+    restored = tmp_path / "restored.tar"
+    decrypt_payload(
+        source_path=destination,
+        destination_path=restored,
+        passphrase="senha sintetica forte",
+    )
+
+    assert header.payload_bytes == len(b"synthetic stream payload")
+    assert restored.read_bytes() == b"synthetic stream payload"
 
 
 def test_wrong_password_or_tampering_never_leaves_plaintext(tmp_path: Path) -> None:

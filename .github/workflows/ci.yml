@@ -118,6 +118,7 @@ jobs:
           components: rustfmt
       - uses: extractions/setup-just@v4
       - run: just api-install
+      - run: just api-test-backup-windows
       - run: just web-install
       - run: just desktop-install
       - run: just desktop-format-check

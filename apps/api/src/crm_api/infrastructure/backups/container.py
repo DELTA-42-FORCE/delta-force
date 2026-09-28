@@ -92,6 +92,23 @@ class BackupHeader:
     canonical_bytes: bytes
 
 
+def maximum_encrypted_size(payload_bytes: int) -> int:
+    """Return the maximum physical DFCRMBK1 size for a valid payload length."""
+    if not isinstance(payload_bytes, int) or isinstance(payload_bytes, bool):
+        raise InvalidBackupFormatError("backup payload size is invalid")
+    if not 0 < payload_bytes <= MAX_PAYLOAD_BYTES:
+        raise InvalidBackupFormatError("backup payload size is outside safe limits")
+    frame_count = math.ceil(payload_bytes / FRAME_SIZE_BYTES)
+    if frame_count > MAX_FRAME_COUNT:
+        raise InvalidBackupFormatError("backup payload requires too many frames")
+    return (
+        _PREFIX.size
+        + HEADER_MAX_BYTES
+        + payload_bytes
+        + frame_count * (_FRAME_LENGTH.size + TAG_BYTES)
+    )
+
+
 def encrypt_payload(
     *,
     payload_path: Path,
@@ -102,6 +119,36 @@ def encrypt_payload(
     schema_revision: str,
 ) -> BackupHeader:
     """Cifra um payload por streaming e cria o destino sem sobrescrever."""
+    flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_BINARY", 0)
+    descriptor = os.open(destination_path, flags, 0o600)
+    try:
+        with os.fdopen(descriptor, "wb") as output:
+            header = encrypt_payload_to_stream(
+                payload_path=payload_path,
+                output=output,
+                passphrase=passphrase,
+                app_version=app_version,
+                created_at=created_at,
+                schema_revision=schema_revision,
+            )
+            output.flush()
+            os.fsync(output.fileno())
+    except BaseException:
+        destination_path.unlink(missing_ok=True)
+        raise
+    return header
+
+
+def encrypt_payload_to_stream(
+    *,
+    payload_path: Path,
+    output: BinaryIO,
+    passphrase: str,
+    app_version: str,
+    created_at: str,
+    schema_revision: str,
+) -> BackupHeader:
+    """Stream one DFCRMBK1 file into a caller-owned exclusive output stream."""
     payload_size = payload_path.stat().st_size
     if not 0 < payload_size <= MAX_PAYLOAD_BYTES:
         raise InvalidBackupFormatError("backup payload size is outside safe limits")
@@ -132,35 +179,27 @@ def encrypt_payload(
     cipher = AESGCM(key)
     header_digest = hashlib.sha256(header_bytes).digest()
 
-    flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_BINARY", 0)
-    descriptor = os.open(destination_path, flags, 0o600)
-    try:
-        with os.fdopen(descriptor, "wb") as output, payload_path.open("rb") as payload:
-            output.write(_PREFIX.pack(MAGIC, len(header_bytes)))
-            output.write(header_bytes)
-            remaining = payload_size
-            for index in range(frame_count):
-                expected = min(FRAME_SIZE_BYTES, remaining)
-                plaintext = payload.read(expected)
-                if len(plaintext) != expected:
-                    raise InvalidBackupFormatError(
-                        "backup payload changed while it was encrypted"
-                    )
-                remaining -= expected
-                is_last = index == frame_count - 1
-                nonce = nonce_prefix + index.to_bytes(4, "big")
-                aad = header_digest + _FRAME_AAD.pack(index, is_last, expected)
-                output.write(_FRAME_LENGTH.pack(expected))
-                output.write(cipher.encrypt(nonce, plaintext, aad))
-            if remaining != 0 or payload.read(1):
+    with payload_path.open("rb") as payload:
+        output.write(_PREFIX.pack(MAGIC, len(header_bytes)))
+        output.write(header_bytes)
+        remaining = payload_size
+        for index in range(frame_count):
+            expected = min(FRAME_SIZE_BYTES, remaining)
+            plaintext = payload.read(expected)
+            if len(plaintext) != expected:
                 raise InvalidBackupFormatError(
                     "backup payload changed while it was encrypted"
                 )
-            output.flush()
-            os.fsync(output.fileno())
-    except BaseException:
-        destination_path.unlink(missing_ok=True)
-        raise
+            remaining -= expected
+            is_last = index == frame_count - 1
+            nonce = nonce_prefix + index.to_bytes(4, "big")
+            aad = header_digest + _FRAME_AAD.pack(index, is_last, expected)
+            output.write(_FRAME_LENGTH.pack(expected))
+            output.write(cipher.encrypt(nonce, plaintext, aad))
+        if remaining != 0 or payload.read(1):
+            raise InvalidBackupFormatError(
+                "backup payload changed while it was encrypted"
+            )
     return header
 
 

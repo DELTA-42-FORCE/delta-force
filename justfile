@@ -49,6 +49,10 @@ api-test *args:
 api-test-integration-sqlite:
     cd apps/api; uv run python scripts/run_sqlite_integration_tests.py
 
+# Exercita o caminho nativo do publicador de backup em Windows CI.
+api-test-backup-windows:
+    cd apps/api; uv run pytest tests/unit/backups/test_windows_volume.py tests/unit/backups/test_publisher.py tests/unit/backups/test_publish_backup.py tests/integration/test_backup_windows_publication.py
+
 # Fundação legada em remoção pela #54; mantido enquanto o código de transição
 # PostgreSQL existir (ADR 0003).
 api-test-integration:
