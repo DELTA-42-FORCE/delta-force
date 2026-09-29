@@ -182,10 +182,10 @@ def test_digest_verification_failure_does_not_leave_final_backup(tmp_path, monke
     original_hash = publisher._sha256_file
     calls = 0
 
-    def corrupt_second_digest(path):
+    def corrupt_second_digest(path, owned_partial):
         nonlocal calls
         calls += 1
-        size, digest = original_hash(path)
+        size, digest = original_hash(path, owned_partial)
         return size, digest if calls == 1 else "0" * 64
 
     monkeypatch.setattr(publisher, "_sha256_file", corrupt_second_digest)

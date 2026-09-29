@@ -258,7 +258,12 @@ def decrypt_payload(
 def read_backup_header(source_path: Path) -> BackupHeader:
     """Lê metadados públicos após validar formato e tamanho físico do arquivo."""
     with source_path.open("rb") as source:
-        return _read_header_from(source, source_size=os.fstat(source.fileno()).st_size)
+        return read_backup_header_from_stream(source)
+
+
+def read_backup_header_from_stream(source: BinaryIO) -> BackupHeader:
+    """Lê e valida os metadados do container a partir de um stream aberto."""
+    return _read_header_from(source, source_size=os.fstat(source.fileno()).st_size)
 
 
 def _read_header_from(source: BinaryIO, *, source_size: int) -> BackupHeader:

@@ -9,6 +9,7 @@ import pytest
 
 from crm_api.infrastructure.backups.publisher import publish_backup_file
 from crm_api.infrastructure.backups.publisher import (
+    _open_owned_for_read,
     _create_owned_partial,
     _file_identity,
     _rename_no_replace,
@@ -32,6 +33,7 @@ def test_windows_owned_partial_can_be_written_and_atomically_renamed(
     partial_path = tmp_path / ".synthetic-backup.partial"
     final_path = tmp_path / "synthetic-backup.dfcrmbak"
     owned = _create_owned_partial(partial_path)
+    committed = False
     try:
         owned.output.write(b"synthetic encrypted bytes")
         owned.output.flush()
@@ -44,11 +46,14 @@ def test_windows_owned_partial_can_be_written_and_atomically_renamed(
         _rename_no_replace(partial_path, final_path)
 
         assert not partial_path.exists()
-        assert final_path.read_bytes() == b"synthetic encrypted bytes"
         assert _file_identity(final_path.stat(follow_symlinks=False)) == owned.identity
+        with _open_owned_for_read(owned, final_path) as source:
+            assert source.read() == b"synthetic encrypted bytes"
         owned.finish(committed=True)
+        committed = True
     finally:
-        owned.finish(committed=False)
+        if not committed:
+            owned.finish(committed=False)
 
 
 def test_windows_handle_resolves_local_ntfs_temp_volume(tmp_path: Path) -> None:

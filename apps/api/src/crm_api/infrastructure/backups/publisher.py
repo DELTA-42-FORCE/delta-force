@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass
 import hashlib
 import os
@@ -114,8 +115,9 @@ def publish_backup_file(
                 != owned_identity
             ):
                 raise BackupPublicationError("encrypted partial identity changed")
-            written_size, digest = _sha256_file(partial_path)
-            header = container.read_backup_header(partial_path)
+            written_size, digest = _sha256_file(partial_path, owned_partial)
+            with _open_owned_for_read(owned_partial, partial_path) as source:
+                header = container.read_backup_header_from_stream(source)
             if header.payload_bytes != payload_bytes:
                 raise BackupPublicationError("encrypted backup payload size is invalid")
             if written_size > estimate_encrypted_size(payload_bytes):
@@ -154,7 +156,7 @@ def publish_backup_file(
                 raise BackupPublicationError(
                     "published backup identity verification failed"
                 )
-            verified_size, verified_digest = _sha256_file(final_path)
+            verified_size, verified_digest = _sha256_file(final_path, owned_partial)
             if verified_size != written_size or verified_digest != digest:
                 raise BackupPublicationError(
                     "published backup integrity verification failed"
@@ -331,10 +333,46 @@ def _rename_no_replace(source: Path, destination: Path) -> None:
     source.unlink()
 
 
-def _sha256_file(path: Path) -> tuple[int, str]:
+@contextmanager
+def _open_owned_for_read(partial: _OwnedPartial, path: Path):
+    if partial.cleanup_handle is None or partial.kernel32 is None:
+        with path.open("rb") as source:
+            yield source
+        return
+
+    import ctypes
+    import msvcrt
+    from ctypes import wintypes
+
+    kernel32 = partial.kernel32
+    process = kernel32.GetCurrentProcess()
+    read_handle = wintypes.HANDLE()
+    if not kernel32.DuplicateHandle(
+        process,
+        partial.cleanup_handle,
+        process,
+        ctypes.byref(read_handle),
+        0,
+        False,
+        2,
+    ):
+        raise OSError(ctypes.get_last_error(), "backup verification handle failed")
+    try:
+        descriptor = msvcrt.open_osfhandle(
+            int(read_handle.value), os.O_RDONLY | getattr(os, "O_BINARY", 0)
+        )
+    except OSError:
+        kernel32.CloseHandle(read_handle)
+        raise
+    with os.fdopen(descriptor, "rb") as source:
+        source.seek(0)
+        yield source
+
+
+def _sha256_file(path: Path, partial: _OwnedPartial) -> tuple[int, str]:
     digest = hashlib.sha256()
     size = 0
-    with path.open("rb") as source:
+    with _open_owned_for_read(partial, path) as source:
         while chunk := source.read(_READ_CHUNK_BYTES):
             size += len(chunk)
             digest.update(chunk)
