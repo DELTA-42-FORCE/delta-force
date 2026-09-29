@@ -8,7 +8,11 @@ from crm_api.desktop_server import (
     _database_url,
     _lock_down_packaged_email_transport,
     _read_bootstrap_secret,
+    _use_active_generation,
     provision_desktop_database,
+)
+from crm_api.infrastructure.backups.activation import (
+    load_active_generation,
 )
 from crm_api.infrastructure.documents.storage import (
     INCOMING_DIRECTORY_NAME,
@@ -77,5 +81,27 @@ def test_desktop_data_directory_keeps_database_and_documents_together(
     get_settings.cache_clear()
     try:
         assert get_settings().documents_root_path == documents_root.resolve()
+    finally:
+        get_settings.cache_clear()
+
+
+def test_desktop_bootstrap_uses_paths_from_the_same_active_generation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def initialize_legacy(paths) -> None:
+        database_path = provision_desktop_database(paths.root)
+        provision_document_storage(paths.documents_root)
+        assert database_path == paths.database_path
+
+    paths = load_active_generation(tmp_path, initialize_legacy=initialize_legacy)
+    stale_documents = tmp_path / "unrelated-documents"
+    monkeypatch.setenv("DOCUMENTS_ROOT", str(stale_documents))
+
+    _use_active_generation(paths)
+
+    get_settings.cache_clear()
+    try:
+        assert get_settings().database_url == _database_url(paths.database_path)
+        assert get_settings().documents_root_path == paths.documents_root.resolve()
     finally:
         get_settings.cache_clear()

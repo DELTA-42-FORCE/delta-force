@@ -16,8 +16,12 @@ from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 
-from crm_api.core.config import DOCUMENTS_DIRECTORY_NAME, get_settings
+from crm_api.core.config import get_settings
 from crm_api.core.desktop_runtime import DesktopRuntime
+from crm_api.infrastructure.backups.activation import (
+    GenerationPaths,
+    load_active_generation,
+)
 from crm_api.infrastructure.documents.storage import provision_document_storage
 
 _DATABASE_FILENAME = "crm.sqlite3"
@@ -99,6 +103,19 @@ def provision_desktop_database(data_directory: Path) -> Path:
     return active_path
 
 
+def _initialize_legacy_generation(paths: GenerationPaths) -> None:
+    """Mantém instalações antigas sob um seletor único sem mover seus dados."""
+    provision_desktop_database(paths.root)
+    provision_document_storage(paths.documents_root)
+
+
+def _use_active_generation(paths: GenerationPaths) -> None:
+    """Configura banco e documentos para a mesma geração selecionada."""
+    os.environ["DATABASE_URL"] = _database_url(paths.database_path)
+    os.environ["DOCUMENTS_ROOT"] = str(paths.documents_root.resolve())
+    get_settings.cache_clear()
+
+
 def _read_bootstrap_secret() -> str:
     value = sys.stdin.buffer.readline(_MAX_BOOTSTRAP_SECRET_BYTES + 1).rstrip(b"\r\n")
     if not value or len(value) > _MAX_BOOTSTRAP_SECRET_BYTES:
@@ -170,11 +187,16 @@ def main() -> None:
 
     secret = _read_bootstrap_secret()
     data_directory = Path(data_directory_value)
-    database_path = provision_desktop_database(data_directory)
-    # Documentos ficam ao lado do banco, na mesma árvore privada, para que o
-    # backup em HD externo (#44) trate banco e arquivos como uma unidade.
-    provision_document_storage(data_directory / DOCUMENTS_DIRECTORY_NAME)
-    os.environ["DATABASE_URL"] = _database_url(database_path)
+    active_generation = load_active_generation(
+        data_directory,
+        initialize_legacy=_initialize_legacy_generation,
+    )
+    database_path = active_generation.database_path
+    _verify_sqlite_file(database_path)
+    if not _at_current_revision(database_path):
+        raise RuntimeError("local database update requires a verified backup")
+    provision_document_storage(active_generation.documents_root)
+    _use_active_generation(active_generation)
     os.environ["CORS_ALLOWED_ORIGINS"] = "http://tauri.localhost"
     # O pacote distribuído nunca habilita SMTP em texto claro, mesmo que o
     # ambiente externo do processo contenha uma flag de desenvolvimento.
