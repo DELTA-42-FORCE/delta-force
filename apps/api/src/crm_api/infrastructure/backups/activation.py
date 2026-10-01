@@ -7,6 +7,7 @@ permite terminar a troca ou voltar à geração anterior durante o bootstrap.
 from __future__ import annotations
 
 from collections.abc import Callable
+from contextlib import closing
 from dataclasses import dataclass
 import ctypes
 import hashlib
@@ -145,6 +146,28 @@ def generation_paths(data_directory: Path, generation_id: str) -> GenerationPath
     )
 
 
+def resolve_active_generation(data_directory: Path) -> GenerationPaths:
+    """Resolve caminhos ativos sem recuperar ou limpar uma operação em andamento."""
+    generation_id = _read_pointer(data_directory)
+    if generation_id is None:
+        raise RestoreActivationError("active CRM generation has not been initialized")
+    paths = generation_paths(data_directory, generation_id)
+    if not _generation_paths_are_safe(paths):
+        raise RestoreActivationError("active CRM generation is incomplete")
+    return paths
+
+
+def inspect_restore_impact(
+    data_directory: Path, candidate_root: Path
+) -> RestoreImpactSummary:
+    """Valida a candidata e produz a mesma prévia usada pela ativação."""
+    active = resolve_active_generation(data_directory)
+    candidate = _validate_candidate_root(candidate_root)
+    return RestoreImpactSummary(
+        _record_counts(active.database_path), _record_counts(candidate.database_path)
+    )
+
+
 def activate_restore_candidate(
     *,
     data_directory: Path,
@@ -269,7 +292,9 @@ def _validate_generation(
     ):
         raise RestoreActivationError("CRM generation paths are unsafe")
     try:
-        with sqlite3.connect(_readonly_uri(database_path), uri=True) as database:
+        with closing(
+            sqlite3.connect(_readonly_uri(database_path), uri=True)
+        ) as database:
             integrity = database.execute("PRAGMA integrity_check").fetchone()
             foreign_key_errors = database.execute("PRAGMA foreign_key_check").fetchall()
             revisions = database.execute(
@@ -299,7 +324,9 @@ def _generation_is_valid(paths: GenerationPaths) -> bool:
 
 def _record_counts(database_path: Path) -> dict[str, int]:
     try:
-        with sqlite3.connect(_readonly_uri(database_path), uri=True) as database:
+        with closing(
+            sqlite3.connect(_readonly_uri(database_path), uri=True)
+        ) as database:
             table_names = {
                 row[0]
                 for row in database.execute(

@@ -8,7 +8,7 @@ do bloco.
 
 from __future__ import annotations
 
-from contextlib import contextmanager
+from contextlib import contextmanager, closing
 from dataclasses import dataclass
 import hashlib
 import json
@@ -128,10 +128,10 @@ def _create_database_snapshot(source_path: Path, destination_path: Path) -> None
     if _has_reparse_component(source_path) or not source_path.is_file():
         raise BackupSnapshotError("database source is not a regular file")
     try:
-        with sqlite3.connect(
-            _readonly_uri(source_path), uri=True, timeout=30
+        with closing(
+            sqlite3.connect(_readonly_uri(source_path), uri=True, timeout=30)
         ) as source:
-            with sqlite3.connect(destination_path, timeout=30) as destination:
+            with closing(sqlite3.connect(destination_path, timeout=30)) as destination:
                 source.backup(destination, pages=256, sleep=0.05)
     except (sqlite3.Error, OSError, ValueError):
         destination_path.unlink(missing_ok=True)
@@ -145,7 +145,9 @@ def _readonly_uri(path: Path) -> str:
 
 def _read_schema_revision(database_path: Path) -> str:
     try:
-        with sqlite3.connect(_readonly_uri(database_path), uri=True) as connection:
+        with closing(
+            sqlite3.connect(_readonly_uri(database_path), uri=True)
+        ) as connection:
             integrity = connection.execute("PRAGMA integrity_check").fetchone()
             foreign_key_errors = connection.execute(
                 "PRAGMA foreign_key_check"
@@ -180,7 +182,9 @@ def _copy_referenced_documents(
     if _has_reparse_component(documents_root) or not documents_root.is_dir():
         raise BackupSnapshotError("document storage root is unsafe")
     try:
-        with sqlite3.connect(_readonly_uri(database_snapshot), uri=True) as connection:
+        with closing(
+            sqlite3.connect(_readonly_uri(database_snapshot), uri=True)
+        ) as connection:
             rows = connection.execute(
                 "SELECT storage_key, byte_size, checksum_sha256 "
                 "FROM documents ORDER BY storage_key"

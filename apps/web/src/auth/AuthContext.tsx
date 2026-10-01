@@ -55,6 +55,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>
   setup: (input: SetupOwnerInput) => Promise<void>
   logout: () => Promise<void>
+  invalidateSession: () => void
   retry: () => void
 }
 
@@ -251,6 +252,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       setup,
       logout,
+      invalidateSession: clearSession,
       retry,
     }),
     [

@@ -9,12 +9,35 @@ function file(bytes: number[], filename: string | null): DownloadedFile {
 afterEach(() => {
   vi.resetModules()
   vi.doUnmock('@tauri-apps/api/core')
+  vi.doUnmock('@tauri-apps/plugin-dialog')
   delete (window as Window & { __TAURI_INTERNALS__?: unknown })
     .__TAURI_INTERNALS__
   vi.restoreAllMocks()
 })
 
 describe('desktop shell open', () => {
+  it('selects a backup directory and filters the native restore file picker', async () => {
+    const open = vi
+      .fn()
+      .mockResolvedValueOnce('E:\\Backup')
+      .mockResolvedValueOnce(null)
+    vi.doMock('@tauri-apps/plugin-dialog', () => ({ open }))
+    const shell = await import('./desktopShell')
+    expect(await shell.pickBackupFolder()).toBe('E:\\Backup')
+    expect(open).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ directory: true, multiple: false }),
+    )
+    expect(await shell.pickBackupFile()).toBeNull()
+    expect(open).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        directory: false,
+        multiple: false,
+        filters: [{ name: 'Backup Delta Force CRM', extensions: ['dfcrmbak'] }],
+      }),
+    )
+  })
   it('asks the desktop shell to stream the authorized copy inside Tauri', async () => {
     ;(
       window as Window & { __TAURI_INTERNALS__?: unknown }

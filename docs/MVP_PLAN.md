@@ -31,9 +31,11 @@ após os checks obrigatórios:
 1. **#106 — concluída:** codec criptográfico DFCRMBK1 v1;
 2. **#108 — concluída:** snapshot consistente de SQLite e documentos; **#110 —
    concluída:** validação da restauração em staging isolado;
-3. **#109 — pronta:** publicação segura em mídia externa Windows; após #110,
-   **#111 — pronta:** ativação recuperável com journal e rollback;
-4. após #109 e #111, **#112:** rotas e fluxo autenticado no aplicativo Windows;
+3. **#109 — concluída:** publicação segura em mídia externa Windows;
+   **#111 — concluída:** ativação recuperável com journal e rollback;
+4. **#112:** rotas e fluxo autenticado no aplicativo Windows implementados;
+   contrato em `docs/BACKUP_FLOW.md`, com checks Windows obrigatórios antes
+   de integrar (confira evidência e estado atuais na issue);
 5. completar **#26** (operação, manual e incidente) e executar o aceite em
    instalação Windows limpa e HD de teste pela **#27**.
 

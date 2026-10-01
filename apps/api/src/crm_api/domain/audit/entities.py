@@ -55,6 +55,11 @@ class AuditAction(StrEnum):
     CONTRACT_VIEWED = "contract.viewed"
     CONTRACT_INSTALLMENT_PAID = "contract.installment_paid"
     CONTRACT_CANCELLED = "contract.cancelled"
+    BACKUP_CREATED = "backup.created"
+    BACKUP_RESTORE_REVIEWED = "backup.restore_reviewed"
+    BACKUP_RESTORE_AUTHORIZED = "backup.restore_authorized"
+    BACKUP_RESTORE_APPLIED = "backup.restore_applied"
+    BACKUP_REMINDER_UPDATED = "backup.reminder_updated"
 
 
 class AuditResourceType(StrEnum):
@@ -71,6 +76,7 @@ class AuditResourceType(StrEnum):
     EMAIL_DISPATCH = "email_dispatch"
     LEGACY_IMPORT = "legacy_import"
     CONTRACT = "contract"
+    BACKUP = "backup"
 
 
 @dataclass(frozen=True, slots=True)

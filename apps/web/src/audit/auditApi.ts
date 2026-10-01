@@ -10,6 +10,11 @@ export interface AuditCursor {
 }
 
 export type AuditActionFilter =
+  | 'backup.created'
+  | 'backup.restore_reviewed'
+  | 'backup.restore_authorized'
+  | 'backup.restore_applied'
+  | 'backup.reminder_updated'
   | 'auth.owner_setup'
   | 'auth.login'
   | 'auth.owner_profile_view'

@@ -1,4 +1,6 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { BackupPage } from './backups/BackupPage'
+import type { BackupStatus } from './backups/backupApi'
 
 import { listAuditEvents, listRecentAuditEvents } from './audit/auditApi'
 import type { AuditCursor, AuditFilters } from './audit/auditApi'
@@ -76,11 +78,29 @@ function Root() {
     authenticatedOpenDocument,
     logout,
     retry,
+    invalidateSession,
   } = useAuth()
   const [logoutNotice, setLogoutNotice] = useState<string | null>(null)
   const [activeView, setActiveView] = useState<
-    'overview' | 'audit' | 'clients' | 'imports' | 'communications'
+    'overview' | 'audit' | 'clients' | 'imports' | 'communications' | 'backups'
   >('overview')
+  const [backupBusy, setBackupBusy] = useState(false)
+  const [backupReminder, setBackupReminder] = useState(false)
+
+  useEffect(() => {
+    if (status !== 'signed-in' || !isTauriRuntime()) return
+    let active = true
+    authenticatedGet<BackupStatus>('/backups/status')
+      .then((value) => {
+        if (active) setBackupReminder(value.reminder_due)
+      })
+      .catch(() => {
+        /* A tela de backup oferece erro e nova tentativa. */
+      })
+    return () => {
+      active = false
+    }
+  }, [status, authenticatedGet])
   const [documentsFolder, setDocumentsFolder] = useState<ClientFolder | null>(
     null,
   )
@@ -334,14 +354,23 @@ function Root() {
   )
 
   const goTo = useCallback(
-    (view: 'overview' | 'audit' | 'clients' | 'imports' | 'communications') => {
+    (
+      view:
+        | 'overview'
+        | 'audit'
+        | 'clients'
+        | 'imports'
+        | 'communications'
+        | 'backups',
+    ) => {
+      if (backupBusy) return
       // Trocar de seção fecha a pasta aberta: os documentos pertencem ao cliente
       // que estava em tela, não à navegação seguinte.
       setDocumentsFolder(null)
       setContractsFolder(null)
       setActiveView(view)
     },
-    [],
+    [backupBusy],
   )
 
   async function handleLogout() {
@@ -411,6 +440,7 @@ function Root() {
                 className={`workspace-nav__item${activeView === 'overview' ? ' workspace-nav__item--active' : ''}`}
                 type="button"
                 aria-current={activeView === 'overview' ? 'page' : undefined}
+                disabled={backupBusy}
                 onClick={() => goTo('overview')}
               >
                 <span aria-hidden="true">⌂</span>
@@ -422,6 +452,7 @@ function Root() {
                 className={`workspace-nav__item${activeView === 'audit' ? ' workspace-nav__item--active' : ''}`}
                 type="button"
                 aria-current={activeView === 'audit' ? 'page' : undefined}
+                disabled={backupBusy}
                 onClick={() => goTo('audit')}
               >
                 <span aria-hidden="true">◷</span>
@@ -433,6 +464,7 @@ function Root() {
                 className={`workspace-nav__item${activeView === 'clients' ? ' workspace-nav__item--active' : ''}`}
                 type="button"
                 aria-current={activeView === 'clients' ? 'page' : undefined}
+                disabled={backupBusy}
                 onClick={() => goTo('clients')}
               >
                 <span aria-hidden="true">◎</span>
@@ -444,6 +476,7 @@ function Root() {
                 className={`workspace-nav__item${activeView === 'imports' ? ' workspace-nav__item--active' : ''}`}
                 type="button"
                 aria-current={activeView === 'imports' ? 'page' : undefined}
+                disabled={backupBusy}
                 onClick={() => goTo('imports')}
               >
                 <span aria-hidden="true">⇪</span>
@@ -462,6 +495,7 @@ function Root() {
                   activeView === 'communications' ? 'page' : undefined
                 }
                 onClick={() => goTo('communications')}
+                disabled={backupBusy}
               >
                 <span aria-hidden="true">✉</span>
                 <span>E-mails</span>
@@ -469,6 +503,16 @@ function Root() {
               </button>
             </li>
           </ul>
+          <button
+            className={`workspace-nav__item${activeView === 'backups' ? ' workspace-nav__item--active' : ''}`}
+            type="button"
+            disabled={backupBusy}
+            aria-current={activeView === 'backups' ? 'page' : undefined}
+            onClick={() => goTo('backups')}
+          >
+            <span aria-hidden="true">↺</span>
+            <span>Backup e restauração</span>
+          </button>
         </nav>
         <div className="sidebar-security">
           <span aria-hidden="true">✓</span>
@@ -497,13 +541,47 @@ function Root() {
             className="secondary-button"
             type="button"
             onClick={() => void handleLogout()}
+            disabled={backupBusy}
           >
             Sair
           </button>
         </header>
 
         <div className="workspace-content">
-          {activeView === 'audit' ? (
+          {backupReminder && activeView !== 'backups' && (
+            <div className="backup-reminder-banner" role="status">
+              <span>
+                Está na hora de criar uma nova cópia do CRM no HD externo.
+              </span>
+              <button
+                className="secondary-button"
+                disabled={backupBusy}
+                onClick={() => goTo('backups')}
+              >
+                Criar uma cópia
+              </button>
+            </div>
+          )}
+          {activeView === 'backups' ? (
+            <BackupPage
+              get={authenticatedGet}
+              request={authenticatedRequest}
+              available={isTauriRuntime()}
+              onBack={() => goTo('overview')}
+              onBusyChange={setBackupBusy}
+              onBackupCreated={() => setBackupReminder(false)}
+              onReminderChange={setBackupReminder}
+              onRestored={() => {
+                setActiveView('overview')
+                setDocumentsFolder(null)
+                setContractsFolder(null)
+                setLogoutNotice(
+                  'Backup restaurado. Entre com a conta presente no backup.',
+                )
+                invalidateSession()
+              }}
+            />
+          ) : activeView === 'audit' ? (
             <AuditHistoryPage
               loadPage={loadAuditPage}
               onBack={() => setActiveView('overview')}

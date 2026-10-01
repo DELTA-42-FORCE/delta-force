@@ -1,10 +1,19 @@
-from fastapi import FastAPI, HTTPException, status
+import os
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException, Request, status
+from fastapi.exceptions import RequestValidationError
+from fastapi.exception_handlers import request_validation_exception_handler
+from starlette.responses import JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 
 from crm_api.core.config import get_settings
 from crm_api.core.desktop_runtime import DesktopRuntime
+from crm_api.application.backups.workflow import DesktopBackupWorkflow
+from crm_api.presentation.backups.routes import router as backups_router
+from crm_api.presentation.backups.security import BackupOperationMiddleware
 from crm_api.infrastructure.database import check_database_connection
 from crm_api.presentation.audit.routes import router as audit_router
 from crm_api.presentation.auth.routes import router as auth_router
@@ -27,6 +36,13 @@ def create_app(desktop_runtime: DesktopRuntime | None = None) -> FastAPI:
         openapi_url=None if desktop_runtime is not None else "/openapi.json",
     )
     app.state.desktop_runtime = desktop_runtime
+    data_directory = os.environ.get("DELTA_FORCE_DATA_DIR")
+    app.state.backup_workflow = (
+        DesktopBackupWorkflow(Path(data_directory))
+        if desktop_runtime is not None and data_directory
+        else None
+    )
+    app.add_middleware(BackupOperationMiddleware)
     app.add_middleware(DesktopCapabilityMiddleware)
     app.add_middleware(
         CORSMiddleware,
@@ -54,6 +70,15 @@ def create_app(desktop_runtime: DesktopRuntime | None = None) -> FastAPI:
     app.include_router(documents_router)
     app.include_router(communications_router)
     app.include_router(imports_router)
+    app.include_router(backups_router)
+
+    @app.exception_handler(RequestValidationError)
+    async def safe_backup_validation(
+        request: Request, error: RequestValidationError
+    ) -> Response:
+        if request.url.path.startswith("/backups"):
+            return JSONResponse({"detail": "backup_invalid_input"}, status_code=422)
+        return await request_validation_exception_handler(request, error)
 
     @app.get("/health", tags=["health"])
     def health_check() -> dict[str, str]:

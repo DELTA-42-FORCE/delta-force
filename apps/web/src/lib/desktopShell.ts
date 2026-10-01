@@ -26,6 +26,25 @@ export async function pickImportFolder(): Promise<string | null> {
   return typeof selected === 'string' ? selected : null
 }
 
+export async function pickBackupFolder(): Promise<string | null> {
+  const selected = await open({
+    directory: true,
+    multiple: false,
+    title: 'Selecione uma pasta no HD externo para o backup',
+  })
+  return typeof selected === 'string' ? selected : null
+}
+
+export async function pickBackupFile(): Promise<string | null> {
+  const selected = await open({
+    directory: false,
+    multiple: false,
+    title: 'Selecione o backup que deseja restaurar',
+    filters: [{ name: 'Backup Delta Force CRM', extensions: ['dfcrmbak'] }],
+  })
+  return typeof selected === 'string' ? selected : null
+}
+
 /**
  * Solicita ao shell a abertura de um documento no aplicativo Windows (#22).
  *

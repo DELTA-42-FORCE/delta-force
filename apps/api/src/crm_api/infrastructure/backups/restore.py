@@ -8,7 +8,7 @@ ativação recuperável pertence à etapa #111.
 from __future__ import annotations
 
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, closing
 import errno
 import hashlib
 import json
@@ -469,7 +469,7 @@ def _validate_database(
     *, database_path: Path, documents: list[dict[str, object]], schema_revision: str
 ) -> None:
     try:
-        with sqlite3.connect(_readonly_uri(database_path), uri=True) as db:
+        with closing(sqlite3.connect(_readonly_uri(database_path), uri=True)) as db:
             integrity = db.execute("PRAGMA integrity_check").fetchone()
             foreign_key_errors = db.execute("PRAGMA foreign_key_check").fetchall()
             revision_rows = db.execute(
@@ -501,7 +501,7 @@ def _validate_known_alembic_revision(database_path: Path, revision: str) -> None
         script = ScriptDirectory.from_config(config)
         if script.get_revision(revision) is None:
             raise _InvalidPayload
-        with sqlite3.connect(_readonly_uri(database_path), uri=True) as db:
+        with closing(sqlite3.connect(_readonly_uri(database_path), uri=True)) as db:
             current = db.execute("SELECT version_num FROM alembic_version").fetchone()
         if current != (revision,):
             raise _InvalidPayload

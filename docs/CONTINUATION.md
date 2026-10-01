@@ -1,6 +1,6 @@
 # Continuação do projeto
 
-Este arquivo é um retrato de **27 de setembro de 2026**. Ele ajuda a retomar o
+Este arquivo é um retrato de **30 de setembro de 2026**. Ele ajuda a retomar o
 trabalho, mas não substitui a checagem dos estados atuais no GitHub. Leia
 `AGENTS.md`, a issue escolhida e `skills/delta-force-development/SKILL.md` antes
 de iniciar uma tarefa.
@@ -30,11 +30,13 @@ de iniciar uma tarefa.
 - A ADR 0004 define o contêiner criptográfico DFCRMBK1 v1, scrypt e AES-256-GCM.
 - #106 (codec), #108 (snapshot consistente) e #110 (validação isolada) estão
   concluídas.
-- #109 está **Ready**: publicação segura em mídia externa no Windows.
-- #111 está **Ready**: ativação com journal durável e rollback; a dependência
-  #110 foi concluída. Não inicia antes de alguém reivindicá-la no Project.
-- #112 continua **Blocked** até #109 e #111: rotas e fluxo autenticado no
-  aplicativo.
+- #109 está concluída: publicação segura em mídia externa Windows, incluindo
+  verificação pelo handle do arquivo publicado (`34798cc`).
+- #111 está concluída: ativação com journal durável e rollback (`51b6aa2`).
+- #112 implementa rotas autenticadas, tela de cópia/revisão/confirmação e
+  lembrete opcional. Contrato e operação em `docs/BACKUP_FLOW.md`; a integração
+  exige CI verde, incluindo os testes do fluxo, build e smoke Windows. Confira
+  na issue o SHA e o resultado atuais antes de retomar trabalho.
 - #44 é a issue guarda-chuva e permanece **In progress** até concluir as
   entregas técnicas e os gates operacionais de #26/#27.
 - Custódia/recuperação da senha, frequência/retenção do HD, proteção do
@@ -53,10 +55,8 @@ de iniciar uma tarefa.
 
 ## Próxima sequência
 
-1. Escolher e reivindicar #109 ou #111 — ambas estão prontas e podem avançar em
-   paralelo, cada uma em sua branch curta e separada.
-2. Depois das duas, desenvolver #112 e completar o fluxo autenticado no
-   aplicativo.
+1. Conferir a conclusão dos checks e integração de #112, sem contornar gates.
+2. Revisar o fluxo em `docs/BACKUP_FLOW.md` e preparar o manual operacional.
 3. Atualizar #26 e executar #27 em Windows limpo; então concluir a guarda-chuva
    #44.
 4. Retomar o envio real somente quando o cliente fornecer os dados não secretos

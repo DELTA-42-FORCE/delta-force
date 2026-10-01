@@ -30,6 +30,218 @@
   text-rendering: optimizeLegibility;
 }
 
+.backup-page {
+  display: grid;
+  gap: 1.5rem;
+  max-width: 64rem;
+}
+.backup-heading,
+.backup-reminder,
+.backup-reminder-banner {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+.backup-heading h1 {
+  margin: 0.25rem 0 0.75rem;
+  color: var(--command-ink);
+}
+.backup-heading p,
+.backup-page section > p,
+.backup-help {
+  color: var(--command-slate);
+  line-height: 1.6;
+}
+.backup-create,
+.backup-restore,
+.backup-reminder {
+  padding: 1.5rem;
+  border: 1px solid var(--command-line);
+  border-radius: 0.5rem;
+  background: var(--command-surface);
+}
+.backup-page h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.25rem;
+  color: var(--command-ink);
+}
+.backup-page fieldset {
+  display: grid;
+  gap: 1rem;
+  border: 0;
+  padding: 0;
+  margin: 1.5rem 0 0;
+  min-width: 0;
+}
+.backup-page label {
+  display: grid;
+  gap: 0.5rem;
+  font-weight: 600;
+  color: var(--command-ink);
+}
+.backup-page input {
+  min-width: 0;
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--command-line);
+  border-radius: 0.375rem;
+  background: var(--command-inset);
+  color: var(--command-ink);
+}
+.backup-page input:focus-visible {
+  outline: 2px solid var(--signal-teal);
+  outline-offset: 2px;
+}
+.backup-page input:disabled,
+.backup-page button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+.backup-selection {
+  margin: 1.5rem 0 1rem;
+}
+.backup-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+.backup-page button {
+  justify-self: start;
+  min-height: 2.75rem;
+}
+.backup-space {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1.5rem 0;
+  font-variant-numeric: tabular-nums;
+}
+.backup-space > div {
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+.backup-space dt {
+  color: var(--command-slate);
+}
+.backup-space dd {
+  margin: 0;
+  font-weight: 600;
+}
+.backup-reminder form {
+  display: grid;
+  gap: 0.75rem;
+  width: min(100%, 18rem);
+}
+.backup-reminder small {
+  color: var(--command-muted);
+  line-height: 1.5;
+}
+.backup-reminder-banner,
+.backup-progress,
+.backup-notice,
+.backup-error {
+  padding: 1rem;
+  border-radius: 0.375rem;
+  line-height: 1.6;
+  margin: 0;
+}
+.backup-reminder-banner {
+  background: var(--signal-amber-soft);
+  color: var(--signal-amber);
+  margin-bottom: 1.5rem;
+  align-items: center;
+}
+.backup-notice,
+.backup-progress {
+  background: var(--signal-teal-soft);
+  color: var(--signal-teal);
+}
+.backup-error {
+  background: var(--signal-danger-soft);
+  color: var(--signal-danger);
+}
+.backup-progress {
+  display: grid;
+  gap: 0.75rem;
+}
+.backup-progress progress {
+  width: 100%;
+  accent-color: var(--signal-teal);
+}
+.backup-review {
+  display: grid;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-left: 0.25rem solid var(--signal-amber);
+  background: var(--signal-amber-soft);
+}
+.backup-review h3,
+.backup-review p {
+  margin: 0;
+}
+.backup-review p {
+  color: var(--command-slate);
+  line-height: 1.6;
+}
+.backup-review table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.backup-review caption {
+  text-align: left;
+  padding-bottom: 0.75rem;
+  color: var(--command-slate);
+}
+.backup-review th,
+.backup-review td {
+  text-align: left;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--command-line);
+}
+.backup-review th:not(:first-child),
+.backup-review td {
+  padding-left: 0.75rem;
+  text-align: right;
+}
+.backup-danger-button {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--signal-danger);
+  border-radius: 0.375rem;
+  color: var(--command-surface);
+  background: var(--signal-danger);
+  font-weight: 600;
+}
+.backup-danger-button:hover:not(:disabled) {
+  color: var(--signal-danger);
+  background: var(--signal-danger-soft);
+}
+.backup-danger-button:focus-visible {
+  outline: 2px solid var(--signal-danger);
+  outline-offset: 3px;
+}
+@media (max-width: 640px) {
+  .backup-heading,
+  .backup-reminder,
+  .backup-reminder-banner {
+    flex-direction: column;
+  }
+  .backup-fields {
+    grid-template-columns: 1fr;
+  }
+  .backup-create,
+  .backup-restore,
+  .backup-reminder,
+  .backup-review {
+    padding: 1rem;
+  }
+  .backup-space > div {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+}
+
 * {
   box-sizing: border-box;
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);

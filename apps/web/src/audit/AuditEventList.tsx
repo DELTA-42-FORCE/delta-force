@@ -1,6 +1,11 @@
 import type { AuditEvent } from './auditApi'
 
 const ACTION_LABELS: Readonly<Record<string, string>> = {
+  'backup.created': 'Backup criado',
+  'backup.restore_reviewed': 'Backup revisado para restauração',
+  'backup.restore_authorized': 'Restauração autorizada',
+  'backup.restore_applied': 'Backup restaurado',
+  'backup.reminder_updated': 'Lembrete de backup atualizado',
   'auth.owner_setup': 'Conta do proprietário criada',
   'auth.login': 'Entrada realizada',
   'auth.owner_profile_view': 'Perfil consultado',

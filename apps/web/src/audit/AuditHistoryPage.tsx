@@ -21,6 +21,11 @@ interface AuditHistoryPageProps {
 const ACTION_FILTER_OPTIONS: ReadonlyArray<
   readonly [AuditActionFilter, string]
 > = [
+  ['backup.created', 'Backups criados'],
+  ['backup.restore_reviewed', 'Revisões de backup'],
+  ['backup.restore_authorized', 'Autorizações de restauração'],
+  ['backup.restore_applied', 'Restaurações concluídas'],
+  ['backup.reminder_updated', 'Lembretes de backup'],
   ['auth.owner_setup', 'Criação da conta'],
   ['auth.login', 'Entradas'],
   ['auth.owner_profile_view', 'Consultas ao perfil'],

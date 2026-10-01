@@ -60,6 +60,8 @@ mostra a contagem e é limpa quando o filtro muda.
 | Excluir | confirmação contextual | remove da lista | mantém item e permite repetir |
 | Buscar/listar | indicador na região | lista ou vazio | retry no mesmo bloco |
 | Envio externo | revisão explícita e botão ocupado | resumo por resultado + histórico | não confundir falha de refresh com falha de envio |
+| Backup no HD | seleção nativa, espaço estimado e progresso indeterminado | cópia verificada e senhas limpas | falha do lembrete não desfaz publicação |
+| Restaurar | comparação e reautenticação + RESTAURAR | nova entrada com conta do backup | nova revisão após expiração; reiniciar após interrupção da ativação |
 
 ## Navigation and responsive behavior
 
@@ -81,6 +83,9 @@ ou `role=alert` e não inclui segredo nem detalhe interno.
 - Falha ao recarregar histórico depois do envio nunca é apresentada como falha
   do transporte externo.
 - Requisições obsoletas de paginação são descartadas pela tela.
+- Backup/restauração bloqueiam navegação e novos submits enquanto ocupados;
+  o backend serializa acesso à geração durante a troca. Frequência do lembrete
+  é opcional e escolhida pelo proprietário, sem padrão comercial inventado.
 
 ## Validation
 
