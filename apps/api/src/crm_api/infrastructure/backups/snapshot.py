@@ -402,5 +402,7 @@ def _tar_info(name: str, size: int) -> tarfile.TarInfo:
 
 
 def _sync_file(path: Path) -> None:
-    with path.open("rb") as handle:
+    # O CRT do Windows exige acesso de escrita para _commit/os.fsync. Este
+    # arquivo é a cópia privada criada por nós, nunca o banco de origem.
+    with path.open("r+b") as handle:
         os.fsync(handle.fileno())

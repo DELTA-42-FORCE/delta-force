@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import os
 from pathlib import Path
 import sqlite3
 import tarfile
@@ -10,11 +11,29 @@ import pytest
 
 from crm_api.infrastructure.backups.snapshot import (
     BackupSnapshotError,
+    _sync_file,
     build_backup_payload,
 )
 
 _KEY = "ab/cd/0123456789abcdef0123456789abcdef.pdf"
 _CONTENT = b"%PDF-1.7\nconteudo sintetico\n%%EOF"
+
+
+def test_snapshot_sync_uses_write_access_without_changing_contents(
+    tmp_path, monkeypatch
+):
+    snapshot = tmp_path / "private-snapshot.sqlite3"
+    snapshot.write_bytes(b"synthetic snapshot")
+    original_fsync = os.fsync
+
+    def require_write_access(descriptor):
+        # Simula o contrato de _commit no Windows, também sobre Linux.
+        assert os.write(descriptor, b"") == 0
+        original_fsync(descriptor)
+
+    monkeypatch.setattr(os, "fsync", require_write_access)
+    _sync_file(snapshot)
+    assert snapshot.read_bytes() == b"synthetic snapshot"
 
 
 def _database(path: Path, *, content: bytes = _CONTENT) -> Path:
