@@ -33,11 +33,14 @@ após os checks obrigatórios:
    concluída:** validação da restauração em staging isolado;
 3. **#109 — concluída:** publicação segura em mídia externa Windows;
    **#111 — concluída:** ativação recuperável com journal e rollback;
-4. **#112:** rotas e fluxo autenticado no aplicativo Windows implementados;
-   contrato em `docs/BACKUP_FLOW.md`, com checks Windows obrigatórios antes
-   de integrar (confira evidência e estado atuais na issue);
-5. completar **#26** (operação, manual e incidente) e executar o aceite em
-   instalação Windows limpa e HD de teste pela **#27**.
+4. **#112 — concluída:** rotas e fluxo autenticado no aplicativo Windows;
+   contrato em `docs/BACKUP_FLOW.md` e integração validada pelos checks Windows.
+5. **#26 — manual em rascunho:** `docs/OPERACAO_LOCAL_WINDOWS.md` descreve
+   operação sem preencher decisões pendentes; falta revisão e respostas
+   operacionais do proprietário.
+6. **#27 — bloqueada para aceite físico:** CI Windows está verde, mas ainda é
+   necessário executar o roteiro em instalação limpa e HD USB físico de teste.
+   O ambiente atual não expõe mídia removível.
 
 Custódia da senha, frequência/retenção do HD, proteção do equipamento e
 recuperação de conta seguem como pendências operacionais para #26/#27; não

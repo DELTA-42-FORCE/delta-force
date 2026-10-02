@@ -1,6 +1,6 @@
 # Continuação do projeto
 
-Este arquivo é um retrato de **30 de setembro de 2026**. Ele ajuda a retomar o
+Este arquivo é um retrato de **1 de outubro de 2026**. Ele ajuda a retomar o
 trabalho, mas não substitui a checagem dos estados atuais no GitHub. Leia
 `AGENTS.md`, a issue escolhida e `skills/delta-force-development/SKILL.md` antes
 de iniciar uma tarefa.
@@ -33,10 +33,9 @@ de iniciar uma tarefa.
 - #109 está concluída: publicação segura em mídia externa Windows, incluindo
   verificação pelo handle do arquivo publicado (`34798cc`).
 - #111 está concluída: ativação com journal durável e rollback (`51b6aa2`).
-- #112 implementa rotas autenticadas, tela de cópia/revisão/confirmação e
-  lembrete opcional. Contrato e operação em `docs/BACKUP_FLOW.md`; a integração
-  exige CI verde, incluindo os testes do fluxo, build e smoke Windows. Confira
-  na issue o SHA e o resultado atuais antes de retomar trabalho.
+- #112 foi integrada em `develop` e os sete checks remotos, incluindo build e
+  smoke Windows, passaram no SHA `fb9ca3545ab9c00cf95110a9b4752de5f585b4c6`.
+  O contrato está em `docs/BACKUP_FLOW.md`.
 - #44 é a issue guarda-chuva e permanece **In progress** até concluir as
   entregas técnicas e os gates operacionais de #26/#27.
 - Custódia/recuperação da senha, frequência/retenção do HD, proteção do
@@ -49,16 +48,19 @@ de iniciar uma tarefa.
   real continua dependente dos dados públicos de remetente/provedor/volume da
   #46; nunca registre credenciais.
 - #46 está **Blocked** até resposta do cliente.
-- #26 (manual, operação e resposta a incidentes) e #27 (aceite ponta a ponta em
-  Windows limpo e HD de teste) continuam **Blocked** pelos gates externos e pela
-  conclusão do backup. Use dados sintéticos e mídia de teste.
+- #26 está em andamento com o rascunho `docs/OPERACAO_LOCAL_WINDOWS.md`;
+  decisões operacionais e revisão ainda impedem o fechamento.
+- #27 segue **Blocked**: a CI Windows passou, mas o aceite físico em Windows
+  limpo e HD USB de teste não foi executado. O ambiente disponível não apresenta
+  mídia removível. Use dados sintéticos e mídia de teste.
 
 ## Próxima sequência
 
-1. Conferir a conclusão dos checks e integração de #112, sem contornar gates.
-2. Revisar o fluxo em `docs/BACKUP_FLOW.md` e preparar o manual operacional.
-3. Atualizar #26 e executar #27 em Windows limpo; então concluir a guarda-chuva
-   #44.
+1. Revisar `docs/OPERACAO_LOCAL_WINDOWS.md` e resolver as decisões operacionais
+   pendentes de #26, sem registrar segredos.
+2. Agendar o ensaio da #27 em Windows limpo com HD USB físico e dados sintéticos;
+   validar a matriz de sucesso e falhas antes de fechar.
+3. Concluir a guarda-chuva #44 somente depois dos gates #26 e #27.
 4. Retomar o envio real somente quando o cliente fornecer os dados não secretos
    da #46 e o adaptador puder ser configurado com credencial protegida.
 
